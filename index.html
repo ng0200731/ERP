@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Customer Management App</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="left-frame">
+      <button id="btn-customer">Customer</button>
+      <div id="customer-nested" style="display:none; margin-left: 10px;">
+        <button id="btn-create">Create</button>
+        <button id="btn-modify">Modify</button>
+      </div>
+      <button id="btn-development">Development</button>
+    </div>
+    <div class="right-frame" id="right-frame">
+      <!-- Dynamic content goes here -->
+      <div id="welcome">Please select an option from the left.</div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
+
+<!-- Removed old LocalStorage and global scope JS code. The logic is now handled in app.js via AJAX and backend. -->

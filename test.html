@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Customer Management System</title>
+    <style>
+        .container {
+            display: flex;
+        }
+        .left-panel {
+            width: 30%;
+            padding: 20px;
+        }
+        .right-panel {
+            width: 70%;
+            padding: 20px;
+        }
+        .nested-buttons {
+            margin-left: 20px;
+            display: none;
+        }
+        .slide {
+            display: none;
+        }
+        #slide1 {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .domain {
+            margin: 5px 0;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Left panel navigation
+            $('#customer-btn').click(function() {
+                $('.customer-nested').toggle();
+            });
+
+            $('#create-customer').click(function() {
+                $('#slide1').show();
+                $('#modify-customer').hide();
+            });
+
+            $('#modify-btn').click(function() {
+                $('#modify-customer').show();
+                $('#slide1, #slide2').hide();
+            });
+
+            // Website validation
+            $('#website').on('input', function() {
+                if ($(this).val().includes('@')) {
+                    alert('Please do not include @ in website URL');
+                    $(this).val($(this).val().replace('@', ''));
+                }
+            });
+
+            // Add domain functionality
+            $('#add-domain').click(function() {
+                let newDomain = $('#domain-container').clone();
+                newDomain.find('input').val('');
+                $('#domain-container').after(newDomain);
+                updateEmailDomains();
+            });
+
+            // Update email domains in slide 2
+            function updateEmailDomains() {
+                let domains = $('.domain').map(function() {
+                    return $(this).val();
+                }).get();
+                
+                let $emailDomain = $('#email-domain');
+                $emailDomain.empty();
+                
+                if (domains.length === 1) {
+                    $emailDomain.prop('disabled', true);
+                    $emailDomain.append($('<option>').val(domains[0]).text(domains[0]));
+                } else {
+                    $emailDomain.prop('disabled', false);
+                    domains.forEach(function(domain) {
+                        if (domain) {
+                            $emailDomain.append($('<option>').val(domain).text(domain));
+                        }
+                    });
+                }
+            }
+
+            // Slide navigation
+            $('#next-slide').click(function() {
+                updateEmailDomains();
+                $('#slide1').hide();
+                $('#slide2').show();
+            });
+
+            $('#prev-slide').click(function() {
+                $('#slide2').hide();
+                $('#slide1').show();
+            });
+
+            // Search functionality
+            $('#search-company, #search-address, #search-website').on('input', function() {
+                // Here you would typically make an AJAX call to your backend
+                // For demonstration, we'll just console.log
+                let searchData = {
+                    company: $('#search-company').val(),
+                    address: $('#search-address').val(),
+                    website: $('#search-website').val()
+                };
+                console.log('Searching:', searchData);
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <button id="customer-btn">Customer</button>
+            <div class="nested-buttons customer-nested">
+                <button id="create-customer">Create</button>
+                <button id="modify-btn">Modify</button>
+            </div>
+            <button id="development-btn">Development</button>
+        </div>
+        
+        <div class="right-panel">
+            <div id="slide1" class="slide">
+                <h2>Create New Customer</h2>
+                <label for="company">Company Name:</label>
+                <input type="text" id="company"><br>
+                <label for="address">Address:</label>
+                <input type="text" id="address"><br>
+                <label for="website">Website:</label>
+                <input type="text" id="website"><br>
+                <div id="domain-container">
+                    <label for="domain">Domain:</label>
+                    <input type="text" class="domain" placeholder="Domain">
+                </div>
+                <button id="add-domain">Add Domain</button><br>
+                <button id="next-slide">Next</button>
+            </div>
+
+            <div id="slide2" class="slide">
+                <h2>Key Person Information</h2>
+                <label for="name">Name:</label>
+                <input type="text" id="name"><br>
+                <label for="position">Position:</label>
+                <input type="text" id="position"><br>
+                <label for="email-prefix">Email:</label>
+                <input type="text" id="email-prefix" placeholder="Email Prefix">
+                <select id="email-domain"></select><br>
+                <label for="tel">Tel:</label>
+                <input type="text" id="tel"><br>
+                <label for="brand">Brand:</label>
+                <input type="text" id="brand"><br>
+                <button id="prev-slide">Previous</button>
+                <button id="submit-customer">Submit</button>
+            </div>
+
+            <div id="modify-customer">
+                <h2>Modify Customer</h2>
+                <label for="search-company">Company Name:</label>
+                <input type="text" id="search-company"><br>
+                <label for="search-address">Address:</label>
+                <input type="text" id="search-address"><br>
+                <label for="search-website">Website:</label>
+                <input type="text" id="search-website"><br>
+                <table id="customer-table">
+                    <thead>
+                        <tr>
+                            <th>Company Name</th>
+                            <th>Address</th>
+                            <th>Website</th>
+                            <th>Created Time</th>
+                            <th>Last Edited Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Search results will be appended here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+<script>
+    // Create an IndexedDB database
+    let db;
+    const dbName = "CustomerDB";
+    const dbVersion = 1;
+
+    const request = indexedDB.open(dbName, dbVersion);
+
+    request.onerror = (event) => {
+        console.error("Database error: " + event.target.error);
+    };
+
+    request.onupgradeneeded = (event) => {
+        db = event.target.result;
+
+        // Create object store for customers
+        const customerStore = db.createObjectStore("customers", { keyPath: "id", autoIncrement: true });
+        
+        // Create indexes for searching
+        customerStore.createIndex("companyName", "companyName", { unique: false });
+        customerStore.createIndex("address", "address", { unique: false });
+        customerStore.createIndex("website", "website", { unique: false });
+        
+        // Create object store for key persons
+        const keyPersonStore = db.createObjectStore("keyPersons", { keyPath: "id", autoIncrement: true });
+        keyPersonStore.createIndex("customerId", "customerId", { unique: false });
+        keyPersonStore.createIndex("name", "name", { unique: false });
+        keyPersonStore.createIndex("email", "email", { unique: false });
+    };
+
+    request.onsuccess = (event) => {
+        db = event.target.result;
+        console.log("Database opened successfully");
+    };
+</script>

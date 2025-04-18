@@ -558,26 +558,26 @@ function renderSearchResultsWithKeyPeople(list) {
                   <th style="padding:4px 8px;">Action</th>
                 </tr>
                 <tr>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="name" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="position" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="email" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="tel" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="brand" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-id="${c.id}" data-col="name" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-id="${c.id}" data-col="position" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-id="${c.id}" data-col="email" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-id="${c.id}" data-col="tel" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-id="${c.id}" data-col="brand" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
                   <th></th>
                 </tr>
               </thead>
-              <tbody class="keypeople-tbody" id="keypeople-tbody-${idx}">
+              <tbody class="keypeople-tbody" id="keypeople-tbody-${c.id}">
                 ${(() => {
                   const keyPeople = Array.isArray(c.keyPeople) ? c.keyPeople : [];
                   return keyPeople.map((kp, origKpIdx) => {
-                    return `<tr class="keyperson-row" data-idx="${idx}" data-kpidx="${origKpIdx}">
+                    return `<tr class="keyperson-row" data-idx="${c.id}" data-kpidx="${origKpIdx}">
                       <td style=\"padding:3px 8px;\">${kp.name}</td>
                       <td style=\"padding:3px 8px;\">${kp.position}</td>
                       <td style=\"padding:3px 8px;\">${kp.email}</td>
                       <td style=\"padding:3px 8px;\">${kp.tel}</td>
                       <td style=\"padding:3px 8px;\">${kp.brand}</td>
                       <td style=\"padding:3px 8px; position:relative;\">
-                        <button class=\"edit-keyperson-btn\" data-idx=\"${idx}\" data-kpidx=\"${origKpIdx}\" data-id=\"${c.id}\" style=\"background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;\">Edit</button>
+                        <button class=\"edit-keyperson-btn\" data-idx=\"${c.id}\" data-kpidx=\"${origKpIdx}\" data-id=\"${c.id}\" style=\"background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;\">Edit</button>
                       </td>
                     </tr>`;
                   }).join('');
@@ -683,14 +683,14 @@ function renderSearchResultsWithKeyPeople(list) {
 // Add key people filter logic
 $('#right-frame').off('input', '.keypeople-filter-input');
 $('#right-frame').on('input', '.keypeople-filter-input', function() {
-  const idx = $(this).data('idx');
+  const companyId = $(this).data('id');
   // Gather all filter values for this company
   const filters = {};
-  $(`.keypeople-filter-input[data-idx='${idx}']`).each(function() {
+  $(`.keypeople-filter-input[data-id='${companyId}']`).each(function() {
     const col = $(this).data('col');
     filters[col] = $(this).val().toLowerCase();
   });
-  const c = customers[idx];
+  const c = customers.find(cust => cust.id == companyId);
   const keyPeople = Array.isArray(c.keyPeople) ? c.keyPeople : [];
   const filtered = keyPeople
     .map((kp, origKpIdx) => ({ ...kp, _origKpIdx: origKpIdx }))
@@ -708,10 +708,10 @@ $('#right-frame').on('input', '.keypeople-filter-input', function() {
       <td style="padding:3px 8px;">${kp.email}</td>
       <td style="padding:3px 8px;">${kp.tel}</td>
       <td style="padding:3px 8px;">${kp.brand}</td>
-      <td style="padding:3px 8px;"><button class="edit-keyperson-btn" data-idx="${idx}" data-kpidx="${kp._origKpIdx}" data-id="${c.id}" style="background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Edit</button></td>
+      <td style="padding:3px 8px;"><button class="edit-keyperson-btn" data-idx="${companyId}" data-kpidx="${kp._origKpIdx}" data-id="${c.id}" style="background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Edit</button></td>
     </tr>
   `).join('');
-  $(`#keypeople-tbody-${idx}`).html(tbody);
+  $(`#keypeople-tbody-${companyId}`).html(tbody);
 });
 
 // Expand/Collapse logic only

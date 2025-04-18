@@ -521,7 +521,7 @@ function renderSearchResultsWithKeyPeople(list) {
               <div class="action-dropdown-item action-edit" data-id="${c.id}" style="padding:8px 16px; cursor:pointer; font-weight:bold;">✏️ Edit</div>
             </div>
           </span>
-          ${isExpanded ? `<button class="edit-company-btn" data-id="${c.id}" style="background:#3498db;color:#fff;border:2px solid red;background:yellow;">Edit</button>` : ''}
+          ${isExpanded ? `<button class="edit-company-btn" data-id="${c.id}" style="background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Edit</button>` : ''}
         </td>
       </tr>
     `;
@@ -540,6 +540,14 @@ function renderSearchResultsWithKeyPeople(list) {
                   <th style="padding:4px 8px;">Brand</th>
                   <th style="padding:4px 8px;">Action</th>
                 </tr>
+                <tr>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="name" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="position" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="email" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="tel" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="brand" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
+                  <th></th>
+                </tr>
               </thead>
               <tbody class="keypeople-tbody" id="keypeople-tbody-${idx}">
                 ${(() => {
@@ -552,7 +560,7 @@ function renderSearchResultsWithKeyPeople(list) {
                       <td style=\"padding:3px 8px;\">${kp.tel}</td>
                       <td style=\"padding:3px 8px;\">${kp.brand}</td>
                       <td style=\"padding:3px 8px; position:relative;\">
-                        <button class=\"edit-keyperson-btn\" data-idx=\"${idx}\" data-kpidx=\"${origKpIdx}\" data-id=\"${c.id}\" style=\"font-size:12px; padding:2px 8px;\">Edit</button>
+                        <button class=\"edit-keyperson-btn\" data-idx=\"${idx}\" data-kpidx=\"${origKpIdx}\" data-id=\"${c.id}\" style=\"background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;\">Edit</button>
                       </td>
                     </tr>`;
                   }).join('');
@@ -638,7 +646,7 @@ function renderSearchResultsWithKeyPeople(list) {
   });
 }
 
-// Key people column filter handler
+// Add key people filter logic
 $('#right-frame').off('input', '.keypeople-filter-input');
 $('#right-frame').on('input', '.keypeople-filter-input', function() {
   const idx = $(this).data('idx');
@@ -666,7 +674,7 @@ $('#right-frame').on('input', '.keypeople-filter-input', function() {
       <td style="padding:3px 8px;">${kp.email}</td>
       <td style="padding:3px 8px;">${kp.tel}</td>
       <td style="padding:3px 8px;">${kp.brand}</td>
-      <td style="padding:3px 8px;"><button class="edit-keyperson-btn" data-idx="${idx}" data-kpidx="${kp._origKpIdx}" data-id="${c.id}" style="font-size:12px; padding:2px 8px;">Edit</button></td>
+      <td style="padding:3px 8px;"><button class="edit-keyperson-btn" data-idx="${idx}" data-kpidx="${kp._origKpIdx}" data-id="${c.id}" style="background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Edit</button></td>
     </tr>
   `).join('');
   $(`#keypeople-tbody-${idx}`).html(tbody);
@@ -725,6 +733,7 @@ function showEditCustomerStep1() {
     </div>
   `).join('');
   $('#right-frame').html(`
+    <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
     <h2>Edit Customer - Step 1</h2>
     <label>Company Name:<br><input type="text" id="edit-company" value="${editStep1Data.company}"></label><br>
     <label>Address:<br><input type="text" id="edit-address" value="${editStep1Data.address}"></label><br>
@@ -734,9 +743,13 @@ function showEditCustomerStep1() {
         ${domainInputs}
       </div>
     </label><br>
-    <button id="update-edit-step1" disabled style="opacity:0.5;cursor:not-allowed;">Update</button>
+    <button id="update-edit-step1" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Update</button>
   `);
   updateEditDomainButtons();
+  // Back button handler
+  $('#back-to-modify').off('click').on('click', function() {
+    showModify();
+  });
 
   function isStep1Changed() {
     if (!currentCustomer) return false;
@@ -874,15 +887,21 @@ function showEditCustomerStep2() {
 
   // Render the form
   $('#right-frame').html(`
+    <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
     <h2>Edit Customer - Step 2</h2>
     <div id="edit-keypeople-list">
       ${renderKeyPeopleForms()}
     </div>
     <div class="slide-nav">
       ${hidePrev ? '' : '<button id="prev-edit-step2">Previous</button>'}
-      <button id="update-customer" disabled style="opacity:0.5;cursor:not-allowed;">Update</button>
+      <button id="update-customer" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Update</button>
     </div>
   `);
+
+  // Back button handler
+  $('#back-to-modify').off('click').on('click', function() {
+    showModify();
+  });
 
   // Set update button state
   function updateButtonState() {

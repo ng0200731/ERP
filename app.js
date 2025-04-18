@@ -3,9 +3,9 @@
 let customers = [];
 // Add a default definition to avoid ReferenceError
 function handleSubmitSlide2() {}
-let currentCustomer = null;
-let slide1Data = {};
-let slide2Data = {};
+  let currentCustomer = null;
+  let slide1Data = {};
+  let slide2Data = {};
 let editStep1Data = {};
 let editStep2Data = {};
 
@@ -42,26 +42,26 @@ $(function() {
     // Optionally show the customer list or welcome page
   });
 
-  // Left frame navigation
-  $('#btn-customer').click(function() {
-    $('#customer-nested').toggle();
-  });
-  $('#btn-development').click(function() {
-    $('#right-frame').html('<h2>Development Section</h2><p>Coming soon...</p>');
-  });
-  $('#btn-create').click(showCreateSlide1);
-  $('#btn-modify').click(showModify);
-
-  // Delegated events for dynamic content
-  $('#right-frame').on('click', '#next-slide1', handleNextSlide1);
-  $('#right-frame').on('click', '#prev-slide2', showCreateSlide1);
-  $('#right-frame').on('click', '#submit-slide2', handleSubmitSlide2);
-  $('#right-frame').on('click', '.add-domain', addDomainField);
-  $('#right-frame').on('click', '.remove-domain', removeDomainField);
-  $('#right-frame').on('input', '.website-input', validateWebsite);
-  $('#right-frame').on('input', '.search-input', handleSearchInput);
-  $('#right-frame').on('click', '.edit-btn', handleEditCustomer);
-  $('#right-frame').on('click', '#update-customer', handleUpdateCustomer);
+    // Left frame navigation
+    $('#btn-customer').click(function() {
+      $('#customer-nested').toggle();
+    });
+    $('#btn-development').click(function() {
+      $('#right-frame').html('<h2>Development Section</h2><p>Coming soon...</p>');
+    });
+    $('#btn-create').click(showCreateSlide1);
+    $('#btn-modify').click(showModify);
+  
+    // Delegated events for dynamic content
+    $('#right-frame').on('click', '#next-slide1', handleNextSlide1);
+    $('#right-frame').on('click', '#prev-slide2', showCreateSlide1);
+    $('#right-frame').on('click', '#submit-slide2', handleSubmitSlide2);
+    $('#right-frame').on('click', '.add-domain', addDomainField);
+    $('#right-frame').on('click', '.remove-domain', removeDomainField);
+    $('#right-frame').on('input', '.website-input', validateWebsite);
+    $('#right-frame').on('input', '.search-input', handleSearchInput);
+    $('#right-frame').on('click', '.edit-btn', handleEditCustomer);
+    $('#right-frame').on('click', '#update-customer', handleUpdateCustomer);
 
   // Add these for edit domain
   $('#right-frame').on('click', '#edit-domain-list .add-domain', addEditDomainField);
@@ -112,25 +112,25 @@ $(function() {
   });
 });
   
-// --- Create Customer Flow ---
+  // --- Create Customer Flow ---
   
-function showCreateSlide1() {
+  function showCreateSlide1() {
   // Use existing slide1Data or default
   const company = slide1Data.company || '';
   const address = slide1Data.address || '';
   const website = slide1Data.website || '';
   const domains = slide1Data.domains && slide1Data.domains.length > 0 ? slide1Data.domains : [''];
-  $('#right-frame').html(`
-    <h2>Create Customer - Step 1</h2>
-    <div>
+    $('#right-frame').html(`
+      <h2>Create Customer - Step 1</h2>
+      <div>
       <label>Company Name:<br><input type="text" id="company-name" value="${company}"></label><br>
       <label>Address:<br><input type="text" id="address" value="${address}"></label><br>
-      <label>Website:<br>
+        <label>Website:<br>
         <input type="text" class="website-input" id="website" value="${website}">
-        <span class="error" id="website-error"></span>
-      </label><br>
-      <div class="domain-list" id="domain-list">
-        <label>Domain(s):</label>
+          <span class="error" id="website-error"></span>
+        </label><br>
+        <div class="domain-list" id="domain-list">
+          <label>Domain(s):</label>
         ${domains.map((d, i) => `
           <div class="domain-item">
             <input type="text" class="domain-input" value="${d}">
@@ -138,26 +138,26 @@ function showCreateSlide1() {
           </div>
         `).join('')}
       </div>
-    </div>
-    <div class="slide-nav">
-      <button id="next-slide1">Next</button>
-    </div>
-  `);
+      </div>
+      <div class="slide-nav">
+        <button id="next-slide1">Next</button>
+      </div>
+    `);
   updateDomainButtons();
-}
+  }
   
-function addDomainField() {
-  $('#domain-list').append(`
-    <div class="domain-item">
-      <input type="text" class="domain-input" value="">
+  function addDomainField() {
+    $('#domain-list').append(`
+      <div class="domain-item">
+        <input type="text" class="domain-input" value="">
       <button type="button" class="add-domain">+</button>
-    </div>
-  `);
+      </div>
+    `);
   updateDomainButtons();
-}
+  }
   
-function removeDomainField() {
-  $(this).closest('.domain-item').remove();
+  function removeDomainField() {
+    $(this).closest('.domain-item').remove();
   updateDomainButtons();
 }
   
@@ -171,27 +171,27 @@ function updateDomainButtons() {
       btn.text('-').removeClass('add-domain').addClass('remove-domain');
     }
   });
-}
-  
-function validateWebsite() {
-  const val = $('#website').val();
-  if (val.includes('@')) {
-    $('#website-error').text('Website cannot contain "@"');
-  } else {
-    $('#website-error').text('');
   }
-}
   
-function handleNextSlide1() {
-  // Validate
-  const company = $('#company-name').val().trim();
-  const address = $('#address').val().trim();
-  const website = $('#website').val().trim();
-  const domains = [];
-  $('.domain-input').each(function() {
-    const d = $(this).val().trim();
-    if (d) domains.push(d);
-  });
+  function validateWebsite() {
+    const val = $('#website').val();
+    if (val.includes('@')) {
+      $('#website-error').text('Website cannot contain "@"');
+    } else {
+      $('#website-error').text('');
+    }
+  }
+  
+  function handleNextSlide1() {
+    // Validate
+    const company = $('#company-name').val().trim();
+    const address = $('#address').val().trim();
+    const website = $('#website').val().trim();
+    const domains = [];
+    $('.domain-input').each(function() {
+      const d = $(this).val().trim();
+      if (d) domains.push(d);
+    });
   let problems = [];
   if (!company) {
     problems.push('Company name is required');
@@ -216,20 +216,20 @@ function handleNextSlide1() {
     $('.domain-input').addClass('highlight-error');
   } else {
     $('.domain-input').removeClass('highlight-error');
-  }
-  if (website.includes('@')) {
+    }
+    if (website.includes('@')) {
     problems.push('Website cannot contain "@"');
     $('#website').addClass('highlight-error');
   }
   if (problems.length > 0) {
     showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
     return false; // Prevent going to page 2
+    }
+    slide1Data = { company, address, website, domains };
+    showCreateSlide2();
   }
-  slide1Data = { company, address, website, domains };
-  showCreateSlide2();
-}
   
-function showCreateSlide2() {
+  function showCreateSlide2() {
   // Use existing slide2Data or default: array of key people
   let keyPeople = Array.isArray(slide2Data.keyPeople) && slide2Data.keyPeople.length > 0
     ? slide2Data.keyPeople
@@ -304,7 +304,7 @@ $(function() {
       let domain = '';
       if ($form.find('.keyperson-email-domain').is('select')) {
         domain = $form.find('.keyperson-email-domain').val();
-      } else {
+    } else {
         domain = $form.find('.keyperson-email-domain').val();
       }
       const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
@@ -400,10 +400,10 @@ handleSubmitSlide2 = function() {
         alert('Failed to update customer: ' + error);
         console.error('AJAX error:', status, error, xhr.responseText);
       }
-    });
+      });
     return;
   }
-  // Otherwise, original logic
+      // Otherwise, original logic
   _origHandleSubmitSlide2();
 };
   
@@ -428,7 +428,7 @@ function showCustomPopup(message, isError) {
   
 // Update showCustomerList to always use the latest customers array
 function showCustomerList(showSuccess, customMessage) {
-  fetchCustomers(function() {
+        fetchCustomers(function() {
     const list = [...customers].sort((a, b) => (b.updated > a.updated ? 1 : b.updated < a.updated ? -1 : 0));
     $('#right-frame').html(`
       <h2>Customer List</h2>
@@ -481,7 +481,7 @@ function showModify() {
       <tbody id="search-results"></tbody>
     </table>
   `);
-  renderSearchResultsWithKeyPeople(customers);
+      renderSearchResultsWithKeyPeople(customers);
 }
   
 function handleSearchInput() {
@@ -592,24 +592,32 @@ function renderSearchResultsWithKeyPeople(list) {
   });
   $('#search-results').html(html);
 
-  // Dropdown menu logic
+  // Remove hover event handlers for action dropdown
+  // Add click-to-toggle logic for action dropdown
   $('#search-results').off('mouseenter mouseleave', '.action-btn-wrap');
-  $('#search-results').on('mouseenter', '.action-btn-wrap', function() {
-    $(this).find('.action-dropdown').stop(true, true).fadeIn(100);
-  });
-  $('#search-results').on('mouseleave', '.action-btn-wrap', function() {
-    const $dropdown = $(this).find('.action-dropdown');
-    $dropdown.data('leaveTimeout', setTimeout(() => {
-      $dropdown.fadeOut(100);
-    }, 150));
-  });
   $('#search-results').off('mouseenter mouseleave', '.action-dropdown');
-  $('#search-results').on('mouseenter', '.action-dropdown', function() {
-    clearTimeout($(this).data('leaveTimeout'));
-    $(this).stop(true, true).fadeIn(0);
+
+  // Toggle dropdown on Action button click
+  $('#search-results').off('click', '.action-btn');
+  $('#search-results').on('click', '.action-btn', function(e) {
+    e.stopPropagation();
+    // Close any other open dropdowns
+    $('.action-dropdown').not($(this).siblings('.action-dropdown')).fadeOut(100);
+    // Toggle this dropdown
+    const $dropdown = $(this).siblings('.action-dropdown');
+    if ($dropdown.is(':visible')) {
+      $dropdown.fadeOut(100);
+      } else {
+      $dropdown.fadeIn(100);
+    }
   });
-  $('#search-results').on('mouseleave', '.action-dropdown', function() {
-    $(this).fadeOut(100);
+
+  // Close dropdown when clicking outside
+  $(document).off('click.actionDropdown');
+  $(document).on('click.actionDropdown', function(e) {
+    if (!$(e.target).closest('.action-btn-wrap').length) {
+      $('.action-dropdown').fadeOut(100);
+    }
   });
 
   // Remove previous handlers to avoid duplicates
@@ -741,9 +749,9 @@ $('#right-frame').on('click', '.edit-company-btn', function() {
 });
 
 function handleEditCustomer() {
-  const id = $(this).data('id');
-  const cust = customers.find(c => c.id == id);
-  currentCustomer = cust;
+    const id = $(this).data('id');
+    const cust = customers.find(c => c.id == id);
+    currentCustomer = cust;
   // Save initial data for editing
   editStep1Data = {
     company: cust.company,
@@ -766,17 +774,17 @@ function showEditCustomerStep1() {
       </button>
     </div>
   `).join('');
-  $('#right-frame').html(`
+    $('#right-frame').html(`
     <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
     <h2>Edit Customer - Step 1</h2>
     <label>Company Name:<br><input type="text" id="edit-company" value="${editStep1Data.company}"></label><br>
     <label>Address:<br><input type="text" id="edit-address" value="${editStep1Data.address}"></label><br>
     <label>Website:<br><input type="text" id="edit-website" value="${editStep1Data.website}"></label><br>
-    <label>Domains:<br>
+      <label>Domains:<br>
       <div class="domain-list" id="edit-domain-list">
         ${domainInputs}
       </div>
-    </label><br>
+      </label><br>
     <button id="update-edit-step1" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Update</button>
   `);
   updateEditDomainButtons();
@@ -827,14 +835,15 @@ function showEditCustomerStep1() {
     editStep1Data.address = $('#edit-address').val().trim();
     editStep1Data.website = $('#edit-website').val().trim();
     editStep1Data.domains = $('#edit-domain-list .edit-domain-input').map(function() { return $(this).val().trim(); }).get().filter(Boolean);
-    // Prepare customer object for update (only step 1 fields)
+    // Prepare customer object for update (include keyPeople to preserve them)
     const id = currentCustomer.id;
+    const cust = customers.find(c => c.id == id);
     const customer = {
       company: editStep1Data.company,
       address: editStep1Data.address,
       website: editStep1Data.website,
       domains: editStep1Data.domains,
-      // Do not send keyPeople, so backend will not touch them
+      keyPeople: Array.isArray(cust.keyPeople) ? cust.keyPeople : []
     };
     // Send update to backend
     $.ajax({
@@ -1008,7 +1017,7 @@ function showEditCustomerStep2() {
     updateCustomer(id, customer, function() {
       fetchCustomers(function() {
         showCustomPopup('Customer updated!');
-        showCustomerList(true, 'Customer updated!');
+        showModify();
       });
     });
   });

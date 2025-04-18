@@ -501,25 +501,31 @@ function localTimeString(utcString) {
 }
 
 function renderSearchResultsWithKeyPeople(list) {
-  // Always sort by updated time descending
+  if (window.preventCompanyTableRerender) return;
+  let html = '';
   const sorted = [...list].sort((a, b) => (b.updated > a.updated ? 1 : b.updated < a.updated ? -1 : 0));
   let expandedId = window.expandedCompanyId !== undefined ? window.expandedCompanyId : null;
-  let html = '';
   sorted.forEach((c, idx) => {
+    const isExpanded = expandedId == c.id;
     html += `
-      <tr class="company-row" data-idx="${idx}" data-id="${c.id}">
+      <tr class="company-row${isExpanded ? ' editing-row' : ''}" data-idx="${idx}" data-id="${c.id}">
         <td>${c.company}</td>
         <td>${c.address}</td>
         <td>${c.website}</td>
         <td>${c.created ? localTimeString(c.created) : ''}</td>
         <td>${c.updated ? localTimeString(c.updated) : ''}</td>
-        <td class="action-cell">
-          <button class="action-btn" data-idx="${idx}" data-id="${c.id}">Action</button>
-          <button class="edit-company-btn" data-idx="${idx}" data-id="${c.id}" style="display:none; margin-left:6px; background:#e74c3c;color:#fff;border:none;">Edit</button>
+        <td class="action-cell" style="position:relative;">
+          <span class="action-btn-wrap" style="position:relative;">
+            <button class="action-btn" data-idx="${idx}" data-id="${c.id}">Action</button>
+            <div class="action-dropdown" style="display:none; position:absolute; left:0; top:32px; background:#fff; border:1px solid #ccc; border-radius:6px; box-shadow:0 2px 8px #eee; z-index:10; min-width:120px;">
+              <div class="action-dropdown-item action-edit" data-id="${c.id}" style="padding:8px 16px; cursor:pointer; font-weight:bold;">✏️ Edit</div>
+            </div>
+          </span>
+          ${isExpanded ? `<button class="edit-company-btn" data-id="${c.id}" style="background:#3498db;color:#fff;border:2px solid red;background:yellow;">Edit</button>` : ''}
         </td>
       </tr>
     `;
-    if (expandedId == c.id) {
+    if (isExpanded) {
       html += `
       <tr class="expand-row always-show" id="expand-row-${idx}" style="background:#f8fafd;">
         <td colspan="6" style="padding:0;">
@@ -534,14 +540,6 @@ function renderSearchResultsWithKeyPeople(list) {
                   <th style="padding:4px 8px;">Brand</th>
                   <th style="padding:4px 8px;">Action</th>
                 </tr>
-                <tr>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="name" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="position" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="email" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="tel" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
-                  <th><input type="text" class="keypeople-filter-input" data-idx="${idx}" data-col="brand" placeholder="Filter" style="width:90%; font-size:12px; padding:2px 4px; border-radius:4px; border:1px solid #ccc;"></th>
-                  <th></th>
-                </tr>
               </thead>
               <tbody class="keypeople-tbody" id="keypeople-tbody-${idx}">
                 ${(() => {
@@ -554,7 +552,7 @@ function renderSearchResultsWithKeyPeople(list) {
                       <td style=\"padding:3px 8px;\">${kp.tel}</td>
                       <td style=\"padding:3px 8px;\">${kp.brand}</td>
                       <td style=\"padding:3px 8px; position:relative;\">
-                        <button class=\"edit-keyperson-btn\" data-idx=\"${idx}\" data-kpidx=\"${origKpIdx}\" data-id=\"${c.id}\" style=\"display:none; font-size:12px; padding:2px 8px;\">Edit</button>
+                        <button class=\"edit-keyperson-btn\" data-idx=\"${idx}\" data-kpidx=\"${origKpIdx}\" data-id=\"${c.id}\" style=\"font-size:12px; padding:2px 8px;\">Edit</button>
                       </td>
                     </tr>`;
                   }).join('');
@@ -569,36 +567,76 @@ function renderSearchResultsWithKeyPeople(list) {
   });
   $('#search-results').html(html);
 
-  // Show edit button on hover for company row
-  $('#search-results').off('mouseenter mouseleave', '.company-row');
-  $('#search-results').on('mouseenter', '.company-row', function() {
-    $(this).find('.edit-company-btn').show();
+  // Dropdown menu logic
+  $('#search-results').off('mouseenter mouseleave', '.action-btn-wrap');
+  $('#search-results').on('mouseenter', '.action-btn-wrap', function() {
+    $(this).find('.action-dropdown').stop(true, true).fadeIn(100);
   });
-  $('#search-results').on('mouseleave', '.company-row', function() {
-    $(this).find('.edit-company-btn').hide();
+  $('#search-results').on('mouseleave', '.action-btn-wrap', function() {
+    const $dropdown = $(this).find('.action-dropdown');
+    $dropdown.data('leaveTimeout', setTimeout(() => {
+      $dropdown.fadeOut(100);
+    }, 150));
+  });
+  $('#search-results').off('mouseenter mouseleave', '.action-dropdown');
+  $('#search-results').on('mouseenter', '.action-dropdown', function() {
+    clearTimeout($(this).data('leaveTimeout'));
+    $(this).stop(true, true).fadeIn(0);
+  });
+  $('#search-results').on('mouseleave', '.action-dropdown', function() {
+    $(this).fadeOut(100);
   });
 
-  // Show edit button on hover for key people row
-  $('#search-results').off('mouseenter mouseleave', '.keyperson-row');
-  $('#search-results').on('mouseenter', '.keyperson-row', function() {
-    $(this).find('.edit-keyperson-btn').show();
-  });
-  $('#search-results').on('mouseleave', '.keyperson-row', function() {
-    $(this).find('.edit-keyperson-btn').hide();
+  // Remove previous handlers to avoid duplicates
+  $('#search-results').off('click', '.action-edit');
+
+  // Attach handler for Edit in dropdown
+  $('#search-results').on('click', '.action-edit', function(e) {
+    e.stopPropagation();
+    const $row = $(this).closest('tr.company-row');
+    const companyId = $(this).data('id');
+    window.expandedCompanyId = companyId;
+    renderSearchResultsWithKeyPeople(customers);
   });
 
-  // Company row click: expand/collapse key people
-  $('#search-results').off('click', '.company-row');
-  $('#search-results').on('click', '.company-row', function(e) {
-    // Prevent triggering when clicking the edit button
-    if ($(e.target).hasClass('edit-company-btn')) return;
-    const id = $(this).data('id');
-    if (window.expandedCompanyId == id) {
-      window.expandedCompanyId = null;
-    } else {
-      window.expandedCompanyId = id;
-    }
-    renderSearchResultsWithKeyPeople(list);
+  // Attach handler for company Edit button
+  $('#search-results').off('click', '.edit-company-btn');
+  $('#search-results').on('click', '.edit-company-btn', function() {
+    const companyId = $(this).data('id');
+    const idx = $(`tr.company-row[data-id='${companyId}']`).data('idx');
+    const cust = customers[idx];
+    currentCustomer = cust;
+    editStep1Data = {
+      company: cust.company,
+      address: cust.address,
+      website: cust.website,
+      domains: Array.isArray(cust.domains) ? cust.domains : (typeof cust.domains === 'string' ? cust.domains.split(',') : []),
+    };
+    editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
+      ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
+      : { keyPeople: [{ name: '', position: '', email: '', tel: '', brand: '' }] };
+    showEditCustomerStep1();
+  });
+
+  // Attach handler for key person Edit button
+  $('#search-results').off('click', '.edit-keyperson-btn');
+  $('#search-results').on('click', '.edit-keyperson-btn', function() {
+    const companyId = $(this).data('id');
+    const kpIdx = $(this).data('kpidx');
+    const idx = $(`tr.company-row[data-id='${companyId}']`).data('idx');
+    const cust = customers[idx];
+    currentCustomer = cust;
+    editStep1Data = {
+      company: cust.company,
+      address: cust.address,
+      website: cust.website,
+      domains: Array.isArray(cust.domains) ? cust.domains : (typeof cust.domains === 'string' ? cust.domains.split(',') : []),
+    };
+    const kp = (cust.keyPeople && cust.keyPeople[kpIdx]) ? cust.keyPeople[kpIdx] : { name: '', position: '', email: '', tel: '', brand: '' };
+    editStep2Data = { keyPeople: [ { ...kp } ] };
+    window.editSingleKeyPersonMode = true;
+    window.editSingleKeyPersonIdx = kpIdx;
+    showEditCustomerStep2();
   });
 }
 

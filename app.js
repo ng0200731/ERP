@@ -403,8 +403,52 @@ handleSubmitSlide2 = function() {
       });
     return;
   }
-      // Otherwise, original logic
-  _origHandleSubmitSlide2();
+  // --- Create Customer flow ---
+  let problems = [];
+  const forms = $('.keyperson-form');
+  const keyPeople = [];
+  forms.each(function() {
+    const $form = $(this);
+    const name = $form.find('.person-name').val().trim();
+    const position = $form.find('.person-position').val().trim();
+    const emailPrefix = $form.find('.email-prefix').val().trim();
+    let domain = '';
+    if ($form.find('.keyperson-email-domain').is('select')) {
+      domain = $form.find('.keyperson-email-domain').val();
+    } else {
+      domain = $form.find('.keyperson-email-domain').val();
+    }
+    const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
+    const tel = $form.find('.person-tel').val().trim();
+    const brand = $form.find('.person-brand').val().trim();
+    if (!name) problems.push('Name is required');
+    if (!position) problems.push('Position is required');
+    if (!emailPrefix) problems.push('Email prefix is required');
+    if (!tel) problems.push('Tel is required');
+    if (!brand) problems.push('Brand is required');
+    keyPeople.push({ name, position, email, tel, brand });
+  });
+  if (problems.length > 0) {
+    showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
+    console.log('Validation failed:', problems);
+    return;
+  }
+  // Build customer object from slide1Data and keyPeople
+  const customer = {
+    company: slide1Data.company,
+    address: slide1Data.address,
+    website: slide1Data.website,
+    domains: slide1Data.domains,
+    keyPeople: keyPeople
+  };
+  createCustomer(customer, function() {
+    fetchCustomers(function() {
+      slide1Data = {};
+      slide2Data = {};
+      showModify();
+      showCustomPopup('Customer created!');
+    });
+  });
 };
   
 // Add a global popup container to the body if not present

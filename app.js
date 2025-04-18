@@ -603,8 +603,7 @@ function renderSearchResultsWithKeyPeople(list) {
   $('#search-results').off('click', '.edit-company-btn');
   $('#search-results').on('click', '.edit-company-btn', function() {
     const companyId = $(this).data('id');
-    const idx = $(`tr.company-row[data-id='${companyId}']`).data('idx');
-    const cust = customers[idx];
+    const cust = customers.find(c => c.id == companyId);
     currentCustomer = cust;
     editStep1Data = {
       company: cust.company,
@@ -623,8 +622,7 @@ function renderSearchResultsWithKeyPeople(list) {
   $('#search-results').on('click', '.edit-keyperson-btn', function() {
     const companyId = $(this).data('id');
     const kpIdx = $(this).data('kpidx');
-    const idx = $(`tr.company-row[data-id='${companyId}']`).data('idx');
-    const cust = customers[idx];
+    const cust = customers.find(c => c.id == companyId);
     currentCustomer = cust;
     editStep1Data = {
       company: cust.company,

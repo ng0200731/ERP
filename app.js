@@ -1,6 +1,8 @@
 // Remove LocalStorage and in-memory array logic
 // Use AJAX to communicate with Flask backend
 let customers = [];
+// Add a default definition to avoid ReferenceError
+function handleSubmitSlide2() {}
 let currentCustomer = null;
 let slide1Data = {};
 let slide2Data = {};
@@ -339,59 +341,71 @@ $(function() {
   });
 });
 
-function handleSubmitSlide2() {
-  // Remove previous highlights
-  $('#person-name, #person-position, #email-prefix, #person-tel, #person-brand').removeClass('highlight-error');
-
-  // Validate all key people
-  let problems = [];
-  const forms = $('.keyperson-form');
-  const keyPeople = [];
-  forms.each(function() {
-    const $form = $(this);
-    const name = $form.find('.person-name').val().trim();
-    const position = $form.find('.person-position').val().trim();
-    const emailPrefix = $form.find('.email-prefix').val().trim();
-    let domain = '';
-    if ($form.find('.keyperson-email-domain').is('select')) {
-      domain = $form.find('.keyperson-email-domain').val();
-    } else {
-      domain = $form.find('.keyperson-email-domain').val();
+const _origHandleSubmitSlide2 = handleSubmitSlide2;
+handleSubmitSlide2 = function() {
+  console.log('handleSubmitSlide2 called. addUserCompanyId:', window.addUserCompanyId);
+  if (window.addUserCompanyId) {
+    // Add user mode: update existing company with new key person
+    let problems = [];
+    const forms = $('.keyperson-form');
+    const keyPeople = [];
+    forms.each(function() {
+      const $form = $(this);
+      const name = $form.find('.person-name').val().trim();
+      const position = $form.find('.person-position').val().trim();
+      const emailPrefix = $form.find('.email-prefix').val().trim();
+      let domain = '';
+      if ($form.find('.keyperson-email-domain').is('select')) {
+        domain = $form.find('.keyperson-email-domain').val();
+      } else {
+        domain = $form.find('.keyperson-email-domain').val();
+      }
+      const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
+      const tel = $form.find('.person-tel').val().trim();
+      const brand = $form.find('.person-brand').val().trim();
+      if (!name) problems.push('Name is required');
+      if (!position) problems.push('Position is required');
+      if (!emailPrefix) problems.push('Email prefix is required');
+      if (!tel) problems.push('Tel is required');
+      if (!brand) problems.push('Brand is required');
+      keyPeople.push({ name, position, email, tel, brand });
+    });
+    if (problems.length > 0) {
+      showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
+      console.log('Validation failed:', problems);
+      return;
     }
-    const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
-    const tel = $form.find('.person-tel').val().trim();
-    const brand = $form.find('.person-brand').val().trim();
-    if (!name) problems.push('Name is required');
-    if (!position) problems.push('Position is required');
-    if (!emailPrefix) problems.push('Email prefix is required');
-    if (!tel) problems.push('Tel is required');
-    if (!brand) problems.push('Brand is required');
-    keyPeople.push({ name, position, email, tel, brand });
-  });
-  if (problems.length > 0) {
-    showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
+    const id = window.addUserCompanyId;
+    const cust = customers.find(c => c.id == id);
+    const updatedKeyPeople = Array.isArray(cust.keyPeople) ? [...cust.keyPeople] : [];
+    updatedKeyPeople.push(...keyPeople);
+    const updatedCustomer = { ...cust, keyPeople: updatedKeyPeople, domains: normalizeDomains(cust.domains) };
+    console.log('Submitting updateCustomer for company ID', cust.id, updatedCustomer);
+    // Add error handling to AJAX call
+    $.ajax({
+      url: 'http://localhost:5000/customers/' + cust.id,
+      type: 'PUT',
+      contentType: 'application/json',
+      data: JSON.stringify(updatedCustomer),
+      success: function() {
+        fetchCustomers(function() {
+          window.addUserCompanyId = null;
+          window.expandedCompanyId = cust.id;
+          showModify();
+          showCustomPopup('Key person added!');
+          console.log('Key person added and UI updated.');
+        });
+      },
+      error: function(xhr, status, error) {
+        alert('Failed to update customer: ' + error);
+        console.error('AJAX error:', status, error, xhr.responseText);
+      }
+    });
     return;
   }
-  const now = new Date().toISOString().slice(0,16).replace('T',' ');
-  const customer = {
-    company: slide1Data.company,
-    address: slide1Data.address,
-    website: slide1Data.website,
-    domains: slide1Data.domains,
-    created: now,
-    updated: now,
-    keyPeople: keyPeople
-  };
-  createCustomer(customer, function() {
-    // Clear form data for next user
-    slide1Data = {};
-    slide2Data = {};
-    fetchCustomers(function() {
-      showCustomPopup('Customer successfully submitted!');
-      showCustomerList(true);
-    });
-  });
-}
+  // Otherwise, original logic
+  _origHandleSubmitSlide2();
+};
   
 // Add a global popup container to the body if not present
 function ensurePopupContainer() {
@@ -435,7 +449,7 @@ function showCustomerList(showSuccess, customMessage) {
               <td>${c.company}</td>
               <td>${c.address}</td>
               <td>${c.website}</td>
-              <td>${c.domains ? c.domains.split ? c.domains.split(',').join('<br>') : c.domains.join('<br>') : ''}</td>
+              <td>${normalizeDomains(c.domains).join('<br>')}</td>
               <td>${c.created ? localTimeString(c.created) : ''}</td>
               <td>${c.updated ? localTimeString(c.updated) : ''}</td>
               <td><button class="edit-btn" data-id="${c.id}">Edit</button></td>
@@ -459,6 +473,7 @@ function showModify() {
         <th>Company<br><input type="text" class="search-input" data-field="company"></th>
         <th>Address<br><input type="text" class="search-input" data-field="address"></th>
         <th>Website<br><input type="text" class="search-input" data-field="website"></th>
+        <th>Domains</th>
         <th>Created</th>
         <th>Updated</th>
         <th>Action</th>
@@ -512,6 +527,7 @@ function renderSearchResultsWithKeyPeople(list) {
         <td>${c.company}</td>
         <td>${c.address}</td>
         <td>${c.website}</td>
+        <td>${normalizeDomains(c.domains).join('<br>')}</td>
         <td>${c.created ? localTimeString(c.created) : ''}</td>
         <td>${c.updated ? localTimeString(c.updated) : ''}</td>
         <td class="action-cell" style="position:relative;">
@@ -519,6 +535,7 @@ function renderSearchResultsWithKeyPeople(list) {
             <button class="action-btn" data-idx="${idx}" data-id="${c.id}">Action</button>
             <div class="action-dropdown" style="display:none; position:absolute; left:0; top:32px; background:#fff; border:1px solid #ccc; border-radius:6px; box-shadow:0 2px 8px #eee; z-index:10; min-width:120px;">
               <div class="action-dropdown-item action-edit" data-id="${c.id}" style="padding:8px 16px; cursor:pointer; font-weight:bold;">✏️ Edit</div>
+              <div class="action-dropdown-item action-add-user" data-id="${c.id}" style="padding:8px 16px; cursor:pointer; font-weight:bold;">➕ Add User</div>
             </div>
           </span>
           ${isExpanded ? `<button class="edit-company-btn" data-id="${c.id}" style="background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Edit</button>` : ''}
@@ -617,7 +634,7 @@ function renderSearchResultsWithKeyPeople(list) {
       company: cust.company,
       address: cust.address,
       website: cust.website,
-      domains: Array.isArray(cust.domains) ? cust.domains : (typeof cust.domains === 'string' ? cust.domains.split(',') : []),
+      domains: normalizeDomains(cust.domains),
     };
     editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
       ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
@@ -636,13 +653,30 @@ function renderSearchResultsWithKeyPeople(list) {
       company: cust.company,
       address: cust.address,
       website: cust.website,
-      domains: Array.isArray(cust.domains) ? cust.domains : (typeof cust.domains === 'string' ? cust.domains.split(',') : []),
+      domains: normalizeDomains(cust.domains),
     };
     const kp = (cust.keyPeople && cust.keyPeople[kpIdx]) ? cust.keyPeople[kpIdx] : { name: '', position: '', email: '', tel: '', brand: '' };
     editStep2Data = { keyPeople: [ { ...kp } ] };
     window.editSingleKeyPersonMode = true;
     window.editSingleKeyPersonIdx = kpIdx;
     showEditCustomerStep2();
+  });
+
+  // Add User handler
+  $('#search-results').off('click', '.action-add-user');
+  $('#search-results').on('click', '.action-add-user', function(e) {
+    e.stopPropagation();
+    const companyId = $(this).data('id');
+    const cust = customers.find(c => c.id == companyId);
+    slide1Data = {
+      company: cust.company,
+      address: cust.address,
+      website: cust.website,
+      domains: normalizeDomains(cust.domains),
+    };
+    slide2Data = { keyPeople: [{ name: '', position: '', email: '', tel: '', brand: '' }] };
+    window.addUserCompanyId = companyId;
+    showCreateSlide2();
   });
 }
 
@@ -698,7 +732,7 @@ $('#right-frame').on('click', '.edit-company-btn', function() {
     company: cust.company,
     address: cust.address,
     website: cust.website,
-    domains: Array.isArray(cust.domains) ? cust.domains : (typeof cust.domains === 'string' ? cust.domains.split(',') : []),
+    domains: normalizeDomains(cust.domains),
   };
   editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
     ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
@@ -715,7 +749,7 @@ function handleEditCustomer() {
     company: cust.company,
     address: cust.address,
     website: cust.website,
-    domains: Array.isArray(cust.domains) ? cust.domains : (typeof cust.domains === 'string' ? cust.domains.split(',') : []),
+    domains: normalizeDomains(cust.domains),
   };
   editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
     ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
@@ -834,7 +868,7 @@ function showEditCustomerStep2() {
       let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
       let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : '');
       let domainSelect = '';
-      if (editStep1Data.domains && editStep1Data.domains.length > 1) {
+      if (editStep1Data.domains.length > 1) {
         domainSelect = `<select class="edit-keyperson-email-domain">${editStep1Data.domains.map(d => `<option value="${d}"${d===emailDomain?' selected':''}>${d}</option>`).join('')}</select>`;
       } else {
         domainSelect = `<input type="text" value="${editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : ''}" disabled class="edit-keyperson-email-domain">`;
@@ -991,7 +1025,7 @@ $('#right-frame').on('click', '.edit-keyperson-btn', function() {
     company: cust.company,
     address: cust.address,
     website: cust.website,
-    domains: Array.isArray(cust.domains) ? cust.domains : (typeof cust.domains === 'string' ? cust.domains.split(',') : []),
+    domains: normalizeDomains(cust.domains),
   };
   const kp = (cust.keyPeople && cust.keyPeople[kpIdx]) ? cust.keyPeople[kpIdx] : { name: '', position: '', email: '', tel: '', brand: '' };
   editStep2Data = { keyPeople: [ { ...kp } ] };
@@ -1058,3 +1092,14 @@ $('#right-frame').on('click', '.remove-edit-keyperson', function() {
     }
   }
 });
+
+// Helper to normalize domains to array
+function normalizeDomains(domains) {
+  if (Array.isArray(domains)) return domains;
+  if (typeof domains === 'string') {
+    if (domains.includes(',')) return domains.split(',').map(d => d.trim());
+    if (domains.trim() !== '') return [domains.trim()];
+    return [];
+  }
+  return [];
+}

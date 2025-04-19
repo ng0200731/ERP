@@ -1253,6 +1253,14 @@ function showEditCustomerStep2() {
       }
       const now = new Date().toISOString().slice(0,16).replace('T',' ');
       const id = currentCustomer.id;
+      let allKeyPeople;
+      if (window.editSingleKeyPersonMode && window.editSingleKeyPersonIdx !== undefined) {
+        // Replace only the edited key person in the array
+        allKeyPeople = Array.isArray(currentCustomer.keyPeople) ? currentCustomer.keyPeople.map(kp => ({ ...kp })) : [];
+        allKeyPeople[window.editSingleKeyPersonIdx] = { ...editStep2Data.keyPeople[0] };
+      } else {
+        allKeyPeople = keyPeople;
+      }
       const customer = {
         company: editStep1Data.company,
         address: editStep1Data.address,
@@ -1260,7 +1268,7 @@ function showEditCustomerStep2() {
         domains: editStep1Data.domains,
         customerType: editStep1Data.customerType,
         updated: now,
-        keyPeople: keyPeople
+        keyPeople: allKeyPeople
       };
       updateCustomer(id, customer, function() {
         fetchCustomers(function() {

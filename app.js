@@ -65,7 +65,6 @@ $(function() {
     $('#right-frame').on('input', '.website-input', validateWebsite);
     $('#right-frame').on('input', '.search-input', handleSearchInput);
     $('#right-frame').on('click', '.edit-btn', handleEditCustomer);
-    $('#right-frame').on('click', '#update-customer', handleUpdateCustomer);
 
   // Add these for edit domain
   $('#right-frame').on('click', '#edit-domain-list .add-domain', addEditDomainField);
@@ -124,6 +123,13 @@ $(function() {
   const address = slide1Data.address || '';
   const website = slide1Data.website || '';
   const domains = slide1Data.domains && slide1Data.domains.length > 0 ? slide1Data.domains : [''];
+  // Fetch Customer Type options from backend
+  $.get('http://localhost:5000/option_databases', function(databases) {
+    const customerTypeDb = databases.find(db => db.name.toLowerCase() === 'customer type');
+    let customerTypeOptions = '';
+    if (customerTypeDb) {
+      customerTypeOptions = customerTypeDb.fields.map(opt => `<option value="${opt.value}"${slide1Data.customerType === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('');
+    }
     $('#right-frame').html(`
       <h2>Create Customer - Step 1</h2>
       <div>
@@ -142,13 +148,30 @@ $(function() {
           </div>
         `).join('')}
       </div>
+      <div id="customer-type-row">
+        <label>Customer Type:<br>
+          <select id="customer-type-select">
+            <option value="">-- Select --</option>
+            ${customerTypeOptions}
+          </select>
+        </label>
+      </div>
       </div>
       <div class="slide-nav">
         <button id="next-slide1">Next</button>
       </div>
     `);
-  updateDomainButtons();
-  }
+    updateDomainButtons();
+    // Restore previous selection if any
+    if (slide1Data.customerType) {
+      $('#customer-type-select').val(slide1Data.customerType);
+    }
+    // Save selection on change
+    $('#customer-type-select').off('change').on('change', function() {
+      slide1Data.customerType = $(this).val();
+    });
+  });
+}
   
   function addDomainField() {
     $('#domain-list').append(`
@@ -196,40 +219,47 @@ function updateDomainButtons() {
       const d = $(this).val().trim();
       if (d) domains.push(d);
     });
-  let problems = [];
-  if (!company) {
-    problems.push('Company name is required');
-    $('#company-name').addClass('highlight-error');
-  } else {
-    $('#company-name').removeClass('highlight-error');
-  }
-  if (!address) {
-    problems.push('Address is required');
-    $('#address').addClass('highlight-error');
-  } else {
-    $('#address').removeClass('highlight-error');
-  }
-  if (!website) {
-    problems.push('Website is required');
-    $('#website').addClass('highlight-error');
-  } else {
-    $('#website').removeClass('highlight-error');
-  }
-  if (domains.length === 0) {
-    problems.push('At least one domain is required');
-    $('.domain-input').addClass('highlight-error');
-  } else {
-    $('.domain-input').removeClass('highlight-error');
+    const customerType = $('#customer-type-select').val();
+    let problems = [];
+    if (!company) {
+      problems.push('Company name is required');
+      $('#company-name').addClass('highlight-error');
+    } else {
+      $('#company-name').removeClass('highlight-error');
+    }
+    if (!address) {
+      problems.push('Address is required');
+      $('#address').addClass('highlight-error');
+    } else {
+      $('#address').removeClass('highlight-error');
+    }
+    if (!website) {
+      problems.push('Website is required');
+      $('#website').addClass('highlight-error');
+    } else {
+      $('#website').removeClass('highlight-error');
+    }
+    if (domains.length === 0) {
+      problems.push('At least one domain is required');
+      $('.domain-input').addClass('highlight-error');
+    } else {
+      $('.domain-input').removeClass('highlight-error');
     }
     if (website.includes('@')) {
-    problems.push('Website cannot contain "@"');
-    $('#website').addClass('highlight-error');
-  }
-  if (problems.length > 0) {
-    showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
-    return false; // Prevent going to page 2
+      problems.push('Website cannot contain "@"');
+      $('#website').addClass('highlight-error');
     }
-    slide1Data = { company, address, website, domains };
+    if (!customerType) {
+      problems.push('Customer Type is required');
+      $('#customer-type-select').addClass('highlight-error');
+    } else {
+      $('#customer-type-select').removeClass('highlight-error');
+    }
+    if (problems.length > 0) {
+      showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
+      return false; // Prevent going to page 2
+    }
+    slide1Data = { company, address, website, domains, customerType };
     showCreateSlide2();
   }
   
@@ -239,71 +269,127 @@ function updateDomainButtons() {
       ? slide2Data.keyPeople
       : [{ name: '', position: '', email: '', tel: '', brand: '' }];
 
-    function renderKeyPeopleForms() {
-      let isAddUserMode = !!window.addUserCompanyId;
-      return keyPeople.map((kp, idx) => {
-        let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
-        let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (slide1Data.domains && slide1Data.domains[0] ? slide1Data.domains[0] : '');
-        let domainSelect = '';
-        if (slide1Data.domains.length > 1) {
-          domainSelect = `<select class="keyperson-email-domain">${slide1Data.domains.map(d => `<option value="${d}"${d===emailDomain?' selected':''}>${d}</option>`).join('')}</select>`;
-        } else {
-          domainSelect = `<input type="text" value="${slide1Data.domains[0] || ''}" disabled class="keyperson-email-domain">`;
-        }
-        // Remove 'Remove' button in add user mode
-        let removeBtn = (!isAddUserMode && keyPeople.length > 1)
-          ? `<button type="button" class="remove-keyperson" ${keyPeople.length === 1 ? 'disabled' : ''}>Remove</button>`
-          : '';
-        return `
-          <div class="keyperson-form" data-index="${idx}">
-            <hr>
-            <label>Name:<br><input type="text" class="person-name" value="${kp.name || ''}"></label><br>
-            <label>Position:<br><input type="text" class="person-position" value="${kp.position || ''}"></label><br>
-            <label>Email:<br>
-              <input type="text" class="email-prefix" placeholder="prefix" value="${emailPrefix}">
-              @
-              ${domainSelect}
-            </label><br>
-            <label>Tel:<br><input type="text" class="person-tel" value="${kp.tel || ''}"></label><br>
-            <label>Brand:<br><input type="text" class="person-brand" value="${kp.brand || ''}"></label><br>
-            ${removeBtn}
-          </div>
-        `;
-      }).join('');
-    }
+    // Fetch Brand options from backend
+    $.get('http://localhost:5000/option_databases', function(databases) {
+      const brandDb = databases.find(db => db.name.toLowerCase().includes('brand'));
+      let brandOptions = '';
+      let isMulti = false;
+      if (brandDb) {
+        brandOptions = brandDb.fields.map(opt => `<option value="${opt.value}">${opt.value}</option>`).join('');
+        isMulti = !!brandDb.is_multiselect;
+      }
+      function renderKeyPeopleForms() {
+        let isAddUserMode = !!window.addUserCompanyId;
+        return keyPeople.map((kp, idx) => {
+          let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
+          let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (slide1Data.domains && slide1Data.domains[0] ? slide1Data.domains[0] : '');
+          let domainSelect = '';
+          if (slide1Data.domains.length > 1) {
+            domainSelect = `<select class="keyperson-email-domain">${slide1Data.domains.map(d => `<option value="${d}"${d===emailDomain?' selected':''}>${d}</option>`).join('')}</select>`;
+          } else {
+            domainSelect = `<input type="text" value="${slide1Data.domains[0] || ''}" disabled class="keyperson-email-domain">`;
+          }
+          // Remove 'Remove' button in add user mode
+          let removeBtn = (!isAddUserMode && keyPeople.length > 1)
+            ? `<button type="button" class="remove-keyperson" ${keyPeople.length === 1 ? 'disabled' : ''}>Remove</button>`
+            : '';
+          // Brand field as dropdown or multi-select
+          let brandField = '';
+          if (brandDb) {
+            if (isMulti) {
+              // Multi-select
+              const selected = Array.isArray(kp.brand) ? kp.brand : (kp.brand ? [kp.brand] : []);
+              brandField = `<select class="person-brand" multiple style="height:60px;">${brandDb.fields.map(opt => `<option value="${opt.value}"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
+            } else {
+              // Single-select
+              brandField = `<select class="person-brand"><option value="">-- Select --</option>${brandDb.fields.map(opt => `<option value="${opt.value}"${kp.brand === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
+            }
+          } else {
+            // Fallback to text input if no brandDb
+            brandField = `<input type="text" class="person-brand" value="${kp.brand || ''}">`;
+          }
+          return `
+            <div class="keyperson-form" data-index="${idx}">
+              <hr>
+              <label>Name:<br><input type="text" class="person-name" value="${kp.name || ''}"></label><br>
+              <label>Position:<br><input type="text" class="person-position" value="${kp.position || ''}"></label><br>
+              <label>Email:<br>
+                <input type="text" class="email-prefix" placeholder="prefix" value="${emailPrefix}">
+                @
+                ${domainSelect}
+              </label><br>
+              <label>Tel:<br><input type="text" class="person-tel" value="${kp.tel || ''}"></label><br>
+              <label>Brand:<br>${brandField}</label><br>
+              ${removeBtn}
+            </div>
+          `;
+        }).join('');
+      }
 
-    let isAddUserMode = !!window.addUserCompanyId;
-    // Company info box
-    const companyInfoBox = `
-      <div class="company-info-box" style="background:#f6fafd; border:1px solid #d0e0f0; border-radius:8px; padding:12px 18px; margin-bottom:18px;">
-        <div><b>Company:</b> ${slide1Data.company || ''}</div>
-        <div><b>Address:</b> ${slide1Data.address || ''}</div>
-        <div><b>Website:</b> ${slide1Data.website || ''}</div>
-        <div><b>Domains:</b> ${(slide1Data.domains || []).join(', ')}</div>
-      </div>
-    `;
-    // Back button HTML for add user mode
-    const backBtnHtml = isAddUserMode ? '<button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>' : '';
-    $('#right-frame').html(`
-      ${backBtnHtml}
-      <h2>Create Customer - Step 2</h2>
-      ${companyInfoBox}
-      <div id="keypeople-list">
-        ${renderKeyPeopleForms()}
-      </div>
-      <div class="slide-nav">
-        ${!isAddUserMode ? '<button type="button" id="add-keyperson">Add Key Person</button>' : ''}
-        ${!isAddUserMode ? '<button id="prev-slide2">Previous</button>' : ''}
-        <button id="submit-slide2">${isAddUserMode ? 'Update' : 'Submit'}</button>
-      </div>
-    `);
-    // Add handler for back button in add user mode
-    if (isAddUserMode) {
-      $('#back-to-modify').off('click').on('click', function() {
-        window.addUserCompanyId = null;
-        showModify();
+      let isAddUserMode = !!window.addUserCompanyId;
+      // Company info box
+      const companyInfoBox = `
+        <div class="company-info-box" style="background:#f6fafd; border:1px solid #d0e0f0; border-radius:8px; padding:12px 18px; margin-bottom:18px;">
+          <div><b>Company:</b> ${slide1Data.company || ''}</div>
+          <div><b>Address:</b> ${slide1Data.address || ''}</div>
+          <div><b>Website:</b> ${slide1Data.website || ''}</div>
+          <div><b>Domains:</b> ${(slide1Data.domains || []).join(', ')}</div>
+        </div>
+      `;
+      // Back button HTML for add user mode
+      const backBtnHtml = isAddUserMode ? '<button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>' : '';
+      $('#right-frame').html(`
+        ${backBtnHtml}
+        <h2>Create Customer - Step 2</h2>
+        ${companyInfoBox}
+        <div id="keypeople-list">
+          ${renderKeyPeopleForms()}
+        </div>
+        <div class="slide-nav">
+          ${!isAddUserMode ? '<button type="button" id="add-keyperson">Add Key Person</button>' : ''}
+          ${!isAddUserMode ? '<button id="prev-slide2">Previous</button>' : ''}
+          <button id="submit-slide2">${isAddUserMode ? 'Update' : 'Submit'}</button>
+        </div>
+      `);
+      // Add handler for back button in add user mode
+      if (isAddUserMode) {
+        $('#back-to-modify').off('click').on('click', function() {
+          window.addUserCompanyId = null;
+          showModify();
+        });
+      }
+      // Save key people data on input/select
+      $('#right-frame').off('input change', '.keyperson-form input, .keyperson-form select');
+      $('#right-frame').on('input change', '.keyperson-form input, .keyperson-form select', function() {
+        const forms = $('.keyperson-form');
+        slide2Data.keyPeople = [];
+        forms.each(function() {
+          const $form = $(this);
+          const name = $form.find('.person-name').val().trim();
+          const position = $form.find('.person-position').val().trim();
+          const emailPrefix = $form.find('.email-prefix').val().trim();
+          let domain = '';
+          if ($form.find('.keyperson-email-domain').is('select')) {
+            domain = $form.find('.keyperson-email-domain').val();
+          } else {
+            domain = $form.find('.keyperson-email-domain').val();
+          }
+          const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
+          const tel = $form.find('.person-tel').val().trim();
+          let brand = '';
+          if (brandDb) {
+            if (isMulti) {
+              brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
+            } else {
+              brand = $form.find('.person-brand').val();
+            }
+          } else {
+            brand = $form.find('.person-brand').val().trim();
+          }
+          slide2Data.keyPeople.push({ name, position, email, tel, brand });
+        });
       });
-    }
+    });
   }
 
 // Add event handlers for key people UI
@@ -339,7 +425,16 @@ $(function() {
       }
       const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
       const tel = $form.find('.person-tel').val().trim();
-      const brand = $form.find('.person-brand').val().trim();
+      let brand = '';
+      if (brandDb) {
+        if (isMulti) {
+          brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
+        } else {
+          brand = $form.find('.person-brand').val();
+        }
+      } else {
+        brand = $form.find('.person-brand').val().trim();
+      }
       slide2Data.keyPeople.push({ name, position, email, tel, brand });
     });
   });
@@ -364,7 +459,16 @@ $(function() {
       }
       const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
       const tel = $form.find('.person-tel').val().trim();
-      const brand = $form.find('.person-brand').val().trim();
+      let brand = '';
+      if (brandDb) {
+        if (isMulti) {
+          brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
+        } else {
+          brand = $form.find('.person-brand').val();
+        }
+      } else {
+        brand = $form.find('.person-brand').val().trim();
+      }
       slide2Data.keyPeople.push({ name, position, email, tel, brand });
     });
     showCreateSlide1();
@@ -374,8 +478,10 @@ $(function() {
 const _origHandleSubmitSlide2 = handleSubmitSlide2;
 handleSubmitSlide2 = function() {
   console.log('handleSubmitSlide2 called. addUserCompanyId:', window.addUserCompanyId);
-  if (window.addUserCompanyId) {
-    // Add user mode: update existing company with new key person
+  // Fetch Brand options from backend to get brandDb and isMulti in scope
+  $.get('http://localhost:5000/option_databases', function(databases) {
+    const brandDb = databases.find(db => db.name.toLowerCase().includes('brand'));
+    const isMulti = !!(brandDb && brandDb.is_multiselect);
     let problems = [];
     const forms = $('.keyperson-form');
     const keyPeople = [];
@@ -392,12 +498,21 @@ handleSubmitSlide2 = function() {
       }
       const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
       const tel = $form.find('.person-tel').val().trim();
-      const brand = $form.find('.person-brand').val().trim();
+      let brand = '';
+      if (brandDb) {
+        if (isMulti) {
+          brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
+        } else {
+          brand = $form.find('.person-brand').val();
+        }
+      } else {
+        brand = $form.find('.person-brand').val().trim();
+      }
       if (!name) problems.push('Name is required');
       if (!position) problems.push('Position is required');
       if (!emailPrefix) problems.push('Email prefix is required');
       if (!tel) problems.push('Tel is required');
-      if (!brand) problems.push('Brand is required');
+      if (!brand || (Array.isArray(brand) && brand.length === 0)) problems.push('Brand is required');
       keyPeople.push({ name, position, email, tel, brand });
     });
     if (problems.length > 0) {
@@ -405,81 +520,54 @@ handleSubmitSlide2 = function() {
       console.log('Validation failed:', problems);
       return;
     }
-    const id = window.addUserCompanyId;
-    const cust = customers.find(c => c.id == id);
-    const updatedKeyPeople = Array.isArray(cust.keyPeople) ? [...cust.keyPeople] : [];
-    updatedKeyPeople.push(...keyPeople);
-    const updatedCustomer = { ...cust, keyPeople: updatedKeyPeople, domains: normalizeDomains(cust.domains) };
-    console.log('Submitting updateCustomer for company ID', cust.id, updatedCustomer);
-    // Add error handling to AJAX call
-    $.ajax({
-      url: 'http://localhost:5000/customers/' + cust.id,
-      type: 'PUT',
-      contentType: 'application/json',
-      data: JSON.stringify(updatedCustomer),
-      success: function() {
-        fetchCustomers(function() {
-          window.addUserCompanyId = null;
-          window.expandedCompanyId = cust.id;
-          showModify();
-          showCustomPopup('Key person added!');
-          console.log('Key person added and UI updated.');
-        });
-      },
-      error: function(xhr, status, error) {
-        alert('Failed to update customer: ' + error);
-        console.error('AJAX error:', status, error, xhr.responseText);
-      }
+    if (window.addUserCompanyId) {
+      const id = window.addUserCompanyId;
+      const cust = customers.find(c => c.id == id);
+      const updatedKeyPeople = Array.isArray(cust.keyPeople) ? [...cust.keyPeople] : [];
+      updatedKeyPeople.push(...keyPeople);
+      const updatedCustomer = { ...cust, keyPeople: updatedKeyPeople, domains: normalizeDomains(cust.domains) };
+      console.log('Submitting updateCustomer for company ID', cust.id, updatedCustomer);
+      $.ajax({
+        url: 'http://localhost:5000/customers/' + cust.id,
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(updatedCustomer),
+        success: function() {
+          fetchCustomers(function() {
+            window.addUserCompanyId = null;
+            window.expandedCompanyId = cust.id;
+            showModify();
+            showCustomPopup('Key person added!');
+            console.log('Key person added and UI updated.');
+          });
+        },
+        error: function(xhr, status, error) {
+          alert('Failed to update customer: ' + error);
+          console.error('AJAX error:', status, error, xhr.responseText);
+        }
       });
-    return;
-  }
-  // --- Create Customer flow ---
-  let problems = [];
-  const forms = $('.keyperson-form');
-  const keyPeople = [];
-  forms.each(function() {
-    const $form = $(this);
-    const name = $form.find('.person-name').val().trim();
-    const position = $form.find('.person-position').val().trim();
-    const emailPrefix = $form.find('.email-prefix').val().trim();
-    let domain = '';
-    if ($form.find('.keyperson-email-domain').is('select')) {
-      domain = $form.find('.keyperson-email-domain').val();
-    } else {
-      domain = $form.find('.keyperson-email-domain').val();
+      return;
     }
-    const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
-    const tel = $form.find('.person-tel').val().trim();
-    const brand = $form.find('.person-brand').val().trim();
-    if (!name) problems.push('Name is required');
-    if (!position) problems.push('Position is required');
-    if (!emailPrefix) problems.push('Email prefix is required');
-    if (!tel) problems.push('Tel is required');
-    if (!brand) problems.push('Brand is required');
-    keyPeople.push({ name, position, email, tel, brand });
-  });
-  if (problems.length > 0) {
-    showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
-    console.log('Validation failed:', problems);
-    return;
-  }
-  // Build customer object from slide1Data and keyPeople
-  const customer = {
-    company: slide1Data.company,
-    address: slide1Data.address,
-    website: slide1Data.website,
-    domains: slide1Data.domains,
-    keyPeople: keyPeople
-  };
-  createCustomer(customer, function() {
-    fetchCustomers(function() {
-      slide1Data = {};
-      slide2Data = {};
-      showModify();
-      showCustomPopup('Customer created!');
+    // --- Create Customer flow ---
+    // Build customer object from slide1Data and keyPeople
+    const customer = {
+      company: slide1Data.company,
+      address: slide1Data.address,
+      website: slide1Data.website,
+      domains: slide1Data.domains,
+      customerType: slide1Data.customerType,
+      keyPeople: keyPeople
+    };
+    createCustomer(customer, function() {
+      fetchCustomers(function() {
+        slide1Data = {};
+        slide2Data = {};
+        showModify();
+        showCustomPopup('Customer created!');
+      });
     });
   });
-};
+}
   
 // Add a global popup container to the body if not present
 function ensurePopupContainer() {
@@ -962,6 +1050,21 @@ function showEditCustomerStep2() {
       let removeBtn = (!isAddUserMode && keyPeople.length > 1)
         ? `<button type="button" class="remove-edit-keyperson">Remove</button>`
         : '';
+      // Brand field as dropdown or multi-select
+      let brandField = '';
+      if (brandDb) {
+        if (isMulti) {
+          // Multi-select
+          const selected = Array.isArray(kp.brand) ? kp.brand : (kp.brand ? [kp.brand] : []);
+          brandField = `<select class="person-brand" multiple style="height:60px;">${brandDb.fields.map(opt => `<option value="${opt.value}"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
+        } else {
+          // Single-select
+          brandField = `<select class="person-brand"><option value="">-- Select --</option>${brandDb.fields.map(opt => `<option value="${opt.value}"${kp.brand === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
+        }
+      } else {
+        // Fallback to text input if no brandDb
+        brandField = `<input type="text" class="person-brand" value="${kp.brand || ''}">`;
+      }
       return `
         <div class="edit-keyperson-form" data-index="${idx}" style="border:1px solid #ccc; border-radius:8px; padding:18px 18px 10px 18px; margin-bottom:22px; background:#fafbfc; box-shadow:0 2px 8px #eee;">
           <div style="font-weight:bold; font-size:18px; margin-bottom:10px; color:#2a3b4c;">Key Person ${idx+1}</div>
@@ -971,7 +1074,7 @@ function showEditCustomerStep2() {
             <div style="flex:1 1 45%; min-width:220px;"><label>Email Prefix:<br><input type="text" class="edit-email-prefix" placeholder="prefix" value="${emailPrefix}"></label></div>
             <div style="flex:1 1 45%; min-width:220px;"><label>Email Domain:<br>${domainSelect}</label></div>
             <div style="flex:1 1 45%; min-width:220px;"><label>Tel:<br><input type="text" class="edit-person-tel" value="${kp.tel || ''}"></label></div>
-            <div style="flex:1 1 45%; min-width:220px;"><label>Brand:<br><input type="text" class="edit-person-brand" value="${kp.brand || ''}"></label></div>
+            <div style="flex:1 1 45%; min-width:220px;"><label>Brand:<br>${brandField}</label></div>
           </div>
           <div style="margin-top:10px; text-align:right;">
             ${removeBtn}
@@ -1063,7 +1166,16 @@ function showEditCustomerStep2() {
       }
       const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
       const tel = ($form.find('.edit-person-tel').val() || '').trim();
-      const brand = ($form.find('.edit-person-brand').val() || '').trim();
+      let brand = '';
+      if (brandDb) {
+        if (isMulti) {
+          brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
+        } else {
+          brand = $form.find('.person-brand').val();
+        }
+      } else {
+        brand = $form.find('.person-brand').val().trim();
+      }
       editStep2Data.keyPeople.push({ name, position, email, tel, brand });
     });
     updateButtonState();
@@ -1197,4 +1309,169 @@ function normalizeDomains(domains) {
     return [];
   }
   return [];
+}
+
+// --- Customer Database Management UI (as Customer subfield) ---
+
+$(function() {
+  // Remove any main left-frame button for Customer - Database
+  $('#btn-customer-database').remove();
+
+  // Add Database button as a subfield under Customer if not present
+  if ($('#btn-customer-db-sub').length === 0) {
+    $('#customer-nested').append('<button id="btn-customer-db-sub">Database</button>');
+  }
+
+  // Navigation handler for the subfield
+  $(document).on('click', '#btn-customer-db-sub', function() {
+    showCustomerDatabaseManager();
+  });
+});
+
+function showCustomerDatabaseManager() {
+  // Fetch all option databases and render UI
+  $.get('http://localhost:5000/option_databases', function(databases) {
+    let dbOptions = databases.map(db => `<option value="${db.id}" data-multi="${db.is_multiselect}">${db.name}</option>`).join('');
+    let dbSelectHtml = `
+      <label>Select Database:
+        <select id="db-select">
+          <option value="">-- Select --</option>
+          ${dbOptions}
+        </select>
+      </label>
+      <button id="add-db-btn">Add Database</button>
+      <div id="add-db-form" style="display:none; margin-top:10px;">
+        <input type="text" id="new-db-name" placeholder="Database name">
+        <label><input type="checkbox" id="new-db-multi"> Multi-select</label>
+        <button id="save-db-btn">Save</button>
+        <button id="cancel-db-btn">Cancel</button>
+        <span class="error" id="db-error" style="margin-left:10px;"></span>
+      </div>
+    `;
+    $('#right-frame').html(`
+      <h2>Customer - Database Management</h2>
+      <div>${dbSelectHtml}</div>
+      <div id="db-options-area" style="margin-top:20px;"></div>
+    `);
+    // Handlers
+    $('#add-db-btn').off('click').on('click', function() {
+      $('#add-db-form').show();
+      $('#add-db-btn').hide();
+    });
+    $('#cancel-db-btn').off('click').on('click', function() {
+      $('#add-db-form').hide();
+      $('#add-db-btn').show();
+      $('#db-error').text('');
+    });
+    $('#save-db-btn').off('click').on('click', function() {
+      const name = $('#new-db-name').val().trim();
+      const is_multi = $('#new-db-multi').is(':checked') ? 1 : 0;
+      if (!name) {
+        $('#db-error').text('Name required');
+        return;
+      }
+      $.ajax({
+        url: 'http://localhost:5000/option_databases',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ name, is_multiselect: is_multi }),
+        success: function() {
+          showCustomerDatabaseManager();
+        },
+        error: function(xhr) {
+          $('#db-error').text(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Error');
+        }
+      });
+    });
+    $('#db-select').off('change').on('change', function() {
+      const dbId = $(this).val();
+      if (!dbId) {
+        $('#db-options-area').html('');
+        return;
+      }
+      const db = databases.find(d => d.id == dbId);
+      renderDbOptionsArea(db);
+    });
+  });
+}
+
+function renderDbOptionsArea(db) {
+  let optionsHtml = db.fields.map(opt => `
+    <li>
+      ${opt.value}
+      <button class="delete-option-btn" data-id="${opt.id}" style="margin-left:8px;">Delete</button>
+    </li>
+  `).join('');
+  let addOptionHtml = `
+    <input type="text" id="new-option-value" placeholder="Add new option">
+    <button id="add-option-btn">Add</button>
+    <span class="error" id="option-error" style="margin-left:10px;"></span>
+  `;
+  $('#db-options-area').html(`
+    <h3>Options for: ${db.name} ${db.is_multiselect ? '(Multi-select)' : '(Single-select)'}</h3>
+    <ul id="option-list">${optionsHtml}</ul>
+    <div style="margin-top:10px;">${addOptionHtml}</div>
+  `);
+  // Add option handler
+  $('#add-option-btn').off('click').on('click', function() {
+    const value = $('#new-option-value').val().trim();
+    if (!value) {
+      $('#option-error').text('Value required');
+      return;
+    }
+    // Check for duplicate
+    $.get('http://localhost:5000/option_fields/check', { database_id: db.id, value }, function(resp) {
+      if (resp.exists) {
+        $('#option-error').text('Option already exists');
+      } else {
+        // Add option
+        $.ajax({
+          url: 'http://localhost:5000/option_fields',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ database_id: db.id, value }),
+          success: function() {
+            // Refresh options
+            $.get('http://localhost:5000/option_databases', function(dbs) {
+              const updatedDb = dbs.find(d => d.id == db.id);
+              renderDbOptionsArea(updatedDb);
+            });
+          },
+          error: function(xhr) {
+            $('#option-error').text(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Error');
+          }
+        });
+      }
+    });
+  });
+  // Delete option handler
+  $('.delete-option-btn').off('click').on('click', function() {
+    const optId = $(this).data('id');
+    $.ajax({
+      url: 'http://localhost:5000/option_fields/' + optId,
+      type: 'DELETE',
+      success: function() {
+        // Refresh options
+        $.get('http://localhost:5000/option_databases', function(dbs) {
+          const updatedDb = dbs.find(d => d.id == db.id);
+          renderDbOptionsArea(updatedDb);
+        });
+      }
+    });
+  });
+  // Real-time duplicate check
+  $('#new-option-value').off('input').on('input', function() {
+    const value = $(this).val().trim();
+    if (!value) {
+      $('#option-error').text('');
+      return;
+    }
+    $.get('http://localhost:5000/option_fields/check', { database_id: db.id, value }, function(resp) {
+      if (resp.exists) {
+        $('#option-error').text('Option already exists');
+      } else {
+        $('#option-error').text('');
+      }
+    });
+  });
 }

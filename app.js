@@ -798,25 +798,6 @@ function renderSearchResultsWithKeyPeople(list) {
     renderSearchResultsWithKeyPeople(customers);
   });
 
-  // Attach handler for company Edit button
-  $('#search-results').off('click', '.edit-company-btn');
-  $('#search-results').on('click', '.edit-company-btn', function() {
-    const companyId = $(this).data('id');
-    const cust = customers.find(c => c.id == companyId);
-    currentCustomer = cust;
-    editStep1Data = {
-      company: cust.company,
-      address: cust.address,
-      website: cust.website,
-      domains: normalizeDomains(cust.domains),
-      customerType: cust.customerType
-    };
-    editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
-      ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
-      : { keyPeople: [{ name: '', position: '', email: '', tel: '', brand: '' }] };
-    showEditCustomerStep1();
-  });
-
   // Attach handler for key person Edit button
   $('#search-results').off('click', '.edit-keyperson-btn');
   $('#search-results').on('click', '.edit-keyperson-btn', function() {
@@ -826,7 +807,7 @@ function renderSearchResultsWithKeyPeople(list) {
     console.log('[DEBUG] companyId:', companyId, 'kpIdx:', kpIdx);
     const cust = customers.find(c => c.id == companyId);
     console.log('[DEBUG] found customer:', cust);
-    currentCustomer = cust;
+    currentCustomer = { ...cust }; // shallow copy
     editStep1Data = {
       company: cust.company,
       address: cust.address,
@@ -834,9 +815,7 @@ function renderSearchResultsWithKeyPeople(list) {
       domains: normalizeDomains(cust.domains),
       customerType: cust.customerType
     };
-    const kp = (cust.keyPeople && cust.keyPeople[kpIdx]) ? cust.keyPeople[kpIdx] : { name: '', position: '', email: '', tel: '', brand: '' };
-    console.log('[DEBUG] editing key person:', kp);
-    editStep2Data = { keyPeople: [ { ...kp } ] };
+    editStep2Data = { keyPeople: [ { ...cust.keyPeople[kpIdx] } ] };
     window.editSingleKeyPersonMode = true;
     window.editSingleKeyPersonIdx = kpIdx;
     showEditCustomerStep2();
@@ -857,6 +836,29 @@ function renderSearchResultsWithKeyPeople(list) {
     slide2Data = { keyPeople: [{ name: '', position: '', email: '', tel: '', brand: '' }] };
     window.addUserCompanyId = companyId;
     showCreateSlide2();
+  });
+
+  // Attach handler for company Edit button
+  $('#search-results').off('click', '.edit-company-btn');
+  $('#search-results').on('click', '.edit-company-btn', function() {
+    const id = $(this).data('id');
+    const cust = customers.find(c => c.id == id);
+    if (!cust) {
+      console.error('[ERROR] Customer not found for edit-company-btn', id, customers);
+      return;
+    }
+    currentCustomer = { ...cust }; // shallow copy
+    editStep1Data = {
+      company: cust.company,
+      address: cust.address,
+      website: cust.website,
+      domains: normalizeDomains(cust.domains),
+      customerType: cust.customerType
+    };
+    editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
+      ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
+      : { keyPeople: [{ name: '', position: '', email: '', tel: '', brand: '' }] };
+    showEditCustomerStep1();
   });
 }
 
@@ -924,7 +926,7 @@ $('#right-frame').on('click', '.edit-company-btn', function() {
 function handleEditCustomer() {
     const id = $(this).data('id');
     const cust = customers.find(c => c.id == id);
-    currentCustomer = cust;
+    currentCustomer = { ...cust }; // shallow copy
   // Save initial data for editing
   editStep1Data = {
     company: cust.company,
@@ -1015,7 +1017,8 @@ function showEditCustomerStep1() {
     }
 
     $('#right-frame').off('input change', '#edit-company, #edit-address, #edit-website, .edit-domain-input, #edit-customer-type-select');
-    $('#right-frame').on('input change', '#edit-company, #edit-address, #edit-website, .edit-domain-input, #edit-customer-type-select', function() {
+    $('#right-frame').on('input change', '#edit-company, #edit-address, #edit-website, .edit-domain-input, #edit-customer-type-select', function(e) {
+      console.log('[DEBUG] Input/change detected:', e.target.id || e.target.className, $(this).val());
       const changed = isStep1Changed();
       const btn = $('#update-edit-step1');
       if (changed) {
@@ -1039,14 +1042,13 @@ function showEditCustomerStep1() {
       editStep1Data.customerType = $('#edit-customer-type-select').val();
       // Prepare customer object for update (include keyPeople to preserve them)
       const id = currentCustomer.id;
-      const cust = customers.find(c => c.id == id);
       const customer = {
         company: editStep1Data.company,
         address: editStep1Data.address,
         website: editStep1Data.website,
         domains: editStep1Data.domains,
         customerType: editStep1Data.customerType,
-        keyPeople: Array.isArray(cust.keyPeople) ? cust.keyPeople : []
+        keyPeople: Array.isArray(currentCustomer.keyPeople) ? currentCustomer.keyPeople : []
       };
       // Send update to backend
       $.ajax({

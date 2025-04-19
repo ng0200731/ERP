@@ -636,6 +636,7 @@ function showModify() {
         <th>Address<br><input type="text" class="search-input" data-field="address"></th>
         <th>Website<br><input type="text" class="search-input" data-field="website"></th>
         <th>Domains<br><input type="text" class="search-input" data-field="domains"></th>
+        <th>Customer Type<br><input type="text" class="search-input" data-field="customerType"></th>
         <th>Created</th>
         <th>Updated</th>
         <th>Action</th>
@@ -656,7 +657,8 @@ function handleSearchInput() {
     (!filters.company || c.company.toLowerCase().includes(filters.company)) &&
     (!filters.address || c.address.toLowerCase().includes(filters.address)) &&
     (!filters.website || c.website.toLowerCase().includes(filters.website)) &&
-    (!filters.domains || normalizeDomains(c.domains).some(d => d.toLowerCase().includes(filters.domains)))
+    (!filters.domains || normalizeDomains(c.domains).some(d => d.toLowerCase().includes(filters.domains))) &&
+    (!filters.customerType || (c.customerType || '').toLowerCase().includes(filters.customerType))
   );
   renderSearchResultsWithKeyPeople(filtered);
 }
@@ -691,6 +693,7 @@ function renderSearchResultsWithKeyPeople(list) {
         <td>${c.address}</td>
         <td>${c.website}</td>
         <td>${normalizeDomains(c.domains).join('<br>')}</td>
+        <td>${c.customerType || ''}</td>
         <td>${c.created ? localTimeString(c.created) : ''}</td>
         <td>${c.updated ? localTimeString(c.updated) : ''}</td>
         <td class="action-cell" style="position:relative;">
@@ -708,7 +711,7 @@ function renderSearchResultsWithKeyPeople(list) {
     if (isExpanded) {
       html += `
       <tr class="expand-row always-show" id="expand-row-${idx}" style="background:#f8fafd;">
-        <td colspan="6" style="padding:0;">
+        <td colspan="8" style="padding:0;">
           <div style="padding:8px 0 8px 0;">
             <table class="key-people-nested-table" data-idx="${idx}" style="width:98%; margin:0 auto 8px auto; font-size:13px; background:#fff; border:1px solid #e0e0e0; border-radius:6px;">
               <thead style="background:#f3f6fa;">

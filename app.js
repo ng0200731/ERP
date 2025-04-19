@@ -49,7 +49,11 @@ $(function() {
     $('#btn-development').click(function() {
       $('#right-frame').html('<h2>Development Section</h2><p>Coming soon...</p>');
     });
-    $('#btn-create').click(showCreateSlide1);
+    $('#btn-create').click(function() {
+      slide1Data = {};
+      slide2Data = {};
+      showCreateSlide1();
+    });
     $('#btn-modify').click(showModify);
   
     // Delegated events for dynamic content
@@ -230,51 +234,52 @@ function updateDomainButtons() {
   }
   
   function showCreateSlide2() {
-  // Use existing slide2Data or default: array of key people
-  let keyPeople = Array.isArray(slide2Data.keyPeople) && slide2Data.keyPeople.length > 0
-    ? slide2Data.keyPeople
-    : [{ name: '', position: '', email: '', tel: '', brand: '' }];
+    // Use existing slide2Data or default: array of key people
+    let keyPeople = Array.isArray(slide2Data.keyPeople) && slide2Data.keyPeople.length > 0
+      ? slide2Data.keyPeople
+      : [{ name: '', position: '', email: '', tel: '', brand: '' }];
 
-  function renderKeyPeopleForms() {
-    return keyPeople.map((kp, idx) => {
-      let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
-      let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (slide1Data.domains && slide1Data.domains[0] ? slide1Data.domains[0] : '');
-      let domainSelect = '';
-      if (slide1Data.domains.length > 1) {
-        domainSelect = `<select class="keyperson-email-domain">${slide1Data.domains.map(d => `<option value="${d}"${d===emailDomain?' selected':''}>${d}</option>`).join('')}</select>`;
-      } else {
-        domainSelect = `<input type="text" value="${slide1Data.domains[0] || ''}" disabled class="keyperson-email-domain">`;
-      }
-      return `
-        <div class="keyperson-form" data-index="${idx}">
-          <hr>
-          <label>Name:<br><input type="text" class="person-name" value="${kp.name || ''}"></label><br>
-          <label>Position:<br><input type="text" class="person-position" value="${kp.position || ''}"></label><br>
-          <label>Email:<br>
-            <input type="text" class="email-prefix" placeholder="prefix" value="${emailPrefix}">
-            @
-            ${domainSelect}
-          </label><br>
-          <label>Tel:<br><input type="text" class="person-tel" value="${kp.tel || ''}"></label><br>
-          <label>Brand:<br><input type="text" class="person-brand" value="${kp.brand || ''}"></label><br>
-          <button type="button" class="remove-keyperson" ${keyPeople.length === 1 ? 'disabled' : ''}>Remove</button>
-        </div>
-      `;
-    }).join('');
+    function renderKeyPeopleForms() {
+      return keyPeople.map((kp, idx) => {
+        let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
+        let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (slide1Data.domains && slide1Data.domains[0] ? slide1Data.domains[0] : '');
+        let domainSelect = '';
+        if (slide1Data.domains.length > 1) {
+          domainSelect = `<select class="keyperson-email-domain">${slide1Data.domains.map(d => `<option value="${d}"${d===emailDomain?' selected':''}>${d}</option>`).join('')}</select>`;
+        } else {
+          domainSelect = `<input type="text" value="${slide1Data.domains[0] || ''}" disabled class="keyperson-email-domain">`;
+        }
+        return `
+          <div class="keyperson-form" data-index="${idx}">
+            <hr>
+            <label>Name:<br><input type="text" class="person-name" value="${kp.name || ''}"></label><br>
+            <label>Position:<br><input type="text" class="person-position" value="${kp.position || ''}"></label><br>
+            <label>Email:<br>
+              <input type="text" class="email-prefix" placeholder="prefix" value="${emailPrefix}">
+              @
+              ${domainSelect}
+            </label><br>
+            <label>Tel:<br><input type="text" class="person-tel" value="${kp.tel || ''}"></label><br>
+            <label>Brand:<br><input type="text" class="person-brand" value="${kp.brand || ''}"></label><br>
+            <button type="button" class="remove-keyperson" ${keyPeople.length === 1 ? 'disabled' : ''}>Remove</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    let isAddUserMode = !!window.addUserCompanyId;
+    $('#right-frame').html(`
+      <h2>Create Customer - Step 2</h2>
+      <div id="keypeople-list">
+        ${renderKeyPeopleForms()}
+      </div>
+      <div class="slide-nav">
+        ${!isAddUserMode ? '<button type="button" id="add-keyperson">Add Key Person</button>' : ''}
+        ${!isAddUserMode ? '<button id="prev-slide2">Previous</button>' : ''}
+        <button id="submit-slide2">${isAddUserMode ? 'Update' : 'Submit'}</button>
+      </div>
+    `);
   }
-
-  $('#right-frame').html(`
-    <h2>Create Customer - Step 2</h2>
-    <div id="keypeople-list">
-      ${renderKeyPeopleForms()}
-    </div>
-    <button type="button" id="add-keyperson">Add Key Person</button>
-    <div class="slide-nav">
-      <button id="prev-slide2">Previous</button>
-      <button id="submit-slide2">Submit</button>
-    </div>
-  `);
-}
 
 // Add event handlers for key people UI
 $(function() {

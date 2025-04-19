@@ -1242,6 +1242,7 @@ function showEditCustomerStep2() {
         address: editStep1Data.address,
         website: editStep1Data.website,
         domains: editStep1Data.domains,
+        customerType: editStep1Data.customerType,
         updated: now,
         keyPeople: keyPeople
       };

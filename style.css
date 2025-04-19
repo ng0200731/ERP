@@ -8,21 +8,35 @@ body, html {
     height: 100vh;
   }
   .left-frame {
-    width: 30%;
-    background: #f0f0f0;
-    padding: 20px;
+    width: 180px;
+    min-width: 140px;
+    max-width: 200px;
+    background: #f7fafd;
+    padding: 16px 10px 10px 10px;
     box-sizing: border-box;
     border-right: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
   }
   .left-frame button {
     display: block;
-    width: 90%;
+    width: 100%;
     margin-bottom: 10px;
-    padding: 10px;
-    font-size: 16px;
+    padding: 8px 0;
+    font-size: 15px;
+    border-radius: 5px;
+    border: none;
+    background: #3498db;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .left-frame button:hover {
+    background: #217dbb;
   }
   .right-frame {
-    width: 70%;
+    width: calc(100% - 180px);
     padding: 30px;
     box-sizing: border-box;
   }
@@ -99,4 +113,15 @@ body, html {
     border-radius: 5px;
     font-size: 18px;
     text-align: center;
+  }
+  .selected-row {
+    background: none !important;
+    box-shadow: none !important;
+    transition: border 0.2s;
+  }
+  .selected-cell {
+    border-left: 6px solid #e53935 !important;
+    background: none !important;
+    box-shadow: none !important;
+    transition: border 0.2s;
   }

@@ -762,6 +762,20 @@ function renderSearchResultsWithKeyPeople(list) {
   });
   $('#search-results').html(html);
 
+  // Re-apply highlight after rendering
+  if (window.expandedCompanyId) {
+    $('.company-row').removeClass('selected-row');
+    $('.company-row td:first-child').removeClass('selected-cell');
+    $(`.company-row[data-id="${window.expandedCompanyId}"]`).addClass('selected-row');
+    $(`.company-row[data-id="${window.expandedCompanyId}"] td:first-child`).addClass('selected-cell');
+    if (typeof window.editSingleKeyPersonIdx !== 'undefined') {
+      $('.keyperson-row').removeClass('selected-row');
+      $('.keyperson-row td:first-child').removeClass('selected-cell');
+      $(`.keyperson-row[data-idx="${window.expandedCompanyId}"][data-kpidx="${window.editSingleKeyPersonIdx}"]`).addClass('selected-row');
+      $(`.keyperson-row[data-idx="${window.expandedCompanyId}"][data-kpidx="${window.editSingleKeyPersonIdx}"] td:first-child`).addClass('selected-cell');
+    }
+  }
+
   // Remove hover event handlers for action dropdown
   // Add click-to-toggle logic for action dropdown
   $('#search-results').off('mouseenter mouseleave', '.action-btn-wrap');
@@ -811,6 +825,16 @@ function renderSearchResultsWithKeyPeople(list) {
     console.log('[DEBUG] companyId:', companyId, 'kpIdx:', kpIdx);
     const cust = customers.find(c => c.id == companyId);
     console.log('[DEBUG] found customer:', cust);
+    // Highlight selected company row and first cell
+    $('.company-row').removeClass('selected-row');
+    $('.company-row td:first-child').removeClass('selected-cell');
+    $(`.company-row[data-id="${companyId}"]`).addClass('selected-row');
+    $(`.company-row[data-id="${companyId}"] td:first-child`).addClass('selected-cell');
+    // Highlight selected key person row and first cell
+    $('.keyperson-row').removeClass('selected-row');
+    $('.keyperson-row td:first-child').removeClass('selected-cell');
+    $(`.keyperson-row[data-idx="${companyId}"][data-kpidx="${kpIdx}"]`).addClass('selected-row');
+    $(`.keyperson-row[data-idx="${companyId}"][data-kpidx="${kpIdx}"] td:first-child`).addClass('selected-cell');
     currentCustomer = { ...cust }; // shallow copy
     editStep1Data = {
       company: cust.company,
@@ -851,6 +875,11 @@ function renderSearchResultsWithKeyPeople(list) {
       console.error('[ERROR] Customer not found for edit-company-btn', id, customers);
       return;
     }
+    // Highlight selected company row and first cell
+    $('.company-row').removeClass('selected-row');
+    $('.company-row td:first-child').removeClass('selected-cell');
+    $(`.company-row[data-id="${id}"]`).addClass('selected-row');
+    $(`.company-row[data-id="${id}"] td:first-child`).addClass('selected-cell');
     currentCustomer = { ...cust }; // shallow copy
     editStep1Data = {
       company: cust.company,

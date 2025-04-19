@@ -904,24 +904,7 @@ $('#right-frame').on('click', '.expand-company-btn', function() {
   $(`#expand-row-${idx}`).toggle();
 });
 
-// Edit company details only (Step 1)
-$('#right-frame').off('click', '.edit-company-btn');
-$('#right-frame').on('click', '.edit-company-btn', function() {
-  const idx = $(this).data('idx');
-  const cust = customers[idx];
-  currentCustomer = cust;
-  editStep1Data = {
-    company: cust.company,
-    address: cust.address,
-    website: cust.website,
-    domains: normalizeDomains(cust.domains),
-    customerType: cust.customerType
-  };
-  editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
-    ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
-    : { keyPeople: [{ name: '', position: '', email: '', tel: '', brand: '' }] };
-  showEditCustomerStep1();
-});
+
 
 function handleEditCustomer() {
     const id = $(this).data('id');

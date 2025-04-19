@@ -240,6 +240,7 @@ function updateDomainButtons() {
       : [{ name: '', position: '', email: '', tel: '', brand: '' }];
 
     function renderKeyPeopleForms() {
+      let isAddUserMode = !!window.addUserCompanyId;
       return keyPeople.map((kp, idx) => {
         let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
         let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (slide1Data.domains && slide1Data.domains[0] ? slide1Data.domains[0] : '');
@@ -249,6 +250,10 @@ function updateDomainButtons() {
         } else {
           domainSelect = `<input type="text" value="${slide1Data.domains[0] || ''}" disabled class="keyperson-email-domain">`;
         }
+        // Remove 'Remove' button in add user mode
+        let removeBtn = (!isAddUserMode && keyPeople.length > 1)
+          ? `<button type="button" class="remove-keyperson" ${keyPeople.length === 1 ? 'disabled' : ''}>Remove</button>`
+          : '';
         return `
           <div class="keyperson-form" data-index="${idx}">
             <hr>
@@ -261,15 +266,28 @@ function updateDomainButtons() {
             </label><br>
             <label>Tel:<br><input type="text" class="person-tel" value="${kp.tel || ''}"></label><br>
             <label>Brand:<br><input type="text" class="person-brand" value="${kp.brand || ''}"></label><br>
-            <button type="button" class="remove-keyperson" ${keyPeople.length === 1 ? 'disabled' : ''}>Remove</button>
+            ${removeBtn}
           </div>
         `;
       }).join('');
     }
 
     let isAddUserMode = !!window.addUserCompanyId;
+    // Company info box
+    const companyInfoBox = `
+      <div class="company-info-box" style="background:#f6fafd; border:1px solid #d0e0f0; border-radius:8px; padding:12px 18px; margin-bottom:18px;">
+        <div><b>Company:</b> ${slide1Data.company || ''}</div>
+        <div><b>Address:</b> ${slide1Data.address || ''}</div>
+        <div><b>Website:</b> ${slide1Data.website || ''}</div>
+        <div><b>Domains:</b> ${(slide1Data.domains || []).join(', ')}</div>
+      </div>
+    `;
+    // Back button HTML for add user mode
+    const backBtnHtml = isAddUserMode ? '<button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>' : '';
     $('#right-frame').html(`
+      ${backBtnHtml}
       <h2>Create Customer - Step 2</h2>
+      ${companyInfoBox}
       <div id="keypeople-list">
         ${renderKeyPeopleForms()}
       </div>
@@ -279,6 +297,13 @@ function updateDomainButtons() {
         <button id="submit-slide2">${isAddUserMode ? 'Update' : 'Submit'}</button>
       </div>
     `);
+    // Add handler for back button in add user mode
+    if (isAddUserMode) {
+      $('#back-to-modify').off('click').on('click', function() {
+        window.addUserCompanyId = null;
+        showModify();
+      });
+    }
   }
 
 // Add event handlers for key people UI
@@ -922,6 +947,7 @@ function showEditCustomerStep2() {
   const hidePrev = keyPeople.length === 1 && window.editSingleKeyPersonMode;
 
   function renderKeyPeopleForms() {
+    let isAddUserMode = !!window.addUserCompanyId;
     return keyPeople.map((kp, idx) => {
       let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
       let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : '');
@@ -931,10 +957,10 @@ function showEditCustomerStep2() {
       } else {
         domainSelect = `<input type="text" value="${editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : ''}" disabled class="edit-keyperson-email-domain">`;
       }
-      // Always show the same Remove button for all key people if more than one
-      const removeBtn = keyPeople.length > 1
+      // Remove 'Remove' button in add user mode
+      let removeBtn = (!isAddUserMode && keyPeople.length > 1)
         ? `<button type="button" class="remove-edit-keyperson">Remove</button>`
-        : `<button type="button" class="remove-edit-keyperson" disabled>Remove</button>`;
+        : '';
       return `
         <div class="edit-keyperson-form" data-index="${idx}" style="border:1px solid #ccc; border-radius:8px; padding:18px 18px 10px 18px; margin-bottom:22px; background:#fafbfc; box-shadow:0 2px 8px #eee;">
           <div style="font-weight:bold; font-size:18px; margin-bottom:10px; color:#2a3b4c;">Key Person ${idx+1}</div>
@@ -977,10 +1003,20 @@ function showEditCustomerStep2() {
     );
   }
 
+  // Company info box
+  const companyInfoBox = `
+    <div class="company-info-box" style="background:#f6fafd; border:1px solid #d0e0f0; border-radius:8px; padding:12px 18px; margin-bottom:18px;">
+      <div><b>Company:</b> ${editStep1Data.company || ''}</div>
+      <div><b>Address:</b> ${editStep1Data.address || ''}</div>
+      <div><b>Website:</b> ${editStep1Data.website || ''}</div>
+      <div><b>Domains:</b> ${(editStep1Data.domains || []).join(', ')}</div>
+    </div>
+  `;
   // Render the form
   $('#right-frame').html(`
     <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
     <h2>Edit Customer - Step 2</h2>
+    ${companyInfoBox}
     <div id="edit-keypeople-list">
       ${renderKeyPeopleForms()}
     </div>

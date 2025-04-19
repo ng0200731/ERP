@@ -768,9 +768,11 @@ function renderSearchResultsWithKeyPeople(list) {
     $('.company-row td:first-child').removeClass('selected-cell');
     $(`.company-row[data-id="${window.expandedCompanyId}"]`).addClass('selected-row');
     $(`.company-row[data-id="${window.expandedCompanyId}"] td:first-child`).addClass('selected-cell');
+    // Highlight all key people rows for this company
+    $(`.keyperson-row[data-idx="${window.expandedCompanyId}"]`).addClass('selected-row');
+    $(`.keyperson-row[data-idx="${window.expandedCompanyId}"] td:first-child`).addClass('selected-cell');
+    // Optionally, still highlight the one being edited (if needed)
     if (typeof window.editSingleKeyPersonIdx !== 'undefined') {
-      $('.keyperson-row').removeClass('selected-row');
-      $('.keyperson-row td:first-child').removeClass('selected-cell');
       $(`.keyperson-row[data-idx="${window.expandedCompanyId}"][data-kpidx="${window.editSingleKeyPersonIdx}"]`).addClass('selected-row');
       $(`.keyperson-row[data-idx="${window.expandedCompanyId}"][data-kpidx="${window.editSingleKeyPersonIdx}"] td:first-child`).addClass('selected-cell');
     }

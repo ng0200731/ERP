@@ -547,7 +547,7 @@ function showModify() {
         <th>Company<br><input type="text" class="search-input" data-field="company"></th>
         <th>Address<br><input type="text" class="search-input" data-field="address"></th>
         <th>Website<br><input type="text" class="search-input" data-field="website"></th>
-        <th>Domains</th>
+        <th>Domains<br><input type="text" class="search-input" data-field="domains"></th>
         <th>Created</th>
         <th>Updated</th>
         <th>Action</th>
@@ -555,7 +555,7 @@ function showModify() {
       <tbody id="search-results"></tbody>
     </table>
   `);
-      renderSearchResultsWithKeyPeople(customers);
+  renderSearchResultsWithKeyPeople(customers);
 }
   
 function handleSearchInput() {
@@ -567,7 +567,8 @@ function handleSearchInput() {
   const filtered = customers.filter(c =>
     (!filters.company || c.company.toLowerCase().includes(filters.company)) &&
     (!filters.address || c.address.toLowerCase().includes(filters.address)) &&
-    (!filters.website || c.website.toLowerCase().includes(filters.website))
+    (!filters.website || c.website.toLowerCase().includes(filters.website)) &&
+    (!filters.domains || normalizeDomains(c.domains).some(d => d.toLowerCase().includes(filters.domains)))
   );
   renderSearchResultsWithKeyPeople(filtered);
 }

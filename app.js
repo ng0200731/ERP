@@ -298,7 +298,11 @@ function updateDomainButtons() {
           if (brandDb) {
             if (isMulti) {
               // Multi-select
-              const selected = Array.isArray(kp.brand) ? kp.brand : (kp.brand ? [kp.brand] : []);
+              const selected = Array.isArray(kp.brand)
+                ? kp.brand
+                : (typeof kp.brand === 'string' && kp.brand.includes(','))
+                  ? kp.brand.split(',').map(s => s.trim())
+                  : (kp.brand ? [kp.brand] : []);
               brandField = `<select class="person-brand" multiple style="height:60px;">${brandDb.fields.map(opt => `<option value="${opt.value}"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
             } else {
               // Single-select
@@ -1017,6 +1021,14 @@ function showEditCustomerStep1() {
         showCustomPopup('No changes detected.', true);
         return;
       }
+      // Require customer type
+      if (!$('#edit-customer-type-select').val()) {
+        showCustomPopup('Customer Type is required.', true);
+        $('#edit-customer-type-select').addClass('highlight-error');
+        return;
+      } else {
+        $('#edit-customer-type-select').removeClass('highlight-error');
+      }
       // Save edits
       editStep1Data.company = $('#edit-company').val().trim();
       editStep1Data.address = $('#edit-address').val().trim();
@@ -1088,7 +1100,11 @@ function showEditCustomerStep2() {
         if (brandDb) {
           if (isMulti) {
             // Multi-select
-            const selected = Array.isArray(kp.brand) ? kp.brand : (kp.brand ? [kp.brand] : []);
+            const selected = Array.isArray(kp.brand)
+              ? kp.brand
+              : (typeof kp.brand === 'string' && kp.brand.includes(','))
+                ? kp.brand.split(',').map(s => s.trim())
+                : (kp.brand ? [kp.brand] : []);
             brandField = `<select class="person-brand" multiple style="height:60px;">${brandDb.fields.map(opt => `<option value="${opt.value}"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
           } else {
             // Single-select

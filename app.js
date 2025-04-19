@@ -809,6 +809,7 @@ function renderSearchResultsWithKeyPeople(list) {
       address: cust.address,
       website: cust.website,
       domains: normalizeDomains(cust.domains),
+      customerType: cust.customerType
     };
     editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
       ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
@@ -831,6 +832,7 @@ function renderSearchResultsWithKeyPeople(list) {
       address: cust.address,
       website: cust.website,
       domains: normalizeDomains(cust.domains),
+      customerType: cust.customerType
     };
     const kp = (cust.keyPeople && cust.keyPeople[kpIdx]) ? cust.keyPeople[kpIdx] : { name: '', position: '', email: '', tel: '', brand: '' };
     console.log('[DEBUG] editing key person:', kp);
@@ -911,6 +913,7 @@ $('#right-frame').on('click', '.edit-company-btn', function() {
     address: cust.address,
     website: cust.website,
     domains: normalizeDomains(cust.domains),
+    customerType: cust.customerType
   };
   editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
     ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
@@ -928,6 +931,7 @@ function handleEditCustomer() {
     address: cust.address,
     website: cust.website,
     domains: normalizeDomains(cust.domains),
+    customerType: cust.customerType
   };
   editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
     ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
@@ -944,89 +948,119 @@ function showEditCustomerStep1() {
       </button>
     </div>
   `).join('');
+
+  // Fetch Customer Type options from backend
+  $.get('http://localhost:5000/option_databases', function(databases) {
+    const customerTypeDb = databases.find(db => db.name.toLowerCase() === 'customer type');
+    let customerTypeOptions = '';
+    if (customerTypeDb) {
+      customerTypeOptions = customerTypeDb.fields.map(opt => `<option value="${opt.value}"${editStep1Data.customerType === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('');
+    }
     $('#right-frame').html(`
-    <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
-    <h2>Edit Customer - Step 1</h2>
-    <label>Company Name:<br><input type="text" id="edit-company" value="${editStep1Data.company}"></label><br>
-    <label>Address:<br><input type="text" id="edit-address" value="${editStep1Data.address}"></label><br>
-    <label>Website:<br><input type="text" id="edit-website" value="${editStep1Data.website}"></label><br>
+      <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
+      <h2>Edit Customer - Step 1</h2>
+      <label>Company Name:<br><input type="text" id="edit-company" value="${editStep1Data.company}"></label><br>
+      <label>Address:<br><input type="text" id="edit-address" value="${editStep1Data.address}"></label><br>
+      <label>Website:<br><input type="text" id="edit-website" value="${editStep1Data.website}"></label><br>
       <label>Domains:<br>
-      <div class="domain-list" id="edit-domain-list">
-        ${domainInputs}
-      </div>
+        <div class="domain-list" id="edit-domain-list">
+          ${domainInputs}
+        </div>
       </label><br>
-    <button id="update-edit-step1" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Update</button>
-  `);
-  updateEditDomainButtons();
-  // Back button handler
-  $('#back-to-modify').off('click').on('click', function() {
-    showModify();
-  });
+      <div id="customer-type-row">
+        <label>Customer Type:<br>
+          <select id="edit-customer-type-select">
+            <option value="">-- Select --</option>
+            ${customerTypeOptions}
+          </select>
+        </label>
+      </div>
+      <button id="update-edit-step1" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Update</button>
+    `);
+    updateEditDomainButtons();
 
-  function isStep1Changed() {
-    if (!currentCustomer) return false;
-    const orig = currentCustomer;
-    const curr = {
-      company: $('#edit-company').val().trim(),
-      address: $('#edit-address').val().trim(),
-      website: $('#edit-website').val().trim(),
-      domains: $('#edit-domain-list .edit-domain-input').map(function() { return $(this).val().trim(); }).get().filter(Boolean)
-    };
-    const domainsEqual = Array.isArray(orig.domains) ?
-      JSON.stringify(orig.domains) === JSON.stringify(curr.domains) :
-      (typeof orig.domains === 'string' ? orig.domains.split(',').join(',') === curr.domains.join(',') : false);
-    return !(
-      orig.company === curr.company &&
-      orig.address === curr.address &&
-      orig.website === curr.website &&
-      domainsEqual
-    );
-  }
-
-  $('#right-frame').off('input change', '#edit-company, #edit-address, #edit-website, .edit-domain-input');
-  $('#right-frame').on('input change', '#edit-company, #edit-address, #edit-website, .edit-domain-input', function() {
-    const changed = isStep1Changed();
-    const btn = $('#update-edit-step1');
-    if (changed) {
-      btn.prop('disabled', false).css({opacity: 1, cursor: 'pointer'});
-    } else {
-      btn.prop('disabled', true).css({opacity: 0.5, cursor: 'not-allowed'});
+    // Restore previous selection if any
+    if (editStep1Data.customerType) {
+      $('#edit-customer-type-select').val(editStep1Data.customerType);
     }
-  });
+    // Save selection on change
+    $('#edit-customer-type-select').off('change').on('change', function() {
+      editStep1Data.customerType = $(this).val();
+    });
 
-  $('#right-frame').off('click', '#update-edit-step1');
-  $('#right-frame').on('click', '#update-edit-step1', function() {
-    if (!isStep1Changed()) {
-      showCustomPopup('No changes detected.', true);
-      return;
+    $('#back-to-modify').off('click').on('click', function() {
+      showModify();
+    });
+
+    function isStep1Changed() {
+      if (!currentCustomer) return false;
+      const orig = currentCustomer;
+      const curr = {
+        company: $('#edit-company').val().trim(),
+        address: $('#edit-address').val().trim(),
+        website: $('#edit-website').val().trim(),
+        domains: $('#edit-domain-list .edit-domain-input').map(function() { return $(this).val().trim(); }).get().filter(Boolean),
+        customerType: $('#edit-customer-type-select').val()
+      };
+      const domainsEqual = Array.isArray(orig.domains) ?
+        JSON.stringify(orig.domains) === JSON.stringify(curr.domains) :
+        (typeof orig.domains === 'string' ? orig.domains.split(',').join(',') === curr.domains.join(',') : false);
+      return !(
+        orig.company === curr.company &&
+        orig.address === curr.address &&
+        orig.website === curr.website &&
+        domainsEqual &&
+        (orig.customerType || '') === (curr.customerType || '')
+      );
     }
-    // Save edits
-    editStep1Data.company = $('#edit-company').val().trim();
-    editStep1Data.address = $('#edit-address').val().trim();
-    editStep1Data.website = $('#edit-website').val().trim();
-    editStep1Data.domains = $('#edit-domain-list .edit-domain-input').map(function() { return $(this).val().trim(); }).get().filter(Boolean);
-    // Prepare customer object for update (include keyPeople to preserve them)
-    const id = currentCustomer.id;
-    const cust = customers.find(c => c.id == id);
-    const customer = {
-      company: editStep1Data.company,
-      address: editStep1Data.address,
-      website: editStep1Data.website,
-      domains: editStep1Data.domains,
-      keyPeople: Array.isArray(cust.keyPeople) ? cust.keyPeople : []
-    };
-    // Send update to backend
-    $.ajax({
-      url: 'http://localhost:5000/customers/' + id,
-      type: 'PUT',
-      contentType: 'application/json',
-      data: JSON.stringify(customer),
-      success: function() {
-        fetchCustomers(function() {
-          showModify();
-          showCustomPopup('Record updated!');
-        });
+
+    $('#right-frame').off('input change', '#edit-company, #edit-address, #edit-website, .edit-domain-input, #edit-customer-type-select');
+    $('#right-frame').on('input change', '#edit-company, #edit-address, #edit-website, .edit-domain-input, #edit-customer-type-select', function() {
+      const changed = isStep1Changed();
+      const btn = $('#update-edit-step1');
+      if (changed) {
+        btn.prop('disabled', false).css({opacity: 1, cursor: 'pointer'});
+      } else {
+        btn.prop('disabled', true).css({opacity: 0.5, cursor: 'not-allowed'});
       }
+    });
+
+    $('#right-frame').off('click', '#update-edit-step1');
+    $('#right-frame').on('click', '#update-edit-step1', function() {
+      if (!isStep1Changed()) {
+        showCustomPopup('No changes detected.', true);
+        return;
+      }
+      // Save edits
+      editStep1Data.company = $('#edit-company').val().trim();
+      editStep1Data.address = $('#edit-address').val().trim();
+      editStep1Data.website = $('#edit-website').val().trim();
+      editStep1Data.domains = $('#edit-domain-list .edit-domain-input').map(function() { return $(this).val().trim(); }).get().filter(Boolean);
+      editStep1Data.customerType = $('#edit-customer-type-select').val();
+      // Prepare customer object for update (include keyPeople to preserve them)
+      const id = currentCustomer.id;
+      const cust = customers.find(c => c.id == id);
+      const customer = {
+        company: editStep1Data.company,
+        address: editStep1Data.address,
+        website: editStep1Data.website,
+        domains: editStep1Data.domains,
+        customerType: editStep1Data.customerType,
+        keyPeople: Array.isArray(cust.keyPeople) ? cust.keyPeople : []
+      };
+      // Send update to backend
+      $.ajax({
+        url: 'http://localhost:5000/customers/' + id,
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(customer),
+        success: function() {
+          fetchCustomers(function() {
+            showModify();
+            showCustomPopup('Record updated!');
+          });
+        }
+      });
     });
   });
 }
@@ -1248,6 +1282,7 @@ $('#right-frame').on('click', '.edit-keyperson-btn', function() {
     address: cust.address,
     website: cust.website,
     domains: normalizeDomains(cust.domains),
+    customerType: cust.customerType
   };
   const kp = (cust.keyPeople && cust.keyPeople[kpIdx]) ? cust.keyPeople[kpIdx] : { name: '', position: '', email: '', tel: '', brand: '' };
   editStep2Data = { keyPeople: [ { ...kp } ] };

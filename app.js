@@ -816,9 +816,12 @@ function renderSearchResultsWithKeyPeople(list) {
   // Attach handler for key person Edit button
   $('#search-results').off('click', '.edit-keyperson-btn');
   $('#search-results').on('click', '.edit-keyperson-btn', function() {
+    console.log('[DEBUG] .edit-keyperson-btn clicked', this, $(this).data());
     const companyId = $(this).data('id');
     const kpIdx = $(this).data('kpidx');
+    console.log('[DEBUG] companyId:', companyId, 'kpIdx:', kpIdx);
     const cust = customers.find(c => c.id == companyId);
+    console.log('[DEBUG] found customer:', cust);
     currentCustomer = cust;
     editStep1Data = {
       company: cust.company,
@@ -827,6 +830,7 @@ function renderSearchResultsWithKeyPeople(list) {
       domains: normalizeDomains(cust.domains),
     };
     const kp = (cust.keyPeople && cust.keyPeople[kpIdx]) ? cust.keyPeople[kpIdx] : { name: '', position: '', email: '', tel: '', brand: '' };
+    console.log('[DEBUG] editing key person:', kp);
     editStep2Data = { keyPeople: [ { ...kp } ] };
     window.editSingleKeyPersonMode = true;
     window.editSingleKeyPersonIdx = kpIdx;
@@ -1027,195 +1031,203 @@ function showEditCustomerStep1() {
 function showEditCustomerStep2() {
   console.log('showEditCustomerStep2 called', editStep2Data);
   console.log('DEBUG at start of showEditCustomerStep2, editStep1Data:', editStep1Data);
-  // Use array for key people
-  let keyPeople = Array.isArray(editStep2Data.keyPeople) && editStep2Data.keyPeople.length > 0
-    ? editStep2Data.keyPeople
-    : [editStep2Data && Object.keys(editStep2Data).length > 0 ? editStep2Data : { name: '', position: '', email: '', tel: '', brand: '' }];
-
-  // If only one key person and we are in "edit single key person" mode, hide the Previous button
-  const hidePrev = keyPeople.length === 1 && window.editSingleKeyPersonMode;
-
-  function renderKeyPeopleForms() {
-    let isAddUserMode = !!window.addUserCompanyId;
-    return keyPeople.map((kp, idx) => {
-      let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
-      let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : '');
-      let domainSelect = '';
-      if (editStep1Data.domains.length > 1) {
-        domainSelect = `<select class="edit-keyperson-email-domain">${editStep1Data.domains.map(d => `<option value="${d}"${d===emailDomain?' selected':''}>${d}</option>`).join('')}</select>`;
-      } else {
-        domainSelect = `<input type="text" value="${editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : ''}" disabled class="edit-keyperson-email-domain">`;
-      }
-      // Remove 'Remove' button in add user mode
-      let removeBtn = (!isAddUserMode && keyPeople.length > 1)
-        ? `<button type="button" class="remove-edit-keyperson">Remove</button>`
-        : '';
-      // Brand field as dropdown or multi-select
-      let brandField = '';
-      if (brandDb) {
-        if (isMulti) {
-          // Multi-select
-          const selected = Array.isArray(kp.brand) ? kp.brand : (kp.brand ? [kp.brand] : []);
-          brandField = `<select class="person-brand" multiple style="height:60px;">${brandDb.fields.map(opt => `<option value="${opt.value}"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
-        } else {
-          // Single-select
-          brandField = `<select class="person-brand"><option value="">-- Select --</option>${brandDb.fields.map(opt => `<option value="${opt.value}"${kp.brand === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
-        }
-      } else {
-        // Fallback to text input if no brandDb
-        brandField = `<input type="text" class="person-brand" value="${kp.brand || ''}">`;
-      }
-      return `
-        <div class="edit-keyperson-form" data-index="${idx}" style="border:1px solid #ccc; border-radius:8px; padding:18px 18px 10px 18px; margin-bottom:22px; background:#fafbfc; box-shadow:0 2px 8px #eee;">
-          <div style="font-weight:bold; font-size:18px; margin-bottom:10px; color:#2a3b4c;">Key Person ${idx+1}</div>
-          <div style="display:flex; flex-wrap:wrap; gap:18px 3%;">
-            <div style="flex:1 1 45%; min-width:220px;"><label>Name:<br><input type="text" class="edit-person-name" value="${kp.name || ''}"></label></div>
-            <div style="flex:1 1 45%; min-width:220px;"><label>Position:<br><input type="text" class="edit-person-position" value="${kp.position || ''}"></label></div>
-            <div style="flex:1 1 45%; min-width:220px;"><label>Email Prefix:<br><input type="text" class="edit-email-prefix" placeholder="prefix" value="${emailPrefix}"></label></div>
-            <div style="flex:1 1 45%; min-width:220px;"><label>Email Domain:<br>${domainSelect}</label></div>
-            <div style="flex:1 1 45%; min-width:220px;"><label>Tel:<br><input type="text" class="edit-person-tel" value="${kp.tel || ''}"></label></div>
-            <div style="flex:1 1 45%; min-width:220px;"><label>Brand:<br>${brandField}</label></div>
-          </div>
-          <div style="margin-top:10px; text-align:right;">
-            ${removeBtn}
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  // Compare current form data to original key person data
-  function isEditChanged() {
-    if (!currentCustomer) return false;
-    // Only compare the first key person
-    const origKP = Array.isArray(currentCustomer.keyPeople) ? currentCustomer.keyPeople : [];
-    const currKP = Array.isArray(editStep2Data.keyPeople) ? editStep2Data.keyPeople : [];
-    if (origKP.length === 0 || currKP.length === 0) return true;
-    // Find the original key person by email (or index if not found)
-    let origIdx = 0;
-    if (window.editSingleKeyPersonMode && window.editSingleKeyPersonIdx !== undefined) {
-      origIdx = window.editSingleKeyPersonIdx;
+  // Fetch Brand options from backend
+  $.get('http://localhost:5000/option_databases', function(databases) {
+    const brandDb = databases.find(db => db.name.toLowerCase().includes('brand'));
+    let isMulti = false;
+    if (brandDb) {
+      isMulti = !!brandDb.is_multiselect;
     }
-    const orig = origKP[origIdx] || {};
-    const curr = currKP[0];
-    return !(
-      orig.name === curr.name &&
-      orig.position === curr.position &&
-      orig.email === curr.email &&
-      orig.tel === curr.tel &&
-      orig.brand === curr.brand
-    );
-  }
+    // Use array for key people
+    let keyPeople = Array.isArray(editStep2Data.keyPeople) && editStep2Data.keyPeople.length > 0
+      ? editStep2Data.keyPeople
+      : [editStep2Data && Object.keys(editStep2Data).length > 0 ? editStep2Data : { name: '', position: '', email: '', tel: '', brand: '' }];
 
-  // Company info box
-  const companyInfoBox = `
-    <div class="company-info-box" style="background:#f6fafd; border:1px solid #d0e0f0; border-radius:8px; padding:12px 18px; margin-bottom:18px;">
-      <div><b>Company:</b> ${editStep1Data.company || ''}</div>
-      <div><b>Address:</b> ${editStep1Data.address || ''}</div>
-      <div><b>Website:</b> ${editStep1Data.website || ''}</div>
-      <div><b>Domains:</b> ${(editStep1Data.domains || []).join(', ')}</div>
-    </div>
-  `;
-  // Render the form
-  $('#right-frame').html(`
-    <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
-    <h2>Edit Customer - Step 2</h2>
-    ${companyInfoBox}
-    <div id="edit-keypeople-list">
-      ${renderKeyPeopleForms()}
-    </div>
-    <div class="slide-nav">
-      ${hidePrev ? '' : '<button id="prev-edit-step2">Previous</button>'}
-      <button id="update-customer" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Update</button>
-    </div>
-  `);
+    // If only one key person and we are in "edit single key person" mode, hide the Previous button
+    const hidePrev = keyPeople.length === 1 && window.editSingleKeyPersonMode;
 
-  // Back button handler
-  $('#back-to-modify').off('click').on('click', function() {
-    showModify();
-  });
-
-  // Set update button state
-  function updateButtonState() {
-    const changed = isEditChanged();
-    const btn = $('#update-customer');
-    if (changed) {
-      btn.prop('disabled', false).css({opacity: 1, cursor: 'pointer'});
-    } else {
-      btn.prop('disabled', true).css({opacity: 0.5, cursor: 'not-allowed'});
-    }
-  }
-  updateButtonState();
-
-  // Listen for changes to enable/disable update button
-  $('#right-frame').off('input change', '.edit-keyperson-form input, .edit-keyperson-form select');
-  $('#right-frame').on('input change', '.edit-keyperson-form input, .edit-keyperson-form select', function() {
-    // Update editStep2Data.keyPeople from form
-    const forms = $('.edit-keyperson-form');
-    editStep2Data.keyPeople = [];
-    forms.each(function() {
-      const $form = $(this);
-      const name = ($form.find('.edit-person-name').val() || '').trim();
-      const position = ($form.find('.edit-person-position').val() || '').trim();
-      const emailPrefix = ($form.find('.edit-email-prefix').val() || '').trim();
-      let domain = '';
-      if ($form.find('.edit-keyperson-email-domain').is('select')) {
-        domain = ($form.find('.edit-keyperson-email-domain').val() || '').trim();
-      } else {
-        domain = ($form.find('.edit-keyperson-email-domain').val() || '').trim();
-      }
-      const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
-      const tel = ($form.find('.edit-person-tel').val() || '').trim();
-      let brand = '';
-      if (brandDb) {
-        if (isMulti) {
-          brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
+    function renderKeyPeopleForms() {
+      let isAddUserMode = !!window.addUserCompanyId;
+      return keyPeople.map((kp, idx) => {
+        let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
+        let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : '');
+        let domainSelect = '';
+        if (editStep1Data.domains.length > 1) {
+          domainSelect = `<select class="edit-keyperson-email-domain">${editStep1Data.domains.map(d => `<option value="${d}"${d===emailDomain?' selected':''}>${d}</option>`).join('')}</select>`;
         } else {
-          brand = $form.find('.person-brand').val();
+          domainSelect = `<input type="text" value="${editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : ''}" disabled class="edit-keyperson-email-domain">`;
         }
-      } else {
-        brand = $form.find('.person-brand').val().trim();
+        // Remove 'Remove' button in add user mode
+        let removeBtn = (!isAddUserMode && keyPeople.length > 1)
+          ? `<button type="button" class="remove-edit-keyperson">Remove</button>`
+          : '';
+        // Brand field as dropdown or multi-select
+        let brandField = '';
+        if (brandDb) {
+          if (isMulti) {
+            // Multi-select
+            const selected = Array.isArray(kp.brand) ? kp.brand : (kp.brand ? [kp.brand] : []);
+            brandField = `<select class="person-brand" multiple style="height:60px;">${brandDb.fields.map(opt => `<option value="${opt.value}"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
+          } else {
+            // Single-select
+            brandField = `<select class="person-brand"><option value="">-- Select --</option>${brandDb.fields.map(opt => `<option value="${opt.value}"${kp.brand === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
+          }
+        } else {
+          // Fallback to text input if no brandDb
+          brandField = `<input type="text" class="person-brand" value="${kp.brand || ''}">`;
+        }
+        return `
+          <div class="edit-keyperson-form" data-index="${idx}" style="border:1px solid #ccc; border-radius:8px; padding:18px 18px 10px 18px; margin-bottom:22px; background:#fafbfc; box-shadow:0 2px 8px #eee;">
+            <div style="font-weight:bold; font-size:18px; margin-bottom:10px; color:#2a3b4c;">Key Person ${idx+1}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:18px 3%;">
+              <div style="flex:1 1 45%; min-width:220px;"><label>Name:<br><input type="text" class="edit-person-name" value="${kp.name || ''}"></label></div>
+              <div style="flex:1 1 45%; min-width:220px;"><label>Position:<br><input type="text" class="edit-person-position" value="${kp.position || ''}"></label></div>
+              <div style="flex:1 1 45%; min-width:220px;"><label>Email Prefix:<br><input type="text" class="edit-email-prefix" placeholder="prefix" value="${emailPrefix}"></label></div>
+              <div style="flex:1 1 45%; min-width:220px;"><label>Email Domain:<br>${domainSelect}</label></div>
+              <div style="flex:1 1 45%; min-width:220px;"><label>Tel:<br><input type="text" class="edit-person-tel" value="${kp.tel || ''}"></label></div>
+              <div style="flex:1 1 45%; min-width:220px;"><label>Brand:<br>${brandField}</label></div>
+            </div>
+            <div style="margin-top:10px; text-align:right;">
+              ${removeBtn}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Compare current form data to original key person data
+    function isEditChanged() {
+      if (!currentCustomer) return false;
+      // Only compare the first key person
+      const origKP = Array.isArray(currentCustomer.keyPeople) ? currentCustomer.keyPeople : [];
+      const currKP = Array.isArray(editStep2Data.keyPeople) ? editStep2Data.keyPeople : [];
+      if (origKP.length === 0 || currKP.length === 0) return true;
+      // Find the original key person by email (or index if not found)
+      let origIdx = 0;
+      if (window.editSingleKeyPersonMode && window.editSingleKeyPersonIdx !== undefined) {
+        origIdx = window.editSingleKeyPersonIdx;
       }
-      editStep2Data.keyPeople.push({ name, position, email, tel, brand });
+      const orig = origKP[origIdx] || {};
+      const curr = currKP[0];
+      return !(
+        orig.name === curr.name &&
+        orig.position === curr.position &&
+        orig.email === curr.email &&
+        orig.tel === curr.tel &&
+        orig.brand === curr.brand
+      );
+    }
+
+    // Company info box
+    const companyInfoBox = `
+      <div class="company-info-box" style="background:#f6fafd; border:1px solid #d0e0f0; border-radius:8px; padding:12px 18px; margin-bottom:18px;">
+        <div><b>Company:</b> ${editStep1Data.company || ''}</div>
+        <div><b>Address:</b> ${editStep1Data.address || ''}</div>
+        <div><b>Website:</b> ${editStep1Data.website || ''}</div>
+        <div><b>Domains:</b> ${(editStep1Data.domains || []).join(', ')}</div>
+      </div>
+    `;
+    // Render the form
+    $('#right-frame').html(`
+      <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
+      <h2>Edit Customer - Step 2</h2>
+      ${companyInfoBox}
+      <div id="edit-keypeople-list">
+        ${renderKeyPeopleForms()}
+      </div>
+      <div class="slide-nav">
+        ${hidePrev ? '' : '<button id="prev-edit-step2">Previous</button>'}
+        <button id="update-customer" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Update</button>
+      </div>
+    `);
+
+    // Back button handler
+    $('#back-to-modify').off('click').on('click', function() {
+      showModify();
     });
+
+    // Set update button state
+    function updateButtonState() {
+      const changed = isEditChanged();
+      const btn = $('#update-customer');
+      if (changed) {
+        btn.prop('disabled', false).css({opacity: 1, cursor: 'pointer'});
+      } else {
+        btn.prop('disabled', true).css({opacity: 0.5, cursor: 'not-allowed'});
+      }
+    }
     updateButtonState();
-  });
 
-  // Update button click logic
-  $('#right-frame').off('click', '#update-customer');
-  $('#right-frame').on('click', '#update-customer', function() {
-    if (!isEditChanged()) {
-      showCustomPopup('No changes detected.', true);
-      return;
-    }
-    // Validate all key people
-    let problems = [];
-    const keyPeople = editStep2Data.keyPeople;
-    keyPeople.forEach(function(kp) {
-      if (!kp.name) problems.push('Name is required');
-      if (!kp.position) problems.push('Position is required');
-      if (!kp.email) problems.push('Email is required');
-      if (!kp.tel) problems.push('Tel is required');
-      if (!kp.brand) problems.push('Brand is required');
+    // Listen for changes to enable/disable update button
+    $('#right-frame').off('input change', '.edit-keyperson-form input, .edit-keyperson-form select');
+    $('#right-frame').on('input change', '.edit-keyperson-form input, .edit-keyperson-form select', function() {
+      // Update editStep2Data.keyPeople from form
+      const forms = $('.edit-keyperson-form');
+      editStep2Data.keyPeople = [];
+      forms.each(function() {
+        const $form = $(this);
+        const name = ($form.find('.edit-person-name').val() || '').trim();
+        const position = ($form.find('.edit-person-position').val() || '').trim();
+        const emailPrefix = ($form.find('.edit-email-prefix').val() || '').trim();
+        let domain = '';
+        if ($form.find('.edit-keyperson-email-domain').is('select')) {
+          domain = ($form.find('.edit-keyperson-email-domain').val() || '').trim();
+        } else {
+          domain = ($form.find('.edit-keyperson-email-domain').val() || '').trim();
+        }
+        const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
+        const tel = ($form.find('.edit-person-tel').val() || '').trim();
+        let brand = '';
+        if (brandDb) {
+          if (isMulti) {
+            brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
+          } else {
+            brand = $form.find('.person-brand').val();
+          }
+        } else {
+          brand = $form.find('.person-brand').val().trim();
+        }
+        editStep2Data.keyPeople.push({ name, position, email, tel, brand });
+      });
+      updateButtonState();
     });
-    if (problems.length > 0) {
-      showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
-      return;
-    }
-    const now = new Date().toISOString().slice(0,16).replace('T',' ');
-    const id = currentCustomer.id;
-    const customer = {
-      company: editStep1Data.company,
-      address: editStep1Data.address,
-      website: editStep1Data.website,
-      domains: editStep1Data.domains,
-      updated: now,
-      keyPeople: keyPeople
-    };
-    updateCustomer(id, customer, function() {
-      fetchCustomers(function() {
-        showCustomPopup('Customer updated!');
-        showModify();
+
+    // Update button click logic
+    $('#right-frame').off('click', '#update-customer');
+    $('#right-frame').on('click', '#update-customer', function() {
+      if (!isEditChanged()) {
+        showCustomPopup('No changes detected.', true);
+        return;
+      }
+      // Validate all key people
+      let problems = [];
+      const keyPeople = editStep2Data.keyPeople;
+      keyPeople.forEach(function(kp) {
+        if (!kp.name) problems.push('Name is required');
+        if (!kp.position) problems.push('Position is required');
+        if (!kp.email) problems.push('Email is required');
+        if (!kp.tel) problems.push('Tel is required');
+        if (!kp.brand) problems.push('Brand is required');
+      });
+      if (problems.length > 0) {
+        showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
+        return;
+      }
+      const now = new Date().toISOString().slice(0,16).replace('T',' ');
+      const id = currentCustomer.id;
+      const customer = {
+        company: editStep1Data.company,
+        address: editStep1Data.address,
+        website: editStep1Data.website,
+        domains: editStep1Data.domains,
+        updated: now,
+        keyPeople: keyPeople
+      };
+      updateCustomer(id, customer, function() {
+        fetchCustomers(function() {
+          showCustomPopup('Customer updated!');
+          showModify();
+        });
       });
     });
   });

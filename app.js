@@ -177,7 +177,7 @@ $(function() {
       const addresses = ['123 Main St', '456 Elm Ave', '789 Oak Blvd', '101 Maple Dr', '202 Pine Ln'];
       const websites = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com'];
       const idx = Math.floor(Math.random() * companies.length);
-      const company = companies[idx];
+      const company = '(dummy) ' + companies[idx];
       const address = addresses[idx];
       const website = websites[idx];
       const allDomains = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com', 'example.com'];
@@ -398,7 +398,7 @@ function updateDomainButtons() {
         const randomDomains = (slide1Data.domains && slide1Data.domains.length > 0) ? slide1Data.domains : ['example.com'];
         $('.keyperson-form').each(function(i) {
           const $form = $(this);
-          $form.find('.person-name').val(randomNames[Math.floor(Math.random()*randomNames.length)] + ' ' + (Math.floor(Math.random()*100)));
+          $form.find('.person-name').val('(dummy) ' + randomNames[Math.floor(Math.random()*randomNames.length)] + ' ' + (Math.floor(Math.random()*100)));
           $form.find('.person-position').val(randomPositions[Math.floor(Math.random()*randomPositions.length)]);
           $form.find('.email-prefix').val('user' + Math.floor(Math.random()*1000));
           $form.find('.keyperson-email-domain').val(randomDomains[Math.floor(Math.random()*randomDomains.length)]);
@@ -1714,18 +1714,15 @@ function renderDbOptionsArea(db) {
 }
 
 // ... existing code ...
-    // Dummy fill handler for Step 1
+    // Dummy fill handler for Step 1 (must be after HTML is rendered)
     $('#dummy-fill-btn-step1').off('click').on('click', function() {
-      // Dummy data arrays
       const companies = ['Acme Corp', 'Globex Inc', 'Umbrella LLC', 'Wayne Enterprises', 'Stark Industries'];
       const addresses = ['123 Main St', '456 Elm Ave', '789 Oak Blvd', '101 Maple Dr', '202 Pine Ln'];
       const websites = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com'];
-      // Pick random dummy data
       const idx = Math.floor(Math.random() * companies.length);
-      const company = companies[idx];
+      const company = '(dummy) ' + companies[idx];
       const address = addresses[idx];
       const website = websites[idx];
-      // Domains: 1-2 random domains
       const allDomains = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com', 'example.com'];
       const domainCount = 1 + Math.floor(Math.random() * 2);
       const domains = [];
@@ -1733,21 +1730,16 @@ function renderDbOptionsArea(db) {
         const d = allDomains[Math.floor(Math.random() * allDomains.length)];
         if (!domains.includes(d)) domains.push(d);
       }
-      // Set values in the form
       $('#company-name').val(company);
       $('#address').val(address);
       $('#website').val(website);
-      // Remove all but one domain input
       $('#domain-list .domain-item').slice(1).remove();
-      // Set first domain
       $('#domain-list .domain-item').first().find('.domain-input').val(domains[0]);
-      // Add more domain fields if needed
       for (let i = 1; i < domains.length; i++) {
         addDomainField();
         $('#domain-list .domain-item').last().find('.domain-input').val(domains[i]);
       }
       updateDomainButtons();
-      // Customer Type: pick a random option (not empty)
       const $typeSelect = $('#customer-type-select');
       const opts = $typeSelect.find('option').not('[value=""]');
       if (opts.length > 0) {

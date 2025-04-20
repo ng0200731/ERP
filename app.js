@@ -58,7 +58,10 @@ $(function() {
   
     // Delegated events for dynamic content
     $('#right-frame').on('click', '#next-slide1', handleNextSlide1);
-    $('#right-frame').on('click', '#prev-slide2', showCreateSlide1);
+    $('#right-frame').on('click', '#prev-slide2', function() {
+      // Do not reset slide1Data here; just show the form with current data
+      showCreateSlide1();
+    });
     $('#right-frame').on('click', '#submit-slide2', handleSubmitSlide2);
     $('#right-frame').on('click', '.add-domain', addDomainField);
     $('#right-frame').on('click', '.remove-domain', removeDomainField);
@@ -203,6 +206,8 @@ $(function() {
         const randType = opts.eq(Math.floor(Math.random() * opts.length)).val();
         $typeSelect.val(randType).trigger('change');
       }
+      // Reset all warning highlights
+      $('#company-name, #address, #website, .domain-input, #customer-type-select').removeClass('highlight-error');
     });
   });
 }
@@ -289,11 +294,23 @@ function updateDomainButtons() {
     } else {
       $('#customer-type-select').removeClass('highlight-error');
     }
+    // Check for duplicate domains in the database
+    const allExistingDomains = customers.flatMap(c => Array.isArray(c.domains) ? c.domains : (typeof c.domains === 'string' ? c.domains.split(',').map(d => d.trim()) : []));
+    const duplicateDomains = domains.filter(d => allExistingDomains.includes(d));
+    if (duplicateDomains.length > 0) {
+      problems.push('Domain(s) already exist in the database: ' + duplicateDomains.join(', '));
+      $('.domain-input').each(function() {
+        if (duplicateDomains.includes($(this).val().trim())) {
+          $(this).addClass('highlight-error');
+        }
+      });
+    }
     if (problems.length > 0) {
       showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
       return false; // Prevent going to page 2
     }
     slide1Data = { company, address, website, domains, customerType };
+    // Do not reset slide2Data.keyPeople here; preserve it
     showCreateSlide2();
   }
   
@@ -337,10 +354,10 @@ function updateDomainButtons() {
                 : (typeof kp.brand === 'string' && kp.brand.includes(','))
                   ? kp.brand.split(',').map(s => s.trim())
                   : (kp.brand ? [kp.brand] : []);
-              brandField = `<select class="person-brand" multiple style="height:60px;">${brandDb.fields.map(opt => `<option value="${opt.value}"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
+              brandField = `<select class=\"person-brand\" multiple style=\"height:120px;\">${brandDb.fields.map(opt => `<option value=\"${opt.value}\"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
             } else {
               // Single-select
-              brandField = `<select class="person-brand"><option value="">-- Select --</option>${brandDb.fields.map(opt => `<option value="${opt.value}"${kp.brand === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
+              brandField = `<select class=\"person-brand\" style=\"height:120px;\"><option value=\"\">-- Select --</option>${brandDb.fields.map(opt => `<option value=\"${opt.value}\"${kp.brand === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
             }
           } else {
             // Fallback to text input if no brandDb
@@ -433,9 +450,10 @@ function updateDomainButtons() {
           showModify();
         });
       }
-      // Save key people data on input/select
+      // Save key people data on input/select (move inside AJAX callback for brandDb/isMulti access)
       $('#right-frame').off('input change', '.keyperson-form input, .keyperson-form select');
       $('#right-frame').on('input change', '.keyperson-form input, .keyperson-form select', function() {
+        $(this).removeClass('highlight-error');
         const forms = $('.keyperson-form');
         slide2Data.keyPeople = [];
         forms.each(function() {
@@ -485,6 +503,7 @@ $(function() {
   });
   // Save key people data on input
   $('#right-frame').on('input', '.keyperson-form input, .keyperson-form select', function() {
+    $(this).removeClass('highlight-error');
     const forms = $('.keyperson-form');
     slide2Data.keyPeople = [];
     forms.each(function() {
@@ -583,16 +602,30 @@ handleSubmitSlide2 = function() {
       } else {
         brand = $form.find('.person-brand').val().trim();
       }
-      if (!name) problems.push('Name is required');
-      if (!position) problems.push('Position is required');
-      if (!emailPrefix) problems.push('Email prefix is required');
-      if (!tel) problems.push('Tel is required');
-      if (!brand || (Array.isArray(brand) && brand.length === 0)) problems.push('Brand is required');
+      if (!name) {
+        problems.push('Name is required');
+        $form.find('.person-name').addClass('highlight-error');
+      }
+      if (!position) {
+        problems.push('Position is required');
+        $form.find('.person-position').addClass('highlight-error');
+      }
+      if (!emailPrefix) {
+        problems.push('Email prefix is required');
+        $form.find('.email-prefix').addClass('highlight-error');
+      }
+      if (!tel) {
+        problems.push('Tel is required');
+        $form.find('.person-tel').addClass('highlight-error');
+      }
+      if (!brand || (Array.isArray(brand) && brand.length === 0)) {
+        problems.push('Brand is required');
+        $form.find('.person-brand').addClass('highlight-error');
+      }
       keyPeople.push({ name, position, email, tel, brand });
     });
     if (problems.length > 0) {
       showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
-      console.log('Validation failed:', problems);
       return;
     }
     if (window.addUserCompanyId) {
@@ -1323,14 +1356,14 @@ function showEditCustomerStep2() {
     // Save key people data on input/select (fix selector to .edit-keyperson-form ...)
     $('#right-frame').off('input change', '.edit-keyperson-form input, .edit-keyperson-form select');
     $('#right-frame').on('input change', '.edit-keyperson-form input, .edit-keyperson-form select', function() {
-      console.log('[DEBUG] input/change detected in Edit Customer - Step 2');
+      $(this).removeClass('highlight-error');
       const forms = $('.edit-keyperson-form');
       editStep2Data.keyPeople = [];
       forms.each(function() {
         const $form = $(this);
-        const name = ($form.find('.edit-person-name').val() || '').trim();
-        const position = ($form.find('.edit-person-position').val() || '').trim();
-        const emailPrefix = ($form.find('.edit-email-prefix').val() || '').trim();
+        const name = $form.find('.edit-person-name').val().trim();
+        const position = $form.find('.edit-person-position').val().trim();
+        const emailPrefix = $form.find('.edit-email-prefix').val().trim();
         let domain = '';
         if ($form.find('.edit-keyperson-email-domain').is('select')) {
           domain = ($form.find('.edit-keyperson-email-domain').val() || '').trim();
@@ -1746,5 +1779,7 @@ function renderDbOptionsArea(db) {
         const randType = opts.eq(Math.floor(Math.random() * opts.length)).val();
         $typeSelect.val(randType).trigger('change');
       }
+      // Reset all warning highlights
+      $('#company-name, #address, #website, .domain-input, #customer-type-select').removeClass('highlight-error');
     });
 // ... existing code ...

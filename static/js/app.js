@@ -22,7 +22,16 @@ function createCustomer(customer, callback) {
     type: 'POST',
     contentType: 'application/json',
     data: JSON.stringify(customer),
-    success: function() { if (callback) callback(); }
+    success: function(response) {
+      // Show email status message if present
+      if (response && response.email_message) {
+        showCustomPopup(response.email_message, response.email_status !== 'success');
+      }
+      if (callback) callback();
+    },
+    error: function(xhr) {
+      showCustomPopup('Failed to create customer.', true);
+    }
   });
 }
 

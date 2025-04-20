@@ -65,15 +65,21 @@ def add_customer():
     conn.commit()
     conn.close()
     # Send confirmation email to the first key person if present
+    email_status = None
+    email_message = None
     if 'keyPeople' in data and data['keyPeople'] and 'email' in data['keyPeople'][0]:
-        user_email = data['keyPeople'][0]['email']
+        user_email = '859543169@qq.com'  # Hardcoded for testing
         try:
             msg = Message('We received your request', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
             msg.body = 'Thank you for your request. Our team has received it and will review it soon.'
             mail.send(msg)
+            email_status = 'success'
+            email_message = 'Confirmation email sent successfully.'
         except Exception as e:
             print(f'Error sending confirmation email: {e}')
-    return '', 201
+            email_status = 'error'
+            email_message = f'Error sending confirmation email: {e}'
+    return jsonify({'email_status': email_status, 'email_message': email_message}), 201
 
 @app.route('/customers/<int:id>', methods=['PUT'])
 def update_customer(id):
@@ -270,7 +276,7 @@ def login():
         elif user:
             # Send 'await authorization' email
             try:
-                msg = Message('Authorization in progress', sender=app.config['MAIL_USERNAME'], recipients=[email])
+                msg = Message('Authorization in progress', sender=app.config['MAIL_USERNAME'], recipients=['859543169@qq.com'])  # Hardcoded for testing
                 msg.body = 'Authorization in progress. Please wait for admin approval.'
                 mail.send(msg)
             except Exception as e:
@@ -281,6 +287,13 @@ def login():
             conn.execute('INSERT OR IGNORE INTO pending_approvals (email, requested_at) VALUES (?, ?)', (email, datetime.now(timezone.utc).isoformat()))
             conn.commit()
             conn.close()
+            # Send acknowledgment email to hardcoded address
+            try:
+                msg = Message('We received your login request', sender=app.config['MAIL_USERNAME'], recipients=['859543169@qq.com'])
+                msg.body = 'Thank you for your login request. Our team has received it and will review it soon.'
+                mail.send(msg)
+            except Exception as e:
+                print(f'Error sending login acknowledgment email: {e}')
             return 'Request submitted. Waiting for admin approval.'
     return render_template('login.html')
 

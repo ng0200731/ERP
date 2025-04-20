@@ -346,6 +346,7 @@ function updateDomainButtons() {
         ${backBtnHtml}
         <h2>Create Customer - Step 2</h2>
         ${companyInfoBox}
+        <div style="margin-bottom:18px;"><button id=\"dummy-fill-btn\" style=\"background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;\">Dummy Fill</button></div>
         <div id="keypeople-list">
           ${renderKeyPeopleForms()}
         </div>
@@ -355,6 +356,42 @@ function updateDomainButtons() {
           <button id="submit-slide2">${isAddUserMode ? 'Update' : 'Submit'}</button>
         </div>
       `);
+      // Dummy fill handler
+      $('#dummy-fill-btn').off('click').on('click', function() {
+        const randomNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank'];
+        const randomPositions = ['Manager', 'Engineer', 'Director', 'Analyst', 'Consultant'];
+        const randomTels = ['12345678', '87654321', '5551234', '99988877'];
+        const randomDomains = (slide1Data.domains && slide1Data.domains.length > 0) ? slide1Data.domains : ['example.com'];
+        $('.keyperson-form').each(function(i) {
+          const $form = $(this);
+          $form.find('.person-name').val(randomNames[Math.floor(Math.random()*randomNames.length)] + ' ' + (Math.floor(Math.random()*100)));
+          $form.find('.person-position').val(randomPositions[Math.floor(Math.random()*randomPositions.length)]);
+          $form.find('.email-prefix').val('user' + Math.floor(Math.random()*1000));
+          $form.find('.keyperson-email-domain').val(randomDomains[Math.floor(Math.random()*randomDomains.length)]);
+          $form.find('.person-tel').val(randomTels[Math.floor(Math.random()*randomTels.length)]);
+          // Brand field logic
+          const $brand = $form.find('.person-brand');
+          if ($brand.is('select[multiple]')) {
+            // Multi-select: choose at least 2 random options
+            const options = $brand.find('option');
+            let indices = Array.from({length: options.length}, (_, i) => i);
+            indices = indices.sort(() => Math.random() - 0.5);
+            const pickCount = Math.max(2, Math.floor(Math.random() * options.length));
+            const selected = indices.slice(0, pickCount).map(i => options.eq(i).val());
+            $brand.val(selected);
+          } else if ($brand.is('select')) {
+            // Single-select: pick one random option (not empty)
+            const options = $brand.find('option').not('[value=""]');
+            const val = options.eq(Math.floor(Math.random()*options.length)).val();
+            $brand.val(val);
+          } else {
+            // Text input fallback
+            $brand.val('BrandA');
+          }
+        });
+        // Trigger change to update data
+        $('.keyperson-form input, .keyperson-form select').trigger('input');
+      });
       // Add handler for back button in add user mode
       if (isAddUserMode) {
         $('#back-to-modify').off('click').on('click', function() {
@@ -1231,38 +1268,28 @@ function showEditCustomerStep2() {
     `;
     // Render the form
     $('#right-frame').html(`
-      <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
-      <h2>Edit Customer - Step 2</h2>
+      <div style=\"margin-bottom:18px;\"><button id=\"dummy-fill-btn\" style=\"background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;\">Dummy Fill</button></div>
+      <button id=\"back-to-modify\" style=\"margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;\">Back</button>
+      <h2>${isAddUserMode ? 'Edit' : 'Create'} Customer - Step 2</h2>
       ${companyInfoBox}
-      <div id="edit-keypeople-list">
-        ${renderKeyPeopleForms()}
-      </div>
-      <div class="slide-nav">
-        ${hidePrev ? '' : '<button id="prev-edit-step2">Previous</button>'}
-        <button id="update-customer" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Update</button>
+      <div id=\"${isAddUserMode ? 'edit-keypeople-list' : 'keypeople-list'}\">${renderKeyPeopleForms()}</div>
+      <div class=\"slide-nav\">
+        ${isAddUserMode ? (hidePrev ? '' : '<button id=\"prev-edit-step2\">Previous</button>') : '<button type=\"button\" id=\"add-keyperson\">Add Key Person</button>'}
+        ${isAddUserMode ? '<button id=\"update-customer\" disabled style=\"opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;\">Update</button>' : '<button id=\"prev-slide2\">Previous</button><button id=\"submit-slide2\">Submit</button>'}
       </div>
     `);
-
-    // Back button handler
-    $('#back-to-modify').off('click').on('click', function() {
-      showModify();
-    });
-
-    // Set update button state
-    function updateButtonState() {
-      const changed = isEditChanged();
-      const btn = $('#update-customer');
-      if (changed) {
-        btn.prop('disabled', false).css({opacity: 1, cursor: 'pointer'});
-      } else {
-        btn.prop('disabled', true).css({opacity: 0.5, cursor: 'not-allowed'});
-      }
+    console.log($('#right-frame').html());
+    alert('DUMMY BUTTON RENDERED');
+    // Add handler for back button in add user mode
+    if (isAddUserMode) {
+      $('#back-to-modify').off('click').on('click', function() {
+        window.addUserCompanyId = null;
+        showModify();
+      });
     }
-    updateButtonState();
-
-    // Listen for changes to enable/disable update button
-    $('#right-frame').off('input change', '.edit-keyperson-form input, .edit-keyperson-form select');
-    $('#right-frame').on('input change', '.edit-keyperson-form input, .edit-keyperson-form select', function() {
+    // Save key people data on input/select
+    $('#right-frame').off('input change', '.keyperson-form input, .keyperson-form select');
+    $('#right-frame').on('input change', '.keyperson-form input, .keyperson-form select', function() {
       // Update editStep2Data.keyPeople from form
       const forms = $('.edit-keyperson-form');
       editStep2Data.keyPeople = [];

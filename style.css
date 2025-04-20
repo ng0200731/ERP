@@ -39,6 +39,7 @@ body, html {
     width: calc(100% - 180px);
     padding: 30px;
     box-sizing: border-box;
+    position: relative;
   }
   input, select {
     margin-bottom: 10px;
@@ -124,4 +125,24 @@ body, html {
     background: none !important;
     box-shadow: none !important;
     transition: border 0.2s;
+  }
+
+  /* Style the dummy fill button to always be visible in the top right */
+  #dummy-fill-btn {
+    position: absolute;
+    top: 18px;
+    right: 32px;
+    z-index: 1000;
+    background: #f39c12;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 18px;
+    font-size: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: pointer;
+  }
+
+  #dummy-fill-btn:hover {
+    background: #e67e22;
   }

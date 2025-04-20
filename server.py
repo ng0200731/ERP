@@ -10,11 +10,11 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configure Flask-Mail (update with your SMTP settings)
-app.config['MAIL_SERVER'] = 'smtp.example.com'
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'your_email@example.com'
-app.config['MAIL_PASSWORD'] = 'your_password'
+app.config['MAIL_USERNAME'] = 'eric.brilliant@gmail.com'
+app.config['MAIL_PASSWORD'] = 'opqx pfna kagb bznr'
 mail = Mail(app)
 
 def get_db():
@@ -64,6 +64,15 @@ def add_customer():
             )
     conn.commit()
     conn.close()
+    # Send confirmation email to the first key person if present
+    if 'keyPeople' in data and data['keyPeople'] and 'email' in data['keyPeople'][0]:
+        user_email = data['keyPeople'][0]['email']
+        try:
+            msg = Message('We received your request', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
+            msg.body = 'Thank you for your request. Our team has received it and will review it soon.'
+            mail.send(msg)
+        except Exception as e:
+            print(f'Error sending confirmation email: {e}')
     return '', 201
 
 @app.route('/customers/<int:id>', methods=['PUT'])
@@ -259,6 +268,13 @@ def login():
             mail.send(msg)
             return render_template('enter_code.html', email=email)
         elif user:
+            # Send 'await authorization' email
+            try:
+                msg = Message('Authorization in progress', sender=app.config['MAIL_USERNAME'], recipients=[email])
+                msg.body = 'Authorization in progress. Please wait for admin approval.'
+                mail.send(msg)
+            except Exception as e:
+                print(f'Error sending authorization in progress email: {e}')
             return 'Authorization in progress. Please wait for admin approval.'
         else:
             # Add to pending approvals

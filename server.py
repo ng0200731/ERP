@@ -1,10 +1,10 @@
 print('Starting server.py')
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, render_template
 from flask_cors import CORS
 import sqlite3
 from datetime import datetime, timezone
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 def get_db():
@@ -205,6 +205,10 @@ def check_option_field():
     conn.close()
     exists = bool(row)
     return jsonify({'exists': exists})
+
+@app.route('/')
+def serve_index():
+    return render_template('index.html')
 
 # Call both initializers
 if __name__ == '__main__':

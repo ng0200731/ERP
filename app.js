@@ -131,34 +131,35 @@ $(function() {
       customerTypeOptions = customerTypeDb.fields.map(opt => `<option value="${opt.value}"${slide1Data.customerType === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('');
     }
     $('#right-frame').html(`
+      <div style=\"position:relative;\"><button id=\"dummy-fill-btn-step1\" style=\"position:absolute;top:18px;right:32px;z-index:1000;background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;\">Dummy Fill</button></div>
       <h2>Create Customer - Step 1</h2>
       <div>
-      <label>Company Name:<br><input type="text" id="company-name" value="${company}"></label><br>
-      <label>Address:<br><input type="text" id="address" value="${address}"></label><br>
+      <label>Company Name:<br><input type=\"text\" id=\"company-name\" value=\"${company}\"></label><br>
+      <label>Address:<br><input type=\"text\" id=\"address\" value=\"${address}\"></label><br>
         <label>Website:<br>
-        <input type="text" class="website-input" id="website" value="${website}">
-          <span class="error" id="website-error"></span>
+        <input type=\"text\" class=\"website-input\" id=\"website\" value=\"${website}\">
+          <span class=\"error\" id=\"website-error\"></span>
         </label><br>
-        <div class="domain-list" id="domain-list">
+        <div class=\"domain-list\" id=\"domain-list\">
           <label>Domain(s):</label>
         ${domains.map((d, i) => `
-          <div class="domain-item">
-            <input type="text" class="domain-input" value="${d}">
-            <button type="button" class="${i === domains.length - 1 ? 'add-domain' : 'remove-domain'}">${i === domains.length - 1 ? '+' : '-'}</button>
+          <div class=\"domain-item\">
+            <input type=\"text\" class=\"domain-input\" value=\"${d}\">
+            <button type=\"button\" class=\"${i === domains.length - 1 ? 'add-domain' : 'remove-domain'}\">${i === domains.length - 1 ? '+' : '-'}</button>
           </div>
         `).join('')}
       </div>
-      <div id="customer-type-row">
+      <div id=\"customer-type-row\">
         <label>Customer Type:<br>
-          <select id="customer-type-select">
-            <option value="">-- Select --</option>
+          <select id=\"customer-type-select\">
+            <option value=\"\">-- Select --</option>
             ${customerTypeOptions}
           </select>
         </label>
       </div>
       </div>
-      <div class="slide-nav">
-        <button id="next-slide1">Next</button>
+      <div class=\"slide-nav\">
+        <button id=\"next-slide1\">Next</button>
       </div>
     `);
     updateDomainButtons();
@@ -169,6 +170,39 @@ $(function() {
     // Save selection on change
     $('#customer-type-select').off('change').on('change', function() {
       slide1Data.customerType = $(this).val();
+    });
+    // Dummy fill handler for Step 1 (must be after HTML is rendered)
+    $('#dummy-fill-btn-step1').off('click').on('click', function() {
+      const companies = ['Acme Corp', 'Globex Inc', 'Umbrella LLC', 'Wayne Enterprises', 'Stark Industries'];
+      const addresses = ['123 Main St', '456 Elm Ave', '789 Oak Blvd', '101 Maple Dr', '202 Pine Ln'];
+      const websites = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com'];
+      const idx = Math.floor(Math.random() * companies.length);
+      const company = companies[idx];
+      const address = addresses[idx];
+      const website = websites[idx];
+      const allDomains = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com', 'example.com'];
+      const domainCount = 1 + Math.floor(Math.random() * 2);
+      const domains = [];
+      while (domains.length < domainCount) {
+        const d = allDomains[Math.floor(Math.random() * allDomains.length)];
+        if (!domains.includes(d)) domains.push(d);
+      }
+      $('#company-name').val(company);
+      $('#address').val(address);
+      $('#website').val(website);
+      $('#domain-list .domain-item').slice(1).remove();
+      $('#domain-list .domain-item').first().find('.domain-input').val(domains[0]);
+      for (let i = 1; i < domains.length; i++) {
+        addDomainField();
+        $('#domain-list .domain-item').last().find('.domain-input').val(domains[i]);
+      }
+      updateDomainButtons();
+      const $typeSelect = $('#customer-type-select');
+      const opts = $typeSelect.find('option').not('[value=""]');
+      if (opts.length > 0) {
+        const randType = opts.eq(Math.floor(Math.random() * opts.length)).val();
+        $typeSelect.val(randType).trigger('change');
+      }
     });
   });
 }
@@ -1626,3 +1660,47 @@ function renderDbOptionsArea(db) {
     });
   });
 }
+
+// ... existing code ...
+    // Dummy fill handler for Step 1
+    $('#dummy-fill-btn-step1').off('click').on('click', function() {
+      // Dummy data arrays
+      const companies = ['Acme Corp', 'Globex Inc', 'Umbrella LLC', 'Wayne Enterprises', 'Stark Industries'];
+      const addresses = ['123 Main St', '456 Elm Ave', '789 Oak Blvd', '101 Maple Dr', '202 Pine Ln'];
+      const websites = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com'];
+      // Pick random dummy data
+      const idx = Math.floor(Math.random() * companies.length);
+      const company = companies[idx];
+      const address = addresses[idx];
+      const website = websites[idx];
+      // Domains: 1-2 random domains
+      const allDomains = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com', 'example.com'];
+      const domainCount = 1 + Math.floor(Math.random() * 2);
+      const domains = [];
+      while (domains.length < domainCount) {
+        const d = allDomains[Math.floor(Math.random() * allDomains.length)];
+        if (!domains.includes(d)) domains.push(d);
+      }
+      // Set values in the form
+      $('#company-name').val(company);
+      $('#address').val(address);
+      $('#website').val(website);
+      // Remove all but one domain input
+      $('#domain-list .domain-item').slice(1).remove();
+      // Set first domain
+      $('#domain-list .domain-item').first().find('.domain-input').val(domains[0]);
+      // Add more domain fields if needed
+      for (let i = 1; i < domains.length; i++) {
+        addDomainField();
+        $('#domain-list .domain-item').last().find('.domain-input').val(domains[i]);
+      }
+      updateDomainButtons();
+      // Customer Type: pick a random option (not empty)
+      const $typeSelect = $('#customer-type-select');
+      const opts = $typeSelect.find('option').not('[value=""]');
+      if (opts.length > 0) {
+        const randType = opts.eq(Math.floor(Math.random() * opts.length)).val();
+        $typeSelect.val(randType).trigger('change');
+      }
+    });
+// ... existing code ...

@@ -469,16 +469,8 @@ function updateDomainButtons() {
           }
           const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
           const tel = $form.find('.person-tel').val().trim();
-          let brand = '';
-          if (brandDb) {
-            if (isMulti) {
-              brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
-            } else {
-              brand = $form.find('.person-brand').val();
-            }
-          } else {
-            brand = $form.find('.person-brand').val().trim();
-          }
+          // Only treat brand as a string in the global handler
+          const brand = $form.find('.person-brand').val();
           slide2Data.keyPeople.push({ name, position, email, tel, brand });
         });
       });
@@ -519,16 +511,8 @@ $(function() {
       }
       const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
       const tel = $form.find('.person-tel').val().trim();
-      let brand = '';
-      if (brandDb) {
-        if (isMulti) {
-          brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
-        } else {
-          brand = $form.find('.person-brand').val();
-        }
-      } else {
-        brand = $form.find('.person-brand').val().trim();
-      }
+      // Only treat brand as a string in the global handler
+      const brand = $form.find('.person-brand').val();
       slide2Data.keyPeople.push({ name, position, email, tel, brand });
     });
   });
@@ -553,16 +537,8 @@ $(function() {
       }
       const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
       const tel = $form.find('.person-tel').val().trim();
-      let brand = '';
-      if (brandDb) {
-        if (isMulti) {
-          brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
-        } else {
-          brand = $form.find('.person-brand').val();
-        }
-      } else {
-        brand = $form.find('.person-brand').val().trim();
-      }
+      // Only treat brand as a string in the global handler
+      const brand = $form.find('.person-brand').val();
       slide2Data.keyPeople.push({ name, position, email, tel, brand });
     });
     showCreateSlide1();
@@ -592,16 +568,8 @@ handleSubmitSlide2 = function() {
       }
       const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
       const tel = $form.find('.person-tel').val().trim();
-      let brand = '';
-      if (brandDb) {
-        if (isMulti) {
-          brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
-        } else {
-          brand = $form.find('.person-brand').val();
-        }
-      } else {
-        brand = $form.find('.person-brand').val().trim();
-      }
+      // Only treat brand as a string in the global handler
+      const brand = $form.find('.person-brand').val();
       if (!name) {
         problems.push('Name is required');
         $form.find('.person-name').addClass('highlight-error');

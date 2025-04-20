@@ -911,9 +911,18 @@ function renderSearchResultsWithKeyPeople(list) {
     const kpName = cust.keyPeople[kpIdx] ? cust.keyPeople[kpIdx].name : '';
     if (confirm(`Are you sure you want to delete key person "${kpName}"? This action cannot be undone.`)) {
       cust.keyPeople.splice(kpIdx, 1);
+      // Recalculate domains from remaining key people emails
+      const domains = [];
+      cust.keyPeople.forEach(kp => {
+        if (kp.email && kp.email.includes('@')) {
+          const domain = kp.email.split('@')[1].trim();
+          if (domain && !domains.includes(domain)) domains.push(domain);
+        }
+      });
+      cust.domains = domains;
       updateCustomer(companyId, cust, function() {
         fetchCustomers(function() {
-          showCustomPopup(`Key person "${kpName}\" deleted!`);
+          showCustomPopup(`Key person \"${kpName}\" deleted!`);
           renderSearchResultsWithKeyPeople(customers);
         });
       });

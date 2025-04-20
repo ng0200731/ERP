@@ -1198,6 +1198,7 @@ function showEditCustomerStep1() {
 }
 
 function showEditCustomerStep2() {
+  let isAddUserMode = !!window.addUserCompanyId;
   console.log('showEditCustomerStep2 called', editStep2Data);
   console.log('DEBUG at start of showEditCustomerStep2, editStep1Data:', editStep1Data);
   // Fetch Brand options from backend
@@ -1226,15 +1227,14 @@ function showEditCustomerStep2() {
         } else {
           domainSelect = `<input type="text" value="${editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : ''}" disabled class="edit-keyperson-email-domain">`;
         }
-        // Remove 'Remove' button in add user mode
-        let removeBtn = (!isAddUserMode && keyPeople.length > 1)
+        // Remove button only if not in edit mode
+        let removeBtn = (showRemoveKeyPerson && keyPeople.length > 1)
           ? `<button type="button" class="remove-edit-keyperson">Remove</button>`
           : '';
         // Brand field as dropdown or multi-select
         let brandField = '';
         if (brandDb) {
           if (isMulti) {
-            // Multi-select
             const selected = Array.isArray(kp.brand)
               ? kp.brand
               : (typeof kp.brand === 'string' && kp.brand.includes(','))
@@ -1242,11 +1242,9 @@ function showEditCustomerStep2() {
                 : (kp.brand ? [kp.brand] : []);
             brandField = `<select class="person-brand" multiple style="height:60px;">${brandDb.fields.map(opt => `<option value="${opt.value}"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
           } else {
-            // Single-select
             brandField = `<select class="person-brand"><option value="">-- Select --</option>${brandDb.fields.map(opt => `<option value="${opt.value}"${kp.brand === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
           }
         } else {
-          // Fallback to text input if no brandDb
           brandField = `<input type="text" class="person-brand" value="${kp.brand || ''}">`;
         }
         return `
@@ -1301,23 +1299,27 @@ function showEditCustomerStep2() {
       </div>
     `;
     // Render the form
+    const isEdit = !!window.editSingleKeyPersonMode || !!currentCustomer;
+    let showDummyFill = !isEdit;
+    let showRemoveKeyPerson = !isEdit;
+    let showPrevious = !isEdit;
+    let submitLabel = isEdit ? 'Update' : (isAddUserMode ? 'Update' : 'Submit');
     $('#right-frame').html(`
-      <div style=\"margin-bottom:18px;\"><button id=\"dummy-fill-btn\" style=\"background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;\">Dummy Fill</button></div>
-      <button id=\"back-to-modify\" style=\"margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;\">Back</button>
-      <h2>${isAddUserMode ? 'Edit' : 'Create'} Customer - Step 2</h2>
+      ${showDummyFill ? '<div style="margin-bottom:18px;"><button id="dummy-fill-btn" style="background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;">Dummy Fill</button></div>' : ''}
+      <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
+      <h2>${isEdit ? 'Edit' : 'Create'} Customer - Step 2</h2>
       ${companyInfoBox}
-      <div id=\"${isAddUserMode ? 'edit-keypeople-list' : 'keypeople-list'}\">${renderKeyPeopleForms()}</div>
-      <div class=\"slide-nav\">
-        ${isAddUserMode ? (hidePrev ? '' : '<button id=\"prev-edit-step2\">Previous</button>') : '<button type=\"button\" id=\"add-keyperson\">Add Key Person</button>'}
-        ${isAddUserMode ? '<button id=\"update-customer\" disabled style=\"opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;\">Update</button>' : '<button id=\"prev-slide2\">Previous</button><button id=\"submit-slide2\">Submit</button>'}
+      <div id="${isAddUserMode ? 'edit-keypeople-list' : 'keypeople-list'}">${renderKeyPeopleForms()}</div>
+      <div class="slide-nav">
+        ${showPrevious ? (isAddUserMode ? (hidePrev ? '' : '<button id="prev-edit-step2">Previous</button>') : '<button id="prev-slide2">Previous</button>') : ''}
+        <button id="update-customer" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">${submitLabel}</button>
       </div>
     `);
-    console.log($('#right-frame').html());
-    alert('DUMMY BUTTON RENDERED');
-    // Add handler for back button in add user mode
-    if (isAddUserMode) {
+    // Back button logic for Edit mode
+    if (isEdit) {
       $('#back-to-modify').off('click').on('click', function() {
-        window.addUserCompanyId = null;
+        window.editSingleKeyPersonMode = false;
+        window.editSingleKeyPersonIdx = undefined;
         showModify();
       });
     }
@@ -1352,7 +1354,30 @@ function showEditCustomerStep2() {
         }
         editStep2Data.keyPeople.push({ name, position, email, tel, brand });
       });
-      updateButtonState();
+      // Enable/disable Update button based on changes
+      if (isEdit) {
+        // Only compare the first key person
+        const origKP = Array.isArray(currentCustomer.keyPeople) ? currentCustomer.keyPeople : [];
+        const currKP = Array.isArray(editStep2Data.keyPeople) ? editStep2Data.keyPeople : [];
+        let changed = false;
+        if (origKP.length && currKP.length) {
+          const orig = origKP[window.editSingleKeyPersonIdx || 0] || {};
+          const curr = currKP[0];
+          changed = !(
+            orig.name === curr.name &&
+            orig.position === curr.position &&
+            orig.email === curr.email &&
+            orig.tel === curr.tel &&
+            JSON.stringify(orig.brand) === JSON.stringify(curr.brand)
+          );
+        }
+        const btn = $('#update-customer');
+        if (changed) {
+          btn.prop('disabled', false).css({opacity: 1, cursor: 'pointer'});
+        } else {
+          btn.prop('disabled', true).css({opacity: 0.5, cursor: 'not-allowed'});
+        }
+      }
     });
 
     // Update button click logic

@@ -1,11 +1,21 @@
-print('Starting server.py')
-from flask import Flask, request, jsonify, send_from_directory, render_template
+print('STARTING SERVER.PY')
+from flask import Flask, request, jsonify, send_from_directory, render_template, session, redirect, url_for
 from flask_cors import CORS
 import sqlite3
 from datetime import datetime, timezone
+import hashlib
+from flask_mail import Mail, Message
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Configure Flask-Mail (update with your SMTP settings)
+app.config['MAIL_SERVER'] = 'smtp.example.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'your_email@example.com'
+app.config['MAIL_PASSWORD'] = 'your_password'
+mail = Mail(app)
 
 def get_db():
     conn = sqlite3.connect('customers.db')
@@ -210,9 +220,102 @@ def check_option_field():
 def serve_index():
     return render_template('index.html')
 
-# Call both initializers
+# --- User and Approval Tables ---
+def init_user_db():
+    conn = get_db()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE,
+            is_approved INTEGER DEFAULT 0,
+            last_login TEXT
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS pending_approvals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE,
+            requested_at TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# --- Login Page Route ---
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        prefix = request.form['prefix'].strip()
+        email = f"{prefix}@eastrims.com"
+        conn = get_db()
+        user = conn.execute('SELECT * FROM users WHERE email=?', (email,)).fetchone()
+        if user and user['is_approved']:
+            # Generate and send code
+            code = hashlib.sha256((email + str(datetime.now())).encode()).hexdigest()[:5]
+            session['pending_code'] = code
+            session['pending_email'] = email
+            msg = Message('Your Access Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
+            msg.body = f'Your access code is: {code}'
+            mail.send(msg)
+            return render_template('enter_code.html', email=email)
+        elif user:
+            return 'Authorization in progress. Please wait for admin approval.'
+        else:
+            # Add to pending approvals
+            conn.execute('INSERT OR IGNORE INTO pending_approvals (email, requested_at) VALUES (?, ?)', (email, datetime.now(timezone.utc).isoformat()))
+            conn.commit()
+            conn.close()
+            return 'Request submitted. Waiting for admin approval.'
+    return render_template('login.html')
+
+# --- Code Verification Route ---
+@app.route('/verify_code', methods=['POST'])
+def verify_code():
+    code = request.form['code'].strip()
+    if code == session.get('pending_code'):
+        session['user'] = session['pending_email']
+        return redirect(url_for('serve_index'))
+    return 'Invalid code. Try again.'
+
+# --- Admin Approval Route (simple, for demo) ---
+@app.route('/admin/approve', methods=['POST'])
+def admin_approve():
+    email = request.form['email']
+    conn = get_db()
+    # Move from pending_approvals to users
+    conn.execute('INSERT OR IGNORE INTO users (email, is_approved) VALUES (?, 1)', (email,))
+    conn.execute('DELETE FROM pending_approvals WHERE email=?', (email,))
+    conn.commit()
+    conn.close()
+    # Send approval email
+    msg = Message('Account Approved', sender=app.config['MAIL_USERNAME'], recipients=[email])
+    msg.body = 'Your account has been approved. You can now log in.'
+    mail.send(msg)
+    return 'User approved.'
+
+# --- Protect Main Page ---
+@app.before_request
+def require_login():
+    if request.endpoint not in ('login', 'verify_code', 'static', 'admin_page') and 'user' not in session:
+        return redirect(url_for('login'))
+
+@app.route('/admin')
+def admin_page():
+    print('ADMIN PAGE ACCESSED')
+    conn = get_db()
+    pending = conn.execute('SELECT email, requested_at FROM pending_approvals').fetchall()
+    print('PENDING APPROVALS:', pending)
+    conn.close()
+    return render_template('admin_approval.html', pending=pending)
+
+# Call all initializers
 if __name__ == '__main__':
+    print('INSIDE MAIN BLOCK')
     print('About to start Flask app')
-    init_db()
-    init_option_db()
-    app.run(debug=True) 
+    try:
+        init_db()
+        init_option_db()
+        init_user_db()
+        app.run(debug=True)
+    except Exception as e:
+        print('ERROR STARTING SERVER:', e) 

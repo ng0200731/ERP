@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Approval - Customer Management App</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="container" style="justify-content:center;align-items:center;height:100vh;">
+    <div style="background:#fff;padding:32px 40px;border-radius:10px;box-shadow:0 2px 16px #eee;min-width:400px;">
+      <h2>Pending User Approvals</h2>
+      <table style="width:100%;margin-bottom:18px;">
+        <thead><tr><th>Email</th><th>Requested At</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for user in pending %}
+          <tr>
+            <td>{{ user.email }}</td>
+            <td>{{ user.requested_at }}</td>
+            <td>
+              <form method="POST" action="/admin/approve" style="display:inline;">
+                <input type="hidden" name="email" value="{{ user.email }}">
+                <button type="submit">Approve</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3">No pending approvals.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html> 

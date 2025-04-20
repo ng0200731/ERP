@@ -1222,11 +1222,8 @@ function showEditCustomerStep2() {
         let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
         let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : '');
         let domainSelect = '';
-        if (editStep1Data.domains.length > 1) {
-          domainSelect = `<select class="edit-keyperson-email-domain">${editStep1Data.domains.map(d => `<option value="${d}"${d===emailDomain?' selected':''}>${d}</option>`).join('')}</select>`;
-        } else {
-          domainSelect = `<input type="text" value="${editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : ''}" disabled class="edit-keyperson-email-domain">`;
-        }
+        // Always render as disabled input, regardless of number of domains
+        domainSelect = `<input type="text" value="${editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : ''}" disabled class="edit-keyperson-email-domain">`;
         // Remove button only if not in edit mode
         let removeBtn = (showRemoveKeyPerson && keyPeople.length > 1)
           ? `<button type="button" class="remove-edit-keyperson">Remove</button>`
@@ -1323,10 +1320,10 @@ function showEditCustomerStep2() {
         showModify();
       });
     }
-    // Save key people data on input/select
-    $('#right-frame').off('input change', '.keyperson-form input, .keyperson-form select');
-    $('#right-frame').on('input change', '.keyperson-form input, .keyperson-form select', function() {
-      // Update editStep2Data.keyPeople from form
+    // Save key people data on input/select (fix selector to .edit-keyperson-form ...)
+    $('#right-frame').off('input change', '.edit-keyperson-form input, .edit-keyperson-form select');
+    $('#right-frame').on('input change', '.edit-keyperson-form input, .edit-keyperson-form select', function() {
+      console.log('[DEBUG] input/change detected in Edit Customer - Step 2');
       const forms = $('.edit-keyperson-form');
       editStep2Data.keyPeople = [];
       forms.each(function() {
@@ -1356,20 +1353,50 @@ function showEditCustomerStep2() {
       });
       // Enable/disable Update button based on changes
       if (isEdit) {
-        // Only compare the first key person
         const origKP = Array.isArray(currentCustomer.keyPeople) ? currentCustomer.keyPeople : [];
         const currKP = Array.isArray(editStep2Data.keyPeople) ? editStep2Data.keyPeople : [];
         let changed = false;
         if (origKP.length && currKP.length) {
-          const orig = origKP[window.editSingleKeyPersonIdx || 0] || {};
-          const curr = currKP[0];
+          let orig = origKP[window.editSingleKeyPersonIdx || 0] || {};
+          let curr = currKP[0];
+          // Normalize brand to array for both orig and curr
+          function normalizeBrand(val) {
+            if (Array.isArray(val)) return val;
+            if (typeof val === 'string') return val.split(',').map(s => s.trim()).filter(Boolean);
+            return [];
+          }
+          // Normalize all fields for comparison
+          orig = {
+            name: orig.name || '',
+            position: orig.position || '',
+            email: orig.email || '',
+            tel: orig.tel || '',
+            brand: normalizeBrand(orig.brand)
+          };
+          curr = {
+            name: curr.name || '',
+            position: curr.position || '',
+            email: curr.email || '',
+            tel: curr.tel || '',
+            brand: normalizeBrand(curr.brand)
+          };
+          // Deep compare all fields, including arrays (brand)
+          function deepEqual(a, b) {
+            if (Array.isArray(a) && Array.isArray(b)) {
+              return a.length === b.length && a.every((v, i) => v === b[i]);
+            }
+            return a === b;
+          }
           changed = !(
             orig.name === curr.name &&
             orig.position === curr.position &&
             orig.email === curr.email &&
             orig.tel === curr.tel &&
-            JSON.stringify(orig.brand) === JSON.stringify(curr.brand)
+            deepEqual(orig.brand, curr.brand)
           );
+          console.log('[DEBUG] orig:', orig);
+          console.log('[DEBUG] curr:', curr);
+          console.log('[DEBUG] changed:', changed);
         }
         const btn = $('#update-customer');
         if (changed) {

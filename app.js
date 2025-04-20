@@ -748,6 +748,7 @@ function renderSearchResultsWithKeyPeople(list) {
                       <td style=\"padding:3px 8px;\">${kp.brand}</td>
                       <td style=\"padding:3px 8px; position:relative;\">
                         <button class=\"edit-keyperson-btn\" data-idx=\"${c.id}\" data-kpidx=\"${origKpIdx}\" data-id=\"${c.id}\" style=\"background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;\">Edit</button>
+                        <button class=\"delete-keyperson-btn\" data-idx=\"${c.id}\" data-kpidx=\"${origKpIdx}\" data-id=\"${c.id}\" style=\"background:#e74c3c;color:#fff;border:2px solid #e74c3c;border-radius:4px;padding:2px 12px;font-size:14px;margin-left:6px;\">Delete</button>
                       </td>
                     </tr>`;
                   }).join('');
@@ -894,6 +895,29 @@ function renderSearchResultsWithKeyPeople(list) {
       ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
       : { keyPeople: [{ name: '', position: '', email: '', tel: '', brand: '' }] };
     showEditCustomerStep1();
+  });
+
+  // Attach handler for key person Delete button
+  $('#search-results').off('click', '.delete-keyperson-btn');
+  $('#search-results').on('click', '.delete-keyperson-btn', function() {
+    const companyId = $(this).data('id');
+    const kpIdx = $(this).data('kpidx');
+    const cust = customers.find(c => c.id == companyId);
+    if (!cust) return;
+    if (!Array.isArray(cust.keyPeople) || cust.keyPeople.length <= 1) {
+      showCustomPopup('A company must have at least one key person.', true);
+      return;
+    }
+    const kpName = cust.keyPeople[kpIdx] ? cust.keyPeople[kpIdx].name : '';
+    if (confirm(`Are you sure you want to delete key person "${kpName}"? This action cannot be undone.`)) {
+      cust.keyPeople.splice(kpIdx, 1);
+      updateCustomer(companyId, cust, function() {
+        fetchCustomers(function() {
+          showCustomPopup(`Key person "${kpName}\" deleted!`);
+          renderSearchResultsWithKeyPeople(customers);
+        });
+      });
+    }
   });
 }
 

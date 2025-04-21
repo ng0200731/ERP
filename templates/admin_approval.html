@@ -48,7 +48,21 @@
           .then(data => {
             if (data.success) {
               showPopup(data.message);
+              // Remove from pending
               row.remove();
+              // Add to approved tab
+              const approvedTab = document.querySelector('#approved-tab tbody');
+              // Remove 'No approved users.' row if present
+              const noApproved = approvedTab.querySelector('tr td[colspan]');
+              if (noApproved) noApproved.parentElement.remove();
+              // Count current rows for index
+              const idx = approvedTab.querySelectorAll('tr').length + 1;
+              // Format approved_at
+              let approvedAt = data.approved_at ? (data.approved_at.slice(0,10).replace(/-/g,'/') + ', ' + data.approved_at.slice(11,19)) : '';
+              let lastLogin = '';
+              approvedTab.insertAdjacentHTML('beforeend',
+                `<tr><td>${idx}</td><td>${data.email}</td><td>${approvedAt}</td><td>${lastLogin}</td></tr>`
+              );
             } else {
               showPopup(data.message || 'Error approving user.');
             }

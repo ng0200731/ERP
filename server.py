@@ -5,9 +5,11 @@ import sqlite3
 from datetime import datetime, timezone
 import hashlib
 from flask_mail import Mail, Message
+import os
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app, resources={r"/*": {"origins": "*"}})
+app.secret_key = 'your-very-secret-key-2025-04-16'  # Set a unique, secret value for session support
 
 # Configure Flask-Mail (update with your SMTP settings)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -18,7 +20,8 @@ app.config['MAIL_PASSWORD'] = 'opqx pfna kagb bznr'
 mail = Mail(app)
 
 def get_db():
-    conn = sqlite3.connect('customers.db')
+    db_path = os.path.join(os.path.dirname(__file__), 'customers.db')
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -364,7 +367,7 @@ def admin_approve():
 # --- Protect Main Page ---
 @app.before_request
 def require_login():
-    allowed = ('login', 'verify_code', 'static', 'admin_page', 'admin_approve')
+    allowed = ('login', 'verify_code', 'static', 'admin_page', 'admin_approve', 'get_option_databases', 'get_customers')
     if request.endpoint not in allowed and 'user' not in session:
         return redirect(url_for('login'))
 
@@ -402,6 +405,11 @@ def admin_page():
         })
     conn.close()
     return render_template('admin_approval.html', pending=pending, approved=approved)
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 # Call all initializers
 if __name__ == '__main__':

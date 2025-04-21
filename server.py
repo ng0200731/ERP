@@ -328,31 +328,44 @@ def verify_code():
 # --- Admin Approval Route (simple, for demo) ---
 @app.route('/admin/approve', methods=['POST'])
 def admin_approve():
-    email = request.form['email']
-    now = datetime.now(timezone.utc).isoformat()
-    conn = get_db()
-    # Move from pending_approvals to users, set approved_at
-    conn.execute('INSERT OR IGNORE INTO users (email, is_approved, approved_at) VALUES (?, 1, ?)', (email, now))
-    conn.execute('UPDATE users SET is_approved=1, approved_at=? WHERE email=?', (now, email))
-    conn.execute('DELETE FROM pending_approvals WHERE email=?', (email,))
-    conn.commit()
-    conn.close()
-    # Send approval email
     try:
-        msg = Message('Account Approved', sender=app.config['MAIL_USERNAME'], recipients=[email])
-        msg.body = 'Your account has been approved. You can now log in.'
-        mail.send(msg)
-        success = True
-        message = f'{email} is confirmed.'
+        email = request.form['email']
+        print(f'[DEBUG] Approving email: {email}')
+        now = datetime.now(timezone.utc).isoformat()
+        conn = get_db()
+        print('[DEBUG] DB connection opened')
+        # Move from pending_approvals to users, set approved_at
+        conn.execute('INSERT OR IGNORE INTO users (email, is_approved, approved_at) VALUES (?, 1, ?)', (email, now))
+        print('[DEBUG] Inserted/ignored into users')
+        conn.execute('UPDATE users SET is_approved=1, approved_at=? WHERE email=?', (now, email))
+        print('[DEBUG] Updated users')
+        conn.execute('DELETE FROM pending_approvals WHERE email=?', (email,))
+        print('[DEBUG] Deleted from pending_approvals')
+        conn.commit()
+        conn.close()
+        print('[DEBUG] DB commit and close')
+        # Send approval email
+        try:
+            msg = Message('Account Approved', sender=app.config['MAIL_USERNAME'], recipients=[email])
+            msg.body = 'Your account has been approved. You can now log in.'
+            mail.send(msg)
+            print(f'[DEBUG] Approval email sent to {email}')
+            success = True
+            message = f'{email} is confirmed.'
+        except Exception as e:
+            print(f'[ERROR] Error sending approval email: {e}')
+            success = False
+            message = f'Error sending approval email: {e}'
+        return jsonify({'success': success, 'message': message, 'email': email, 'approved_at': now})
     except Exception as e:
-        success = False
-        message = f'Error sending approval email: {e}'
-    return jsonify({'success': success, 'message': message, 'email': email, 'approved_at': now})
+        print(f'[ERROR] Exception in /admin/approve: {e}')
+        return jsonify({'success': False, 'message': f'Internal server error: {e}', 'email': None, 'approved_at': None})
 
 # --- Protect Main Page ---
 @app.before_request
 def require_login():
-    if request.endpoint not in ('login', 'verify_code', 'static', 'admin_page') and 'user' not in session:
+    allowed = ('login', 'verify_code', 'static', 'admin_page', 'admin_approve')
+    if request.endpoint not in allowed and 'user' not in session:
         return redirect(url_for('login'))
 
 @app.route('/admin')

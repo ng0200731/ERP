@@ -4,30 +4,123 @@
   <meta charset="UTF-8">
   <title>Admin Approval - Customer Management App</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    .tab-btns { display: flex; gap: 12px; margin-bottom: 18px; }
+    .tab-btn { padding: 8px 24px; border: none; border-radius: 6px 6px 0 0; background: #eee; cursor: pointer; font-size: 16px; }
+    .tab-btn.active { background: #3498db; color: #fff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+  <script>
+    function showPopup(msg) {
+      let popup = document.createElement('div');
+      popup.className = 'popup-success';
+      popup.textContent = msg;
+      document.body.appendChild(popup);
+      setTimeout(() => { popup.remove(); }, 2000);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      // Tab logic
+      const tabBtns = document.querySelectorAll('.tab-btn');
+      const tabContents = document.querySelectorAll('.tab-content');
+      tabBtns.forEach((btn, idx) => {
+        btn.addEventListener('click', function() {
+          tabBtns.forEach(b => b.classList.remove('active'));
+          tabContents.forEach(tc => tc.classList.remove('active'));
+          btn.classList.add('active');
+          tabContents[idx].classList.add('active');
+        });
+      });
+      // Default to first tab
+      if (tabBtns.length) tabBtns[0].click();
+      // Approve button logic
+      document.querySelectorAll('.approve-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const email = this.getAttribute('data-email');
+          const row = this.closest('tr');
+          fetch('/admin/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'email=' + encodeURIComponent(email)
+          })
+          .then(resp => resp.json())
+          .then(data => {
+            if (data.success) {
+              showPopup(data.message);
+              row.remove();
+            } else {
+              showPopup(data.message || 'Error approving user.');
+            }
+          })
+          .catch(() => showPopup('Error approving user.'));
+        });
+      });
+    });
+  </script>
 </head>
 <body>
   <div class="container" style="justify-content:center;align-items:center;height:100vh;">
-    <div style="background:#fff;padding:32px 40px;border-radius:10px;box-shadow:0 2px 16px #eee;min-width:400px;">
-      <h2>Pending User Approvals</h2>
-      <table style="width:100%;margin-bottom:18px;">
-        <thead><tr><th>Email</th><th>Requested At</th><th>Action</th></tr></thead>
-        <tbody>
-          {% for user in pending %}
-          <tr>
-            <td>{{ user.email }}</td>
-            <td>{{ user.requested_at }}</td>
-            <td>
-              <form method="POST" action="/admin/approve" style="display:inline;">
-                <input type="hidden" name="email" value="{{ user.email }}">
-                <button type="submit">Approve</button>
-              </form>
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="3">No pending approvals.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div style="background:#fff;padding:32px 40px;border-radius:10px;box-shadow:0 2px 16px #eee;min-width:600px;">
+      <h2>Admin User Approvals</h2>
+      <div class="tab-btns">
+        <button class="tab-btn active">Pending</button>
+        <button class="tab-btn">Approved</button>
+      </div>
+      <div class="tab-content active" id="pending-tab">
+        <table style="width:100%;margin-bottom:18px;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Email</th>
+              <th>First Request</th>
+              <th>Last Request</th>
+              <th># of Requests</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in pending %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.first_request[:10].replace('-', '/') ~ ', ' ~ user.first_request[11:19] if user.first_request else '' }}</td>
+              <td>{{ user.last_request[:10].replace('-', '/') ~ ', ' ~ user.last_request[11:19] if user.last_request else '' }}</td>
+              <td>{{ user.num_requests }}</td>
+              <td>
+                <button class="approve-btn" data-email="{{ user.email }}">Approve</button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6">No pending approvals.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="tab-content" id="approved-tab">
+        <table style="width:100%;margin-bottom:18px;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Email</th>
+              <th>Approved At</th>
+              <th>Last Login</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in approved %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.approved_at[:10].replace('-', '/') ~ ', ' ~ user.approved_at[11:19] if user.approved_at else '' }}</td>
+              <td>{{ user.last_login[:10].replace('-', '/') ~ ', ' ~ user.last_login[11:19] if user.last_login else '' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">No approved users.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </body>

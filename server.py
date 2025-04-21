@@ -238,18 +238,32 @@ def serve_index():
 # --- User and Approval Tables ---
 def init_user_db():
     conn = get_db()
+    # Add approved_at column if it doesn't exist
+    try:
+        conn.execute('ALTER TABLE users ADD COLUMN approved_at TEXT')
+    except Exception:
+        pass  # Ignore if already exists
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE,
             is_approved INTEGER DEFAULT 0,
-            last_login TEXT
+            last_login TEXT,
+            approved_at TEXT
         )
     ''')
     conn.execute('''
         CREATE TABLE IF NOT EXISTS pending_approvals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE,
+            requested_at TEXT
+        )
+    ''')
+    # New table to track every approval request
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS approval_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT,
             requested_at TEXT
         )
     ''')
@@ -260,9 +274,12 @@ def init_user_db():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        prefix = request.form['prefix'].strip()
-        email = f"{prefix}@eastrims.com"
+        email = request.form['email'].strip()
+        now = datetime.now(timezone.utc).isoformat()
         conn = get_db()
+        # Always record the request
+        conn.execute('INSERT INTO approval_requests (email, requested_at) VALUES (?, ?)', (email, now))
+        conn.commit()
         user = conn.execute('SELECT * FROM users WHERE email=?', (email,)).fetchone()
         if user and user['is_approved']:
             # Generate and send code
@@ -272,24 +289,26 @@ def login():
             msg = Message('Your Access Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
             msg.body = f'Your access code is: {code}'
             mail.send(msg)
+            conn.close()
             return render_template('enter_code.html', email=email)
         elif user:
             # Send 'await authorization' email
             try:
-                msg = Message('Authorization in progress', sender=app.config['MAIL_USERNAME'], recipients=['859543169@qq.com'])  # Hardcoded for testing
+                msg = Message('Authorization in progress', sender=app.config['MAIL_USERNAME'], recipients=[email])
                 msg.body = 'Authorization in progress. Please wait for admin approval.'
                 mail.send(msg)
             except Exception as e:
                 print(f'Error sending authorization in progress email: {e}')
+            conn.close()
             return 'Authorization in progress. Please wait for admin approval.'
         else:
             # Add to pending approvals
-            conn.execute('INSERT OR IGNORE INTO pending_approvals (email, requested_at) VALUES (?, ?)', (email, datetime.now(timezone.utc).isoformat()))
+            conn.execute('INSERT OR IGNORE INTO pending_approvals (email, requested_at) VALUES (?, ?)', (email, now))
             conn.commit()
             conn.close()
-            # Send acknowledgment email to hardcoded address
+            # Send acknowledgment email to the real user
             try:
-                msg = Message('We received your login request', sender=app.config['MAIL_USERNAME'], recipients=['859543169@qq.com'])
+                msg = Message('We received your login request', sender=app.config['MAIL_USERNAME'], recipients=[email])
                 msg.body = 'Thank you for your login request. Our team has received it and will review it soon.'
                 mail.send(msg)
             except Exception as e:
@@ -310,17 +329,25 @@ def verify_code():
 @app.route('/admin/approve', methods=['POST'])
 def admin_approve():
     email = request.form['email']
+    now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
-    # Move from pending_approvals to users
-    conn.execute('INSERT OR IGNORE INTO users (email, is_approved) VALUES (?, 1)', (email,))
+    # Move from pending_approvals to users, set approved_at
+    conn.execute('INSERT OR IGNORE INTO users (email, is_approved, approved_at) VALUES (?, 1, ?)', (email, now))
+    conn.execute('UPDATE users SET is_approved=1, approved_at=? WHERE email=?', (now, email))
     conn.execute('DELETE FROM pending_approvals WHERE email=?', (email,))
     conn.commit()
     conn.close()
     # Send approval email
-    msg = Message('Account Approved', sender=app.config['MAIL_USERNAME'], recipients=[email])
-    msg.body = 'Your account has been approved. You can now log in.'
-    mail.send(msg)
-    return 'User approved.'
+    try:
+        msg = Message('Account Approved', sender=app.config['MAIL_USERNAME'], recipients=[email])
+        msg.body = 'Your account has been approved. You can now log in.'
+        mail.send(msg)
+        success = True
+        message = f'{email} is confirmed.'
+    except Exception as e:
+        success = False
+        message = f'Error sending approval email: {e}'
+    return jsonify({'success': success, 'message': message, 'email': email, 'approved_at': now})
 
 # --- Protect Main Page ---
 @app.before_request
@@ -332,10 +359,36 @@ def require_login():
 def admin_page():
     print('ADMIN PAGE ACCESSED')
     conn = get_db()
-    pending = conn.execute('SELECT email, requested_at FROM pending_approvals').fetchall()
-    print('PENDING APPROVALS:', pending)
+    # Get all emails in pending_approvals
+    pending_emails = conn.execute('SELECT email FROM pending_approvals').fetchall()
+    pending = []
+    for row in pending_emails:
+        email = row['email']
+        # Aggregate approval_requests for this email
+        stats = conn.execute('''
+            SELECT 
+                MIN(requested_at) as first_request,
+                MAX(requested_at) as last_request,
+                COUNT(*) as num_requests
+            FROM approval_requests WHERE email=?
+        ''', (email,)).fetchone()
+        pending.append({
+            'email': email,
+            'first_request': stats['first_request'],
+            'last_request': stats['last_request'],
+            'num_requests': stats['num_requests'],
+        })
+    # Get all approved users with approved_at
+    approved_rows = conn.execute('SELECT email, last_login, approved_at FROM users WHERE is_approved=1').fetchall()
+    approved = []
+    for row in approved_rows:
+        approved.append({
+            'email': row['email'],
+            'last_login': row['last_login'],
+            'approved_at': row['approved_at']
+        })
     conn.close()
-    return render_template('admin_approval.html', pending=pending)
+    return render_template('admin_approval.html', pending=pending, approved=approved)
 
 # Call all initializers
 if __name__ == '__main__':

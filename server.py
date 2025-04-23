@@ -366,8 +366,14 @@ def admin_approve():
 
 # --- Protect Main Page ---
 @app.before_request
-def require_login():
-    allowed = ('login', 'verify_code', 'static', 'admin_page', 'admin_approve', 'get_option_databases', 'get_customers')
+def before_request_func():
+    # Allow CORS preflight requests to pass through
+    if request.method == 'OPTIONS':
+        return '', 200
+    allowed = (
+        'login', 'verify_code', 'static', 'admin_page', 'admin_approve',
+        'get_option_databases', 'get_customers', 'add_customer', 'update_customer'
+    )
     if request.endpoint not in allowed and 'user' not in session:
         return redirect(url_for('login'))
 

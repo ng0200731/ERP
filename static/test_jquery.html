@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>jQuery Test</title>
+  <script src="/static/js/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+  <h2>jQuery Test</h2>
+  <div id="result">Testing...</div>
+  <script>
+    if (window.jQuery) {
+      $('#result').text('jQuery is loaded! Version: ' + $.fn.jquery);
+    } else {
+      document.getElementById('result').textContent = 'jQuery is NOT loaded.';
+    }
+  </script>
+</body>
+</html> 

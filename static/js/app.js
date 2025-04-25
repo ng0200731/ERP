@@ -1663,13 +1663,14 @@ function renderDbOptionsArea(db) {
   $('#add-option-btn').off('click').on('click', function() {
     const value = $('#new-option-value').val().trim();
     if (!value) {
-      $('#option-error').text('Value required');
+      $('#option-error').css('color', '').text('Value required');
       return;
     }
     // Check for duplicate
     $.get('http://localhost:5000/option_fields/check', { database_id: db.id, value }, function(resp) {
       if (resp.exists) {
-        $('#option-error').text('Option already exists');
+        $('#option-error').css('color', 'red').text('Option already exists');
+        setTimeout(function() { $('#option-error').text('').css('color', ''); }, 1800);
       } else {
         // Add option
         $.ajax({
@@ -1678,6 +1679,9 @@ function renderDbOptionsArea(db) {
           contentType: 'application/json',
           data: JSON.stringify({ database_id: db.id, value }),
           success: function() {
+            $('#option-error').css('color', 'green').text('Option added!');
+            $('#new-option-value').val('');
+            setTimeout(function() { $('#option-error').text('').css('color', ''); }, 1200);
             // Refresh options
             $.get('http://localhost:5000/option_databases', function(dbs) {
               const updatedDb = dbs.find(d => d.id == db.id);
@@ -1685,7 +1689,8 @@ function renderDbOptionsArea(db) {
             });
           },
           error: function(xhr) {
-            $('#option-error').text(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Error');
+            $('#option-error').css('color', 'red').text(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Error');
+            setTimeout(function() { $('#option-error').text('').css('color', ''); }, 1800);
           }
         });
       }
@@ -1694,6 +1699,8 @@ function renderDbOptionsArea(db) {
   // Delete option handler
   $('.delete-option-btn').off('click').on('click', function() {
     const optId = $(this).data('id');
+    const optName = $(this).closest('li').text().replace('Delete', '').trim();
+    if (!confirm(`Are you sure you want to delete the option "${optName}"?`)) return;
     $.ajax({
       url: 'http://localhost:5000/option_fields/' + optId,
       type: 'DELETE',
@@ -1703,21 +1710,6 @@ function renderDbOptionsArea(db) {
           const updatedDb = dbs.find(d => d.id == db.id);
           renderDbOptionsArea(updatedDb);
         });
-      }
-    });
-  });
-  // Real-time duplicate check
-  $('#new-option-value').off('input').on('input', function() {
-    const value = $(this).val().trim();
-    if (!value) {
-      $('#option-error').text('');
-      return;
-    }
-    $.get('http://localhost:5000/option_fields/check', { database_id: db.id, value }, function(resp) {
-      if (resp.exists) {
-        $('#option-error').text('Option already exists');
-      } else {
-        $('#option-error').text('');
       }
     });
   });
@@ -1760,3 +1752,170 @@ function renderDbOptionsArea(db) {
       $('#company-name, #address, #website, .domain-input, #customer-type-select').removeClass('highlight-error');
     });
 // ... existing code ...
+
+// --- Authorized Person Tab Logic ---
+$(function() {
+  // Always fetch users when the page loads
+  fetchAndRenderUsers();
+  // Also fetch when the tab is clicked
+  $('#authorized-person-tab').on('click', function() {
+    fetchAndRenderUsers();
+  });
+
+  // Save/Add user button
+  $('#saveUserBtn').on('click', function() {
+    const id = $('#userId').val();
+    const email = $('#userEmail').val().trim();
+    const permission_level = $('#userLevel').val();
+    if (!email) {
+      alert('Email is required');
+      return;
+    }
+    if (id) {
+      // Edit user
+      $.ajax({
+        url: `/admin/users/${id}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ permission_level }),
+        success: function() {
+          $('#userModal').modal('hide');
+          fetchAndRenderUsers();
+        },
+        error: function(xhr) {
+          alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Error updating user');
+        }
+      });
+    } else {
+      // Add user
+      $.ajax({
+        url: '/admin/users',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ email, permission_level }),
+        success: function() {
+          $('#userModal').modal('hide');
+          fetchAndRenderUsers();
+        },
+        error: function(xhr) {
+          alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Error adding user');
+        }
+      });
+    }
+  });
+
+  // Show add user modal
+  window.showAddUserModal = function() {
+    $('#userModalTitle').text('Add User');
+    $('#userEmail').val('');
+    $('#userLevel').val('1');
+    $('#userId').val('');
+    $('#userEmail').prop('disabled', false);
+    $('#userModal').modal('show');
+  };
+
+  // Edit user
+  $('#users-table').on('click', '.edit-user-btn', function() {
+    const id = $(this).data('id');
+    const email = $(this).data('email');
+    const level = $(this).data('level');
+    $('#userModalTitle').text('Edit User');
+    $('#userEmail').val(email);
+    $('#userLevel').val(level);
+    $('#userId').val(id);
+    $('#userEmail').prop('disabled', true);
+    $('#userModal').modal('show');
+  });
+
+  // Delete user
+  $(document).off('click', '.delete-user-btn');
+  $(document).on('click', '.delete-user-btn', function() {
+    const id = $(this).data('id');
+    if (!confirm('Are you sure you want to delete this user?')) return;
+    $.ajax({
+      url: `/admin/users/${id}`,
+      type: 'DELETE',
+      success: function() {
+        fetchAndRenderUsers();
+      },
+      error: function(xhr) {
+        alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Error deleting user');
+      }
+    });
+  });
+});
+
+function fetchAndRenderUsers() {
+  $.get('/admin/users', function(users) {
+    // Sort by approved_at descending (if available)
+    users.sort((a, b) => {
+      if (b.approved_at && a.approved_at) return b.approved_at.localeCompare(a.approved_at);
+      return 0;
+    });
+    // Get filter value
+    const filter = $('#user-filter-input').val() ? $('#user-filter-input').val().toLowerCase() : '';
+    let filtered = users;
+    if (filter) {
+      filtered = filtered.filter(u => u.email.toLowerCase().includes(filter));
+    }
+    // Render ALL users, including those with permission_level null
+    const tbody = filtered.map(u => {
+      // Compute status
+      let status = 'Pending';
+      if (u.is_active === 0) status = 'Inactive';
+      else if (u.permission_level) status = 'Active';
+      // Render permission level
+      let levelDisplay = 'No Level';
+      if (u.permission_level == 1) levelDisplay = 'Level 1 (Add/Edit)';
+      if (u.permission_level == 2) levelDisplay = 'Level 2 (Add/Edit/Delete)';
+      if (u.permission_level == 3) levelDisplay = 'Level 3 (Admin)';
+      return `
+      <tr${!u.permission_level ? ' style="background:#fffbe6"' : ''}>
+        <td><input type="checkbox" class="user-select-checkbox" data-id="${u.id}" data-email="${u.email}" data-level="${u.permission_level || ''}" ${u.is_active === 0 ? 'disabled' : ''}></td>
+        <td>${u.email}</td>
+        <td>${status}</td>
+        <td>
+          <select class="form-control user-level-select" data-id="${u.id}" data-original="${u.permission_level || ''}" ${u.is_active === 0 ? 'disabled' : ''}>
+            <option value=""${!u.permission_level ? ' selected' : ''}>No Level</option>
+            <option value="1"${u.permission_level==1?' selected':''}>Level 1 (Add/Edit)</option>
+            <option value="2"${u.permission_level==2?' selected':''}>Level 2 (Add/Edit/Delete)</option>
+            <option value="3"${u.permission_level==3?' selected':''}>Level 3 (Admin)</option>
+          </select>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-success update-user-btn" data-id="${u.id}" data-email="${u.email}" disabled ${u.is_active === 0 ? 'disabled' : ''}>Update</button>
+          ${(u.permission_level != 3 && u.is_active !== 0) ? `<button class="btn btn-sm btn-warning inactive-user-btn" data-id="${u.id}">Inactive</button>` : ''}
+        </td>
+      </tr>
+      `;
+    }).join('');
+    $('#users-table tbody').html(tbody);
+  });
+}
+
+// Batch select logic
+$(document).off('change', '#select-all-users');
+$(document).on('change', '#select-all-users', function() {
+  const checked = $(this).is(':checked');
+  $('.user-select-checkbox:enabled').prop('checked', checked);
+});
+
+// Batch set level logic
+$(document).off('click', '#batch-set-level');
+$(document).on('click', '#batch-set-level', function() {
+  let level = $('#batch-level-select').val();
+  if (level === '') { alert('Please select a level.'); return; }
+  if (level === 'none') level = null;
+  const ids = $('.user-select-checkbox:checked').map(function() { return $(this).data('id'); }).get();
+  if (ids.length === 0) { alert('Please select at least one user.'); return; }
+  if (!confirm(`Are you sure you want to set level ${level === null ? 'No Level' : level} for ${ids.length} user(s)?`)) return;
+  ids.forEach(id => {
+    $.ajax({
+      url: `/admin/users/${id}`,
+      type: 'PUT',
+      contentType: 'application/json',
+      data: JSON.stringify({ permission_level: level }),
+      success: function() { fetchAndRenderUsers(); }
+    });
+  });
+});

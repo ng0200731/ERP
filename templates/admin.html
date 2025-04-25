@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Approval - Customer Management App</title>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    .tab-content { background: #fff; padding: 32px 40px; border-radius: 10px; box-shadow: 0 2px 16px #eee; min-width: 600px; }
+    .nav-tabs { justify-content: center; margin-bottom: 0; }
+    .nav-tabs .nav-link { font-size: 18px; padding: 10px 32px; }
+    .container { margin-top: 40px; display: flex; flex-direction: column; align-items: center; }
+    h2 { margin-bottom: 24px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2>Admin User Approvals</h2>
+  <ul class="nav nav-tabs" id="adminTab" role="tablist">
+    <li class="nav-item">
+      <a class="nav-link active" id="authorized-person-tab" data-toggle="tab" href="#authorized-person" role="tab">Authorized Person</a>
+    </li>
+  </ul>
+  <div class="tab-content w-100" id="adminTabContent">
+    <div class="tab-pane fade show active" id="authorized-person" role="tabpanel">
+      <h3>Authorized Persons</h3>
+      <button class="btn btn-primary mb-2" onclick="showAddUserModal()">Add User</button>
+      <div id="user-filter-row" style="margin-bottom:12px;display:flex;align-items:center;gap:16px;">
+        <input id="user-filter-input" class="form-control" style="width:220px;display:inline-block;" placeholder="Filter by email...">
+        <button class="btn btn-secondary btn-sm" id="batch-set-level">Set Level for Selected</button>
+        <select id="batch-level-select" class="form-control" style="width:180px;display:inline-block;">
+          <option value="">-- Select Level --</option>
+          <option value="none">-- No Level --</option>
+          <option value="1">Level 1 (Add/Edit)</option>
+          <option value="2">Level 2 (Add/Edit/Delete)</option>
+          <option value="3">Level 3 (Admin)</option>
+        </select>
+      </div>
+      <table class="table" id="users-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all-users"></th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Permission Level</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal" tabindex="-1" role="dialog" id="userModal">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="userModalTitle">Add User</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="userForm">
+          <div class="form-group">
+            <label for="userEmail">Email</label>
+            <input type="email" class="form-control" id="userEmail" required>
+          </div>
+          <div class="form-group">
+            <label for="userLevel">Permission Level</label>
+            <select class="form-control" id="userLevel">
+              <option value="1">Level 1 (Add/Edit)</option>
+              <option value="2">Level 2 (Add/Edit/Delete)</option>
+              <option value="3">Level 3 (Admin)</option>
+            </select>
+          </div>
+          <input type="hidden" id="userId">
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="saveUserBtn">Save</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- jQuery (required for Bootstrap 4) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Bootstrap JS -->
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<!-- Custom App JS -->
+<script src="/static/js/app.js"></script>
+</body>
+</html> 

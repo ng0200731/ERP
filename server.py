@@ -241,18 +241,23 @@ def serve_index():
 # --- User and Approval Tables ---
 def init_user_db():
     conn = get_db()
-    # Add approved_at column if it doesn't exist
+    # Add approved_at and permission_level columns if they don't exist
     try:
         conn.execute('ALTER TABLE users ADD COLUMN approved_at TEXT')
     except Exception:
         pass  # Ignore if already exists
+    try:
+        conn.execute('ALTER TABLE users ADD COLUMN permission_level INTEGER DEFAULT 1')
+    except Exception:
+        pass
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE,
             is_approved INTEGER DEFAULT 0,
             last_login TEXT,
-            approved_at TEXT
+            approved_at TEXT,
+            permission_level INTEGER DEFAULT 1
         )
     ''')
     conn.execute('''
@@ -289,6 +294,7 @@ def login():
             code = hashlib.sha256((email + str(datetime.now())).encode()).hexdigest()[:5]
             session['pending_code'] = code
             session['pending_email'] = email
+            session['permission_level'] = user['permission_level'] if 'permission_level' in user.keys() else 1
             msg = Message('Your Access Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
             msg.body = f'Your access code is: {code}'
             mail.send(msg)
@@ -305,10 +311,12 @@ def login():
             conn.close()
             return 'Authorization in progress. Please wait for admin approval.'
         else:
-            # Add to pending approvals
-            conn.execute('INSERT OR IGNORE INTO pending_approvals (email, requested_at) VALUES (?, ?)', (email, now))
-            conn.commit()
-            conn.close()
+            # Insert new user with is_approved=0, permission_level=NULL, approved_at=NULL
+            try:
+                conn.execute('INSERT INTO users (email, is_approved, permission_level, approved_at) VALUES (?, 0, NULL, NULL)', (email,))
+                conn.commit()
+            except Exception as e:
+                print(f'Error inserting new user: {e}')
             # Send acknowledgment email to the real user
             try:
                 msg = Message('We received your login request', sender=app.config['MAIL_USERNAME'], recipients=[email])
@@ -316,6 +324,7 @@ def login():
                 mail.send(msg)
             except Exception as e:
                 print(f'Error sending login acknowledgment email: {e}')
+            conn.close()
             return 'Request submitted. Waiting for admin approval.'
     return render_template('login.html')
 
@@ -331,38 +340,29 @@ def verify_code():
 # --- Admin Approval Route (simple, for demo) ---
 @app.route('/admin/approve', methods=['POST'])
 def admin_approve():
+    data = request.get_json()
+    email = data.get('email')
+    if not email:
+        return jsonify({'success': False, 'error': 'No email provided'}), 400
+    conn = get_db()
     try:
-        email = request.form['email']
-        print(f'[DEBUG] Approving email: {email}')
         now = datetime.now(timezone.utc).isoformat()
-        conn = get_db()
-        print('[DEBUG] DB connection opened')
-        # Move from pending_approvals to users, set approved_at
-        conn.execute('INSERT OR IGNORE INTO users (email, is_approved, approved_at) VALUES (?, 1, ?)', (email, now))
-        print('[DEBUG] Inserted/ignored into users')
+        # Approve user in users table
         conn.execute('UPDATE users SET is_approved=1, approved_at=? WHERE email=?', (now, email))
-        print('[DEBUG] Updated users')
-        conn.execute('DELETE FROM pending_approvals WHERE email=?', (email,))
-        print('[DEBUG] Deleted from pending_approvals')
         conn.commit()
-        conn.close()
-        print('[DEBUG] DB commit and close')
-        # Send approval email
+        # Optionally, send approval email
         try:
-            msg = Message('Account Approved', sender=app.config['MAIL_USERNAME'], recipients=[email])
-            msg.body = 'Your account has been approved. You can now log in.'
+            msg = Message('Your account is approved', sender=app.config['MAIL_USERNAME'], recipients=[email])
+            msg.body = 'Your account has been approved. You may now log in.'
             mail.send(msg)
-            print(f'[DEBUG] Approval email sent to {email}')
-            success = True
-            message = f'{email} is confirmed.'
         except Exception as e:
             print(f'[ERROR] Error sending approval email: {e}')
-            success = False
-            message = f'Error sending approval email: {e}'
-        return jsonify({'success': success, 'message': message, 'email': email, 'approved_at': now})
+        return jsonify({'success': True})
     except Exception as e:
-        print(f'[ERROR] Exception in /admin/approve: {e}')
-        return jsonify({'success': False, 'message': f'Internal server error: {e}', 'email': None, 'approved_at': None})
+        print(f'[ERROR] Error approving user: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        conn.close()
 
 # --- Protect Main Page ---
 @app.before_request
@@ -372,8 +372,12 @@ def before_request_func():
         return '', 200
     allowed = (
         'login', 'verify_code', 'static', 'admin_page', 'admin_approve',
-        'get_option_databases', 'get_customers', 'add_customer', 'update_customer'
+        'get_option_databases', 'get_customers', 'add_customer', 'update_customer',
+        'list_users', 'add_user', 'edit_user', 'delete_user'
     )
+    # Only allow admin page for level 3
+    if request.endpoint == 'admin_page' and session.get('permission_level', 1) < 3:
+        return redirect(url_for('login'))
     if request.endpoint not in allowed and 'user' not in session:
         return redirect(url_for('login'))
 
@@ -410,12 +414,62 @@ def admin_page():
             'approved_at': row['approved_at']
         })
     conn.close()
-    return render_template('admin_approval.html', pending=pending, approved=approved)
+    return render_template('admin.html', pending=pending, approved=approved)
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+@app.route('/admin/users', methods=['GET'])
+def list_users():
+    conn = get_db()
+    users = conn.execute('SELECT id, email, permission_level, approved_at FROM users').fetchall()
+    conn.close()
+    return jsonify([dict(u) for u in users])
+
+@app.route('/admin/users', methods=['POST'])
+def add_user():
+    data = request.json
+    email = data.get('email')
+    level = int(data.get('permission_level', 1))
+    conn = get_db()
+    try:
+        conn.execute('INSERT INTO users (email, is_approved, permission_level) VALUES (?, 1, ?)', (email, level))
+        conn.commit()
+        return '', 201
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'User already exists'}), 400
+    finally:
+        conn.close()
+
+@app.route('/admin/users/<int:user_id>', methods=['PUT'])
+def edit_user(user_id):
+    data = request.json
+    level = int(data.get('permission_level', 1))
+    conn = get_db()
+    conn.execute('UPDATE users SET permission_level=? WHERE id=?', (level, user_id))
+    conn.commit()
+    conn.close()
+    return '', 204
+
+@app.route('/admin/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    # Only allow if current user is level 2
+    if session.get('permission_level', 1) < 2:
+        return jsonify({'error': 'Not authorized'}), 403
+    conn = get_db()
+    conn.execute('DELETE FROM users WHERE id=?', (user_id,))
+    conn.commit()
+    conn.close()
+    return '', 204
+
+# --- Set eric.brilliant@gmail.com to level 3 on startup ---
+def set_admin_level():
+    conn = get_db()
+    conn.execute('UPDATE users SET permission_level=3 WHERE email=?', ('eric.brilliant@gmail.com',))
+    conn.commit()
+    conn.close()
 
 # Call all initializers
 if __name__ == '__main__':
@@ -425,6 +479,7 @@ if __name__ == '__main__':
         init_db()
         init_option_db()
         init_user_db()
-        app.run(debug=True)
+        set_admin_level()
+        app.run(host='0.0.0.0', port=5000, debug=True)
     except Exception as e:
         print('ERROR STARTING SERVER:', e) 

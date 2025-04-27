@@ -34,6 +34,29 @@
       opacity: 0.5;
       filter: grayscale(0.2);
     }
+    #updating-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    .spinner {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #3498db;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 18px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -301,8 +324,7 @@ $(document).ready(function() {
 });
 
 function updateUserTable(users) {
-  // Preserve select-all state
-  const selectAllChecked = $('#select-all-users').is(':checked');
+  // Always select all after search
   const $tbody = $('#users-table tbody');
   $tbody.empty();
   if (!users.length) {
@@ -322,28 +344,28 @@ function updateUserTable(users) {
     if (u.permission_level == 2) levelDisplay = 'Level 2 (Add/Edit/Delete)';
     if (u.permission_level == 3) levelDisplay = 'Level 3 (Admin)';
     $tbody.append(`
-      <tr${!u.permission_level ? ' style="background:#fffbe6"' : ''}>
-        <td><input type="checkbox" class="user-select-checkbox" data-id="${u.id}" data-email="${u.email}" data-level="${u.permission_level || ''}" ${u.is_approved === 0 ? 'disabled' : ''}></td>
+      <tr${!u.permission_level ? ' style=\"background:#fffbe6\"' : ''}>
+        <td><input type=\"checkbox\" class=\"user-select-checkbox\" data-id=\"${u.id}\" data-email=\"${u.email}\" data-level=\"${u.permission_level || ''}\"></td>
         <td>${u.email}</td>
         <td>${status}</td>
         <td>
-          <select class="form-control user-level-select" data-id="${u.id}" data-original="${u.permission_level || ''}" ${u.is_approved === 0 ? 'disabled' : ''}>
-            <option value=""${!u.permission_level ? ' selected' : ''}>No Level</option>
-            <option value="1"${u.permission_level==1?' selected':''}>Level 1 (Add/Edit)</option>
-            <option value="2"${u.permission_level==2?' selected':''}>Level 2 (Add/Edit/Delete)</option>
-            <option value="3"${u.permission_level==3?' selected':''}>Level 3 (Admin)</option>
+          <select class=\"form-control user-level-select\" data-id=\"${u.id}\" data-original=\"${u.permission_level || ''}\" ${u.is_approved === 0 ? 'disabled' : ''}>
+            <option value=\"\"${!u.permission_level ? ' selected' : ''}>No Level</option>
+            <option value=\"1\"${u.permission_level==1?' selected':''}>Level 1 (Add/Edit)</option>
+            <option value=\"2\"${u.permission_level==2?' selected':''}>Level 2 (Add/Edit/Delete)</option>
+            <option value=\"3\"${u.permission_level==3?' selected':''}>Level 3 (Admin)</option>
           </select>
         </td>
         <td>
-          <button class="btn btn-sm btn-success update-user-btn" data-id="${u.id}" data-email="${u.email}" disabled ${u.is_approved === 0 ? 'disabled' : ''}>Update</button>
-          ${(u.permission_level != 3 && u.is_approved !== 0) ? `<button class="btn btn-sm btn-warning inactive-user-btn" data-id="${u.id}">Inactive</button>` : ''}
+          <button class=\"btn btn-sm btn-success update-user-btn\" data-id=\"${u.id}\" data-email=\"${u.email}\" disabled ${u.is_approved === 0 ? 'disabled' : ''}>Update</button>
+          ${(u.permission_level != 3 && u.is_approved !== 0) ? `<button class=\"btn btn-sm btn-warning inactive-user-btn\" data-id=\"${u.id}\">Inactive</button>` : ''}
         </td>
       </tr>
     `);
   });
-  // Restore select-all state
-  $('#select-all-users').prop('checked', selectAllChecked);
-  $('.user-select-checkbox:enabled').prop('checked', selectAllChecked);
+  // Select all checkboxes and set select-all to checked
+  $('#select-all-users').prop('checked', true);
+  $('.user-select-checkbox:enabled').prop('checked', true);
 }
 
 // --- Convert to Preset Rule Logic ---
@@ -392,7 +414,75 @@ $(document).ready(function() {
     window.convertToContent = '';
     renderConvertToRule();
   });
+  $(document).on('click', '.convert-change-btn', function() {
+    if ($('.convert-panel').hasClass('convert-disabled')) return;
+    const name = $('#convert-to-name').val();
+    const value = $('#convert-to-content').val();
+    // Reset backgrounds
+    $('#convert-to-name').css('background', '');
+    $('#convert-to-content').css('background', '');
+    if (!name) $('#convert-to-name').css('background', '#ffd6d6');
+    if (!value) $('#convert-to-content').css('background', '#ffd6d6');
+    if (!name || !value) {
+      alert('Please select both Name and Value in Convert to.');
+      return;
+    }
+    // Get selected user emails
+    const checked = $('.user-select-checkbox:checked');
+    if (checked.length === 0) {
+      alert('Please select at least one user to convert.');
+      return;
+    }
+    const emails = checked.map(function() { return $(this).data('email'); }).get();
+    let nameLabel = name === 'status' ? 'Status' : 'Permission Level';
+    let valueLabel = value;
+    if (name === 'permission') {
+      if (value == 1) valueLabel = 'Level 1 (Add/Edit)';
+      if (value == 2) valueLabel = 'Level 2 (Add/Edit/Delete)';
+      if (value == 3) valueLabel = 'Level 3 (Admin)';
+    }
+    if (name === 'status') {
+      valueLabel = value.charAt(0).toUpperCase() + value.slice(1);
+    }
+    if (!confirm(`Confirm: The selected emails will be converted to ${nameLabel} = ${valueLabel}.`)) return;
+    // Show updating overlay
+    $('#updating-overlay').css('display', 'flex');
+    // For each selected user, send AJAX to update
+    let completed = 0;
+    checked.each(function() {
+      const id = $(this).data('id');
+      let data = {};
+      if (name === 'permission') data.permission_level = value;
+      if (name === 'status') {
+        data.is_approved = (value === 'Active' ? 1 : 0);
+        if (value === 'Inactive') {
+          // Also set permission_level for Inactive
+          let currentLevel = $(this).data('level');
+          data.permission_level = currentLevel ? currentLevel : 1;
+        }
+      }
+      $.ajax({
+        url: `/admin/users/${id}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        complete: function() {
+          completed++;
+          if (completed === checked.length) {
+            setTimeout(function() {
+              $('#updating-overlay').css('display', 'none');
+              window.location.href = '/admin';
+            }, 400);
+          }
+        }
+      });
+    });
+  });
 });
 </script>
+<div id="updating-overlay">
+  <div class="spinner"></div>
+  <div style="color:#fff;font-size:1.5rem;font-weight:600;">Updating...</div>
+</div>
 </body>
 </html> 

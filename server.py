@@ -446,9 +446,20 @@ def add_user():
 @app.route('/admin/users/<int:user_id>', methods=['PUT'])
 def edit_user(user_id):
     data = request.json
-    level = int(data.get('permission_level', 1))
+    updates = []
+    params = []
+    if 'permission_level' in data:
+        updates.append('permission_level=?')
+        params.append(int(data['permission_level']) if data['permission_level'] is not None else None)
+    if 'is_approved' in data:
+        updates.append('is_approved=?')
+        params.append(int(data['is_approved']))
+    if not updates:
+        return '', 204
+    query = f'UPDATE users SET {", ".join(updates)} WHERE id=?'
+    params.append(user_id)
     conn = get_db()
-    conn.execute('UPDATE users SET permission_level=? WHERE id=?', (level, user_id))
+    conn.execute(query, params)
     conn.commit()
     conn.close()
     return '', 204

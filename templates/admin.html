@@ -111,6 +111,7 @@
             <th>Status</th>
             <th>Permission Level</th>
             <th>Last Updated</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -226,6 +227,17 @@ $(document).ready(function() {
   renderRules();
   // Ensure panel is completely removed on page load
   clearConvertPanel();
+  
+  // Initialize latestChanges from localStorage if available
+  try {
+    const changesCache = JSON.parse(localStorage.getItem('userChangesCache') || '{}');
+    window.latestChanges = { ...changesCache, ...(window.latestChanges || {}) };
+    console.log('Loaded changes from cache:', window.latestChanges);
+  } catch (e) {
+    console.error('Could not load changes from localStorage:', e);
+    window.latestChanges = window.latestChanges || {};
+  }
+  
   $('#rules-list').on('change', '.rule-name', function() {
     const idx = $(this).closest('.rule-row').data('idx');
     rules[idx].name = $(this).val();
@@ -396,15 +408,14 @@ $(document).ready(function() {
     window.location.href = '/admin';
   });
   $('#select-all-users').prop('checked', false);
-  window.latestChanges = {}; // Reset the change tracking
 });
 
 function updateUserTable(users, selectAllChecked = null) {
   const $tbody = $('#users-table tbody');
   $tbody.empty();
   if (!users.length) {
-    $tbody.append('<tr><td colspan="5" class="text-center">No users found.</td></tr>');
-    clearConvertPanel(); // Remove panel if no users
+    $tbody.append('<tr><td colspan="6" class="text-center">No users found.</td></tr>');
+    clearConvertPanel();
     return;
   }
   
@@ -454,6 +465,21 @@ function updateUserTable(users, selectAllChecked = null) {
       lastUpdated = 'No date available';
     }
     
+    // Create quick edit buttons for single-user actions
+    const actionButtons = `
+      <div class="btn-group">
+        <button class="btn btn-sm btn-outline-primary quick-edit-btn" data-id="${u.id}" title="Quick Edit">
+          <i class="fa fa-pencil"></i> Edit
+        </button>
+        <button class="btn btn-sm btn-outline-secondary toggle-status-btn" 
+                data-id="${u.id}" 
+                data-current="${u.status}"
+                title="${u.status === 'Active' ? 'Make Inactive' : 'Make Active'}">
+          ${u.status === 'Active' ? 'Deactivate' : 'Activate'}
+        </button>
+      </div>
+    `;
+    
     $tbody.append(`
       <tr>
         <td><input type=\"checkbox\" class=\"user-select-checkbox\" data-id=\"${u.id}\" data-email=\"${u.email}\" data-level=\"${u.permission_level || ''}\"></td>
@@ -461,6 +487,34 @@ function updateUserTable(users, selectAllChecked = null) {
         <td>${u.status || ''}</td>
         <td>${u.permission_level || ''}</td>
         <td>${lastUpdated}</td>
+        <td>${actionButtons}</td>
+      </tr>
+      <tr id="edit-row-${u.id}" class="edit-row" style="display:none;">
+        <td colspan="6">
+          <div class="card p-3 mb-0">
+            <div class="form-row">
+              <div class="col">
+                <label>Status</label>
+                <select class="form-control edit-status" data-id="${u.id}">
+                  <option value="Active" ${u.status==='Active'?'selected':''}>Active</option>
+                  <option value="Inactive" ${u.status==='Inactive'?'selected':''}>Inactive</option>
+                </select>
+              </div>
+              <div class="col">
+                <label>Permission Level</label>
+                <select class="form-control edit-permission" data-id="${u.id}">
+                  <option value="1" ${u.permission_level==1?'selected':''}>Level 1 (Add/Edit)</option>
+                  <option value="2" ${u.permission_level==2?'selected':''}>Level 2 (Add/Edit/Delete)</option>
+                  <option value="3" ${u.permission_level==3?'selected':''}>Level 3 (Admin)</option>
+                </select>
+              </div>
+              <div class="col d-flex align-items-end">
+                <button class="btn btn-success save-user-btn mr-2" data-id="${u.id}">Save</button>
+                <button class="btn btn-secondary cancel-edit-btn" data-id="${u.id}">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </td>
       </tr>
     `);
   });
@@ -782,8 +836,11 @@ $(document).on('click', '.convert-change-btn', function() {
       newValue = value;
     }
     
+    // Create a timestamp for this change
+    const timestamp = new Date().toISOString();
+    
     // Add a client-side timestamp to track when this change was made
-    data.client_updated_at = new Date().toISOString();
+    data.client_updated_at = timestamp;
     
     // Store the change in a temporary object to reference in the callback
     const changeInfo = {
@@ -791,12 +848,21 @@ $(document).on('click', '.convert-change-btn', function() {
       field: changeType,
       oldValue: oldValue,
       newValue: newValue,
-      timestamp: data.client_updated_at
+      timestamp: timestamp
     };
     
     // Store this in a temporary object on the window
     window.latestChanges = window.latestChanges || {};
     window.latestChanges[id] = changeInfo;
+    
+    // Cache the change info in localStorage to persist across page refreshes
+    try {
+      const changesCache = JSON.parse(localStorage.getItem('userChangesCache') || '{}');
+      changesCache[id] = changeInfo;
+      localStorage.setItem('userChangesCache', JSON.stringify(changesCache));
+    } catch (e) {
+      console.error('Could not cache changes in localStorage:', e);
+    }
     
     $.ajax({
       url: `/admin/users/${id}`,
@@ -894,6 +960,202 @@ $(document).on('click', '.convert-reset-btn', function() {
   ];
   renderConvertToRule();
 });
+
+// Add event handlers for quick individual user editing
+$(document).ready(function() {
+  // Quick edit button - show the edit row
+  $(document).on('click', '.quick-edit-btn', function() {
+    const id = $(this).data('id');
+    $(`#edit-row-${id}`).show();
+    $(this).closest('tr').addClass('table-active');
+    
+    // Initially disable save button
+    $(`.save-user-btn[data-id="${id}"]`).prop('disabled', true);
+  });
+  
+  // Monitor changes in form fields
+  $(document).on('change', '.edit-status, .edit-permission', function() {
+    const id = $(this).data('id');
+    checkForChanges(id);
+  });
+  
+  // Cancel edit button
+  $(document).on('click', '.cancel-edit-btn', function() {
+    const id = $(this).data('id');
+    $(`#edit-row-${id}`).hide();
+    $(`tr[data-id="${id}"]`).removeClass('table-active');
+  });
+  
+  // Toggle status button (quick action without opening edit form)
+  $(document).on('click', '.toggle-status-btn', function() {
+    const id = $(this).data('id');
+    const currentStatus = $(this).data('current');
+    const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+    
+    if (confirm(`Are you sure you want to change status to ${newStatus}?`)) {
+      // Show updating overlay
+      $('#updating-overlay').css('display', 'flex');
+      
+      // Store the change info for tracking
+      const timestamp = new Date().toISOString();
+      const changeInfo = {
+        id: id,
+        field: 'Status',
+        oldValue: currentStatus,
+        newValue: newStatus,
+        timestamp: timestamp
+      };
+      
+      // Ensure we have the latestChanges object
+      window.latestChanges = window.latestChanges || {};
+      
+      // Store this in window.latestChanges
+      window.latestChanges[id] = changeInfo;
+      
+      // Cache the change info in localStorage to persist across page refreshes
+      try {
+        const changesCache = JSON.parse(localStorage.getItem('userChangesCache') || '{}');
+        changesCache[id] = changeInfo;
+        localStorage.setItem('userChangesCache', JSON.stringify(changesCache));
+      } catch (e) {
+        console.error('Could not cache changes in localStorage:', e);
+      }
+      
+      // Send AJAX to update
+      $.ajax({
+        url: `/admin/users/${id}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ 
+          is_approved: (newStatus === 'Active' ? 1 : 0),
+          client_updated_at: timestamp  // Send timestamp to server
+        }),
+        success: function(response) {
+          console.log(`User ${id} status updated successfully:`, response);
+        },
+        error: function(error) {
+          console.error(`Error updating user ${id}:`, error);
+        },
+        complete: function() {
+          setTimeout(function() {
+            $('#updating-overlay').css('display', 'none');
+            // Refresh the user table
+            if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers(false);
+          }, 400);
+        }
+      });
+    }
+  });
+  
+  // Save button for individual user edit
+  $(document).on('click', '.save-user-btn', function() {
+    const id = $(this).data('id');
+    const newStatus = $(`select.edit-status[data-id="${id}"]`).val();
+    const newPermission = $(`select.edit-permission[data-id="${id}"]`).val();
+    
+    // Get current values from the main row for change tracking
+    const $row = $(this).closest('tr').prev('tr');
+    const currentStatus = $row.find('td:eq(2)').text().trim();
+    const currentPermission = $row.find('td:eq(3)').text().trim();
+    
+    // Show updating overlay
+    $('#updating-overlay').css('display', 'flex');
+    
+    // Track changes for Last Updated column
+    const changes = [];
+    if (newStatus !== currentStatus) {
+      changes.push({
+        field: 'Status',
+        oldValue: currentStatus,
+        newValue: newStatus
+      });
+    }
+    if (newPermission !== currentPermission) {
+      changes.push({
+        field: 'Permission',
+        oldValue: currentPermission,
+        newValue: newPermission
+      });
+    }
+    
+    // Only proceed if there are changes
+    if (changes.length === 0) {
+      $('#updating-overlay').css('display', 'none');
+      $(`#edit-row-${id}`).hide();
+      $row.removeClass('table-active');
+      return;
+    }
+    
+    // Create timestamp for the change
+    const timestamp = new Date().toISOString();
+    
+    // Store the change info for tracking in Last Updated column
+    const changeInfo = {
+      id: id,
+      field: changes.map(c => c.field).join(' & '),
+      oldValue: changes.map(c => c.oldValue).join(' & '),
+      newValue: changes.map(c => c.newValue).join(' & '),
+      timestamp: timestamp
+    };
+    
+    // Store this in temporary object on the window
+    window.latestChanges = window.latestChanges || {};
+    window.latestChanges[id] = changeInfo;
+    
+    // Cache the change info in localStorage to persist across page refreshes
+    try {
+      const changesCache = JSON.parse(localStorage.getItem('userChangesCache') || '{}');
+      changesCache[id] = changeInfo;
+      localStorage.setItem('userChangesCache', JSON.stringify(changesCache));
+    } catch (e) {
+      console.error('Could not cache changes in localStorage:', e);
+    }
+    
+    // Send AJAX to update the user
+    $.ajax({
+      url: `/admin/users/${id}`,
+      type: 'PUT',
+      contentType: 'application/json',
+      data: JSON.stringify({
+        is_approved: (newStatus === 'Active' ? 1 : 0),
+        permission_level: newPermission,
+        client_updated_at: timestamp  // Send timestamp to server
+      }),
+      success: function(response) {
+        console.log(`User ${id} updated successfully:`, response);
+      },
+      error: function(error) {
+        console.error(`Error updating user ${id}:`, error);
+      },
+      complete: function() {
+        setTimeout(function() {
+          $('#updating-overlay').css('display', 'none');
+          // Hide the edit row
+          $(`#edit-row-${id}`).hide();
+          // Refresh the user table
+          if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers(false);
+        }, 400);
+      }
+    });
+  });
+});
+
+// Add new function to check for changes and toggle save button state
+function checkForChanges(id) {
+  const newStatus = $(`select.edit-status[data-id="${id}"]`).val();
+  const newPermission = $(`select.edit-permission[data-id="${id}"]`).val();
+  
+  // Get current values from the main row
+  const $row = $(`#edit-row-${id}`).prev('tr');
+  const currentStatus = $row.find('td:eq(2)').text().trim();
+  const currentPermission = $row.find('td:eq(3)').text().trim();
+  
+  // Check if there are any changes
+  const hasChanges = (newStatus !== currentStatus || newPermission !== currentPermission);
+  
+  // Enable/disable the save button based on changes
+  $(`.save-user-btn[data-id="${id}"]`).prop('disabled', !hasChanges);
+}
 </script>
 <div id="updating-overlay">
   <div class="spinner"></div>

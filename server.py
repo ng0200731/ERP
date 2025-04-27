@@ -340,11 +340,36 @@ def login():
 # --- Code Verification Route ---
 @app.route('/verify_code', methods=['POST'])
 def verify_code():
-    code = request.form['code'].strip()
+    if request.is_json:
+        # Handle AJAX request
+        data = request.get_json()
+        code = data.get('code', '').strip()
+    else:
+        # Handle form submission
+        code = request.form.get('code', '').strip()
+    
     if code == session.get('pending_code'):
         session['user'] = session['pending_email']
-        return redirect(url_for('serve_index'))
-    return 'Invalid code. Try again.'
+        
+        # Check if this is an AJAX request
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'redirect_url': url_for('serve_index')
+            })
+        else:
+            # Traditional form submission - do a redirect
+            return redirect(url_for('serve_index'))
+    
+    # Code is invalid
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': False,
+            'message': 'The code is incorrect. Please try again.'
+        })
+    else:
+        # Traditional form submission - return error page
+        return 'Invalid code. Try again.'
 
 # --- Admin Approval Route (simple, for demo) ---
 @app.route('/admin/approve', methods=['POST'])

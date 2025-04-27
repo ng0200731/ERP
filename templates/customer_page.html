@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Management</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container mt-4">
+    <h1>Customer Management</h1>
+    
+    <div class="row mt-4">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <h5>Customers</h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <button id="add-customer-btn" class="btn btn-primary">Add New Customer</button>
+            </div>
+            <table id="customers-table" class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Customer ID</th>
+                  <th>Customer Name</th>
+                  <th>Last Updated</th>
+                  <th>Key People</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Customer data will be loaded here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Customer Modal -->
+    <div class="modal fade" id="customer-modal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Add New Customer</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="customer-form">
+              <input type="hidden" id="customer-id">
+              <div class="mb-3">
+                <label for="customer-name" class="form-label">Customer Name</label>
+                <input type="text" class="form-control" id="customer-name" required>
+              </div>
+              
+              <h6>Key People</h6>
+              <div id="key-people-container">
+                <div class="key-person-row row mb-2">
+                  <div class="col-md-4">
+                    <input type="text" class="form-control key-person-name" placeholder="Name" required>
+                  </div>
+                  <div class="col-md-4">
+                    <input type="email" class="form-control key-person-email" placeholder="Email" required>
+                  </div>
+                  <div class="col-md-3">
+                    <input type="tel" class="form-control key-person-phone" placeholder="Phone">
+                  </div>
+                  <div class="col-md-1">
+                    <button type="button" class="btn btn-danger remove-key-person">X</button>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-2">
+                <button type="button" id="add-key-person" class="btn btn-secondary">Add Another Key Person</button>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" id="save-customer" class="btn btn-primary">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+  <script>
+    $(document).ready(function() {
+      // Load customers on page load
+      loadCustomers();
+      
+      // Add new customer button
+      $('#add-customer-btn').click(function() {
+        // Reset form
+        $('#customer-form')[0].reset();
+        $('#customer-id').val('');
+        $('.modal-title').text('Add New Customer');
+        
+        // Reset key people to just one row
+        $('#key-people-container').html(`
+          <div class="key-person-row row mb-2">
+            <div class="col-md-4">
+              <input type="text" class="form-control key-person-name" placeholder="Name" required>
+            </div>
+            <div class="col-md-4">
+              <input type="email" class="form-control key-person-email" placeholder="Email" required>
+            </div>
+            <div class="col-md-3">
+              <input type="tel" class="form-control key-person-phone" placeholder="Phone">
+            </div>
+            <div class="col-md-1">
+              <button type="button" class="btn btn-danger remove-key-person">X</button>
+            </div>
+          </div>
+        `);
+        
+        $('#customer-modal').modal('show');
+      });
+      
+      // Add key person button
+      $('#add-key-person').click(function() {
+        $('#key-people-container').append(`
+          <div class="key-person-row row mb-2">
+            <div class="col-md-4">
+              <input type="text" class="form-control key-person-name" placeholder="Name" required>
+            </div>
+            <div class="col-md-4">
+              <input type="email" class="form-control key-person-email" placeholder="Email" required>
+            </div>
+            <div class="col-md-3">
+              <input type="tel" class="form-control key-person-phone" placeholder="Phone">
+            </div>
+            <div class="col-md-1">
+              <button type="button" class="btn btn-danger remove-key-person">X</button>
+            </div>
+          </div>
+        `);
+      });
+      
+      // Remove key person button
+      $(document).on('click', '.remove-key-person', function() {
+        // Don't remove if it's the only row
+        if ($('.key-person-row').length > 1) {
+          $(this).closest('.key-person-row').remove();
+        }
+      });
+      
+      // Save customer button
+      $('#save-customer').click(function() {
+        // Validate form
+        if (!$('#customer-form')[0].checkValidity()) {
+          $('#customer-form')[0].reportValidity();
+          return;
+        }
+        
+        // Collect key people data
+        const keyPeople = [];
+        $('.key-person-row').each(function() {
+          const row = $(this);
+          keyPeople.push({
+            name: row.find('.key-person-name').val(),
+            email: row.find('.key-person-email').val(),
+            phone: row.find('.key-person-phone').val() || ''
+          });
+        });
+        
+        // Prepare customer data
+        const customerData = {
+          name: $('#customer-name').val(),
+          key_people: keyPeople
+        };
+        
+        const customerId = $('#customer-id').val();
+        const isUpdate = customerId !== '';
+        
+        // API call to save customer
+        $.ajax({
+          url: isUpdate ? `/customers/${customerId}` : '/customers',
+          method: isUpdate ? 'PUT' : 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(customerData),
+          success: function(response) {
+            $('#customer-modal').modal('hide');
+            loadCustomers(); // Reload the customers list
+          },
+          error: function(xhr) {
+            alert('Error saving customer: ' + xhr.responseText);
+          }
+        });
+      });
+      
+      // Edit customer button
+      $(document).on('click', '.edit-customer', function() {
+        const customerId = $(this).data('id');
+        
+        // Get customer details
+        $.get(`/customers/${customerId}`, function(customer) {
+          $('#customer-id').val(customer.id);
+          $('#customer-name').val(customer.name);
+          $('.modal-title').text('Edit Customer');
+          
+          // Reset key people container
+          $('#key-people-container').empty();
+          
+          // Add key people rows
+          customer.key_people.forEach(function(person) {
+            $('#key-people-container').append(`
+              <div class="key-person-row row mb-2">
+                <div class="col-md-4">
+                  <input type="text" class="form-control key-person-name" placeholder="Name" value="${person.name}" required>
+                </div>
+                <div class="col-md-4">
+                  <input type="email" class="form-control key-person-email" placeholder="Email" value="${person.email}" required>
+                </div>
+                <div class="col-md-3">
+                  <input type="tel" class="form-control key-person-phone" placeholder="Phone" value="${person.phone || ''}">
+                </div>
+                <div class="col-md-1">
+                  <button type="button" class="btn btn-danger remove-key-person">X</button>
+                </div>
+              </div>
+            `);
+          });
+          
+          $('#customer-modal').modal('show');
+        });
+      });
+      
+      // Delete customer button
+      $(document).on('click', '.delete-customer', function() {
+        if (confirm('Are you sure you want to delete this customer?')) {
+          const customerId = $(this).data('id');
+          
+          $.ajax({
+            url: `/customers/${customerId}`,
+            method: 'DELETE',
+            success: function() {
+              loadCustomers(); // Reload the customers list
+            },
+            error: function(xhr) {
+              alert('Error deleting customer: ' + xhr.responseText);
+            }
+          });
+        }
+      });
+      
+      // Function to load customers
+      function loadCustomers() {
+        $.get('/customers', function(customers) {
+          const tbody = $('#customers-table tbody');
+          tbody.empty();
+          
+          customers.forEach(function(customer) {
+            // Format the key people information
+            const keyPeopleHtml = customer.key_people.map(person => 
+              `<div>${person.name} - ${person.email} ${person.phone ? '(' + person.phone + ')' : ''}</div>`
+            ).join('');
+            
+            // Format the last updated date
+            const lastUpdated = customer.updated_at ? new Date(customer.updated_at).toLocaleString() : 'N/A';
+            
+            tbody.append(`
+              <tr>
+                <td>${customer.id}</td>
+                <td>${customer.name}</td>
+                <td>${lastUpdated}</td>
+                <td>${keyPeopleHtml}</td>
+                <td>
+                  <button class="btn btn-sm btn-primary edit-customer" data-id="${customer.id}">Edit</button>
+                  <button class="btn btn-sm btn-danger delete-customer" data-id="${customer.id}">Delete</button>
+                </td>
+              </tr>
+            `);
+          });
+        });
+      }
+    });
+  </script>
+</body>
+</html> 

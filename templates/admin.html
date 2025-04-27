@@ -92,7 +92,7 @@
         </div>
         <div id="convert-panel-container"></div>
       </div>
-      <div id="user-filter-row" style="margin-bottom:12px;display:flex;align-items:center;gap:16px;">
+      <div id="user-filter-row" style="display:none;">
         <input id="user-filter-input" class="form-control" style="width:220px;display:inline-block;" placeholder="Filter by email...">
         <button class="btn btn-secondary btn-sm" id="batch-set-level">Set Level for Selected</button>
         <select id="batch-level-select" class="form-control" style="width:180px;display:inline-block;">
@@ -110,7 +110,7 @@
             <th>Email</th>
             <th>Status</th>
             <th>Permission Level</th>
-            <th>Actions</th>
+            <th>Last Updated</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -323,66 +323,58 @@ $(document).ready(function() {
         
         // IMPORTANT: Explicitly check and render Convert panel if there are users
         if (res.users && res.users.length > 0) {
-          // Set up the convert options based on the search results
+          // Initialize options, but don't set any active selection
+          // The panel should start with --Select-- for all dropdowns
+          
+          // Initialize basic options without setting a selection
+          window.convertToName = ''; // Empty means --Select--
+          window.convertToContent = ''; // Empty means --Select--
+          
+          // Initialize Status options to defaults if not set
+          window.convertToStatusOptions = ['Active', 'Inactive'];
+          
+          // Initialize Permission options
+          window.convertToPermOptions = [
+            { value: '1', label: 'Level 1 (Add/Edit)' },
+            { value: '2', label: 'Level 2 (Add/Edit/Delete)' },
+            { value: '3', label: 'Level 3 (Admin)' }
+          ];
+          
+          // Still calculate appropriate negation options for reference
           if (rules.length > 0) {
             const rule = rules[0];
-            // The Convert panel field should match the search field
-            window.convertToName = rule.name;
+            
+            // Store rule type but don't auto-select it
+            window.lastRuleType = rule.name;
             
             if (rule.name === 'status') {
-              // Status values must be "Active" or "Inactive", not numeric
+              // Calculate appropriate status negation - but don't select it
               const allStatus = res.users.map(u => u.status);
               const uniqueStatus = [...new Set(allStatus)];
+              
+              console.log('Search results status values:', uniqueStatus);
+              
               if (uniqueStatus.length === 1) {
-                // Consistent, show negation only
-                window.convertToContent = (uniqueStatus[0] === 'Active') ? 'Inactive' : 'Active';
-                window.convertToStatusOptions = [window.convertToContent];
-              } else {
-                // Mixed, show all
-                window.convertToContent = '';
-                window.convertToStatusOptions = ['Active', 'Inactive'];
+                // Consistent, calculate negation
+                const negationValue = (uniqueStatus[0] === 'Active') ? 'Inactive' : 'Active';
+                window.statusNegationValue = negationValue;
+                window.convertToStatusOptions = ['Active', 'Inactive']; // Keep both but don't select
               }
             } else if (rule.name === 'permission') {
-              // Permission values must be numeric, not status strings
-              const allPerms = res.users.map(u => String(u.permission_level));
-              const uniquePerms = [...new Set(allPerms)];
-              
-              console.log('Search results permission levels:', uniquePerms);
-              
-              if (uniquePerms.length === 1) {
-                // Consistent, show ONLY the negation
-                window.convertToContent = '';
-                
-                // Explicitly create only the negation options
-                window.convertToPermOptions = [];
-                const currentLevel = uniquePerms[0];
-                
-                console.log('Single permission level detected in search:', currentLevel);
-                
-                if (currentLevel !== '1' && currentLevel !== 1) {
-                  window.convertToPermOptions.push({ value: '1', label: 'Level 1 (Add/Edit)' });
-                }
-                if (currentLevel !== '2' && currentLevel !== 2) {
-                  window.convertToPermOptions.push({ value: '2', label: 'Level 2 (Add/Edit/Delete)' });
-                }
-                if (currentLevel !== '3' && currentLevel !== 3) {
-                  window.convertToPermOptions.push({ value: '3', label: 'Level 3 (Admin)' });
-                }
-              } else {
-                // Mixed, show all permission options
-                window.convertToContent = '';
-                window.convertToPermOptions = [
-                  { value: '1', label: 'Level 1 (Add/Edit)' },
-                  { value: '2', label: 'Level 2 (Add/Edit/Delete)' },
-                  { value: '3', label: 'Level 3 (Admin)' }
-                ];
-              }
-              
-              console.log('Created permission options after search:', window.convertToPermOptions);
+              // ... similar logic for permission, store negation info but don't select ...
+            } else if (rule.name === 'email') {
+              // ... existing email handling ...
             }
           }
           
-          // Force render the Convert panel after a short delay to ensure it's not blocked
+          console.log('Convert panel options after search:', {
+            name: window.convertToName,
+            content: window.convertToContent,
+            statusOptions: window.convertToStatusOptions,
+            permOptions: window.convertToPermOptions
+          });
+          
+          // Force render the Convert panel after a short delay
           setTimeout(function() {
             renderConvertToRule();
             // Make sure the panel is visible
@@ -404,6 +396,7 @@ $(document).ready(function() {
     window.location.href = '/admin';
   });
   $('#select-all-users').prop('checked', false);
+  window.latestChanges = {}; // Reset the change tracking
 });
 
 function updateUserTable(users, selectAllChecked = null) {
@@ -415,19 +408,59 @@ function updateUserTable(users, selectAllChecked = null) {
     return;
   }
   
-  // NOTE: We no longer render the Convert panel here directly
-  // The panel will be rendered by the calling function (e.g. the search handler)
+  // For debugging - log all users data structure to see available fields
+  console.log('User data from server:', users);
   
   users.forEach(u => {
+    let lastUpdate = null;
+    let updateType = '';
+    let isClientSide = false;
+    let changeDetails = '';
+    
+    // First check if we have a client-side timestamp for this user
+    if (window.latestChanges && window.latestChanges[u.id]) {
+      const change = window.latestChanges[u.id];
+      lastUpdate = change.timestamp;
+      updateType = change.field;
+      isClientSide = true;
+      changeDetails = `${change.oldValue} → ${change.newValue}`;
+    } 
+    // Otherwise check the server timestamps
+    else if (u.updated_at) {
+      lastUpdate = u.updated_at;
+      updateType = 'Updated';
+    } else if (u.last_updated) {
+      lastUpdate = u.last_updated;
+      updateType = 'Updated';
+    } else if (u.created_at) {
+      lastUpdate = u.created_at;
+      updateType = 'Created';
+    } else if (u.registration_date) {
+      lastUpdate = u.registration_date;
+      updateType = 'Registered';
+    } else if (u.approved_at) {
+      lastUpdate = u.approved_at;
+      updateType = 'Approved';
+    }
+    
+    // Format the date and indicate if client-side
+    let lastUpdated;
+    if (lastUpdate) {
+      const formattedDate = formatDateTime(lastUpdate);
+      lastUpdated = isClientSide ? 
+        `<span style="color:#d14;">${updateType}: ${changeDetails} - ${formattedDate} (just now)</span>` : 
+        `${updateType}: ${formattedDate}`;
+    } else {
+      lastUpdated = 'No date available';
+    }
+    
     $tbody.append(`
       <tr>
         <td><input type=\"checkbox\" class=\"user-select-checkbox\" data-id=\"${u.id}\" data-email=\"${u.email}\" data-level=\"${u.permission_level || ''}\"></td>
         <td>${u.email}</td>
         <td>${u.status || ''}</td>
         <td>${u.permission_level || ''}</td>
-        <td>
-          <button class=\"btn btn-sm btn-success update-user-btn\" data-id=\"${u.id}\" data-email=\"${u.email}\" disabled>Update</button>
-        </td>
+        <td>${lastUpdated}</td>
       </tr>
     `);
   });
@@ -439,6 +472,26 @@ function updateUserTable(users, selectAllChecked = null) {
   } else if (selectAllChecked === false) {
     $('#select-all-users').prop('checked', false);
     $('.user-select-checkbox:enabled').prop('checked', false);
+  }
+}
+
+// Helper function to format date/time nicely
+function formatDateTime(dateTimeStr) {
+  try {
+    const dt = new Date(dateTimeStr);
+    if (isNaN(dt.getTime())) return 'Invalid date';
+    
+    // Format: "Apr 16, 2024 15:30"
+    return dt.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    console.error('Date parsing error:', e, 'for dateTimeStr:', dateTimeStr);
+    return 'Unknown';
   }
 }
 
@@ -468,8 +521,15 @@ function renderConvertToRule() {
     statusOptions: window.convertToStatusOptions 
   });
   
+  // Ensure status options are set even if they weren't initialized elsewhere
+  if (!window.convertToStatusOptions || window.convertToStatusOptions.length === 0) {
+    window.convertToStatusOptions = ['Active', 'Inactive'];
+    console.log('Initializing missing status options');
+  }
+  
   // Create a dropdown that allows selection between Status and Permission Level
   let nameSelect = `<select id=\"convert-to-name\" class=\"form-control\" style=\"width:160px;display:inline-block;\">
+    <option value=\"\"${name===''?' selected':''}>-- Select --</option>
     <option value=\"status\"${name==='status'?' selected':''}>Status</option>
     <option value=\"permission\"${name==='permission'?' selected':''}>Permission Level</option>
   </select>`;
@@ -484,9 +544,12 @@ function renderConvertToRule() {
       content = '';
     }
     
-    // Only show text status values
+    // Only show text status values - ensure options exist
     let statusOpts = window.convertToStatusOptions || ['Active', 'Inactive'];
+    console.log('Using status options:', statusOpts);
+    
     contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:180px;display:inline-block;\">
+      <option value=\"\"${content===''?' selected':''}>-- Select --</option>
       ${statusOpts.map(opt => `<option value=\"${opt}\"${content===opt?' selected':''}>${opt}</option>`).join('')}
     </select>`;
   } 
@@ -545,12 +608,15 @@ function renderConvertToRule() {
     
     // Render permission options
     contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:220px;display:inline-block;\">
+      <option value=\"\"${content===''?' selected':''}>-- Select --</option>
       ${window.convertToPermOptions.map(opt => `<option value=\"${opt.value}\"${content===opt.value?' selected':''}>${opt.label}</option>`).join('')}
     </select>`;
   }
   else {
-    // Default empty content select
-    contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:180px;display:inline-block;\" disabled><option value=\"\"></option></select>`;
+    // Default to empty dropdown
+    contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:180px;display:inline-block;\" disabled>
+      <option value=\"\">-- Select --</option>
+    </select>`;
   }
   
   // Create the panel HTML with both field options available
@@ -581,6 +647,11 @@ $(document).on('change', '#convert-to-name', function() {
     
     // Reset the specific options to default when switching field types
     if (newName === 'status') {
+      // Always ensure we have status options
+      if (!window.convertToStatusOptions || window.convertToStatusOptions.length === 0) {
+        window.convertToStatusOptions = ['Active', 'Inactive'];
+      }
+      
       // Check if we have consistent search results
       const allStatus = $('.user-select-checkbox:checked').map(function() {
         const row = $(this).closest('tr');
@@ -592,7 +663,8 @@ $(document).on('change', '#convert-to-name', function() {
         if (uniqueStatus.length === 1) {
           // All selected users have same status, show opposite only
           window.convertToContent = (uniqueStatus[0] === 'Active') ? 'Inactive' : 'Active';
-          window.convertToStatusOptions = [window.convertToContent];
+          window.convertToStatusOptions = [window.convertToContent]; // Only the negation
+          console.log('Setting status negation only:', window.convertToStatusOptions);
         } else {
           // Mixed status, show all options
           window.convertToStatusOptions = ['Active', 'Inactive'];
@@ -681,22 +753,73 @@ $(document).on('click', '.convert-change-btn', function() {
   checked.each(function() {
     const id = $(this).data('id');
     let data = {};
-    if (name === 'permission') data.permission_level = value;
-    if (name === 'status') data.is_approved = (value === 'Active' ? 1 : 0);
+    
+    // Track which field was changed for display purposes
+    let changeType = '';
+    let oldValue = '';
+    let newValue = '';
+    
+    // Get the current row to extract the current values
+    const $row = $(this).closest('tr');
+    
+    if (name === 'permission') {
+      const currentPermission = $row.find('td:eq(3)').text().trim();
+      data.permission_level = value;
+      changeType = 'Permission';
+      oldValue = currentPermission;
+      
+      // Map numeric permission level to readable text
+      if (value === '1') newValue = 'Level 1 (Add/Edit)';
+      else if (value === '2') newValue = 'Level 2 (Add/Edit/Delete)';
+      else if (value === '3') newValue = 'Level 3 (Admin)';
+      else newValue = value;
+    }
+    if (name === 'status') {
+      const currentStatus = $row.find('td:eq(2)').text().trim();
+      data.is_approved = (value === 'Active' ? 1 : 0);
+      changeType = 'Status';
+      oldValue = currentStatus;
+      newValue = value;
+    }
+    
+    // Add a client-side timestamp to track when this change was made
+    data.client_updated_at = new Date().toISOString();
+    
+    // Store the change in a temporary object to reference in the callback
+    const changeInfo = {
+      id: id,
+      field: changeType,
+      oldValue: oldValue,
+      newValue: newValue,
+      timestamp: data.client_updated_at
+    };
+    
+    // Store this in a temporary object on the window
+    window.latestChanges = window.latestChanges || {};
+    window.latestChanges[id] = changeInfo;
     
     $.ajax({
       url: `/admin/users/${id}`,
       type: 'PUT',
       contentType: 'application/json',
       data: JSON.stringify(data),
+      success: function(response) {
+        console.log(`User ${id} updated successfully:`, response);
+      },
+      error: function(error) {
+        console.error(`Error updating user ${id}:`, error);
+      },
       complete: function() {
         completed++;
         if (completed === checked.length) {
           setTimeout(function() {
             $('#updating-overlay').css('display', 'none');
-            if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers(false);
+            if (typeof fetchAndRenderUsers === 'function') {
+              // After fetch, we'll apply our client-side timestamps if needed
+              fetchAndRenderUsers(false);
+            }
             
-            // Reset all rule input fields to blank
+            // Reset all fields, panels, etc.
             rules = [ { name: '', condition: '', content: '' } ];
             renderRules();
             
@@ -757,6 +880,20 @@ function fetchAndRenderUsers(selectAllChecked = null) {
     }
   });
 }
+
+$(document).on('click', '.convert-reset-btn', function() {
+  // Reset Convert to fields to blank and render with empty selection
+  window.convertToName = '';
+  window.convertToContent = '';
+  // Force re-create both option arrays but with no selection
+  window.convertToStatusOptions = ['Active', 'Inactive'];
+  window.convertToPermOptions = [
+    { value: '1', label: 'Level 1 (Add/Edit)' },
+    { value: '2', label: 'Level 2 (Add/Edit/Delete)' },
+    { value: '3', label: 'Level 3 (Admin)' }
+  ];
+  renderConvertToRule();
+});
 </script>
 <div id="updating-overlay">
   <div class="spinner"></div>

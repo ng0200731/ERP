@@ -12,6 +12,8 @@
     .nav-tabs .nav-link { font-size: 18px; padding: 10px 32px; }
     .container { margin-top: 40px; display: flex; flex-direction: column; align-items: center; }
     h2 { margin-bottom: 24px; }
+    #rules-list .rule-content { width: 220px !important; min-width: 220px; max-width: 220px; }
+    #rules-list .rule-add, #rules-list .rule-del { width: 36px; min-width: 36px; max-width: 36px; text-align: center; padding-left: 0; padding-right: 0; }
   </style>
 </head>
 <body>
@@ -25,7 +27,10 @@
   <div class="tab-content w-100" id="adminTabContent">
     <div class="tab-pane fade show active" id="authorized-person" role="tabpanel">
       <h3>Authorized Persons</h3>
-      <button class="btn btn-primary mb-2" onclick="showAddUserModal()">Add User</button>
+      <div id="rules-section" style="margin-bottom:18px;">
+        <label style="font-weight:600; font-size:1.1rem; margin-bottom:8px; display:block;">Rules</label>
+        <div id="rules-list"></div>
+      </div>
       <div id="user-filter-row" style="margin-bottom:12px;display:flex;align-items:center;gap:16px;">
         <input id="user-filter-input" class="form-control" style="width:220px;display:inline-block;" placeholder="Filter by email...">
         <button class="btn btn-secondary btn-sm" id="batch-set-level">Set Level for Selected</button>
@@ -94,5 +99,160 @@
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 <!-- Custom App JS -->
 <script src="/static/js/app.js"></script>
+<script>
+// --- Rules UI Logic ---
+const ruleNameOptions = [
+  { value: 'email', label: 'Email' },
+  { value: 'status', label: 'Status' },
+  { value: 'permission', label: 'Permission Level' }
+];
+const ruleConditionOptions = [
+  { value: 'contains', label: 'contains' },
+  { value: 'not_contains', label: 'not contains' },
+  { value: 'starts_with', label: 'starts with' },
+  { value: 'ends_with', label: 'ends with' },
+  { value: 'equal', label: 'equal to' },
+  { value: 'not_equal', label: 'not equal' }
+];
+const ruleStatusOptions = [
+  { value: 'Active', label: 'Active' },
+  { value: 'Inactive', label: 'Inactive' },
+  { value: 'Pending', label: 'Pending' }
+];
+const rulePermOptions = [
+  { value: '1', label: 'Level 1 (Add/Edit)' },
+  { value: '2', label: 'Level 2 (Add/Edit/Delete)' },
+  { value: '3', label: 'Level 3 (Admin)' }
+];
+let rules = [ { name: '', condition: '', content: '' } ];
+function renderRules() {
+  const $list = $('#rules-list');
+  $list.empty();
+  const usedNames = rules.map(r => r.name);
+  rules.forEach((rule, idx) => {
+    // Only show unused names (except for this rule's current name)
+    const availableNames = ruleNameOptions.filter(opt => !usedNames.includes(opt.value) || opt.value === rule.name);
+    const nameSelect = `<select class=\"rule-name form-control\" style=\"width:140px;display:inline-block;\"><option value=""></option>${availableNames.map(opt => `<option value=\"${opt.value}\"${rule.name===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+    // Condition options depend on name
+    let condOpts = ruleConditionOptions;
+    if (rule.name === 'status' || rule.name === 'permission') {
+      condOpts = ruleConditionOptions.filter(opt => opt.value === 'equal' || opt.value === 'not_equal');
+    }
+    const condSelect = `<select class=\"rule-cond form-control\" style=\"width:140px;display:inline-block;\"><option value=""></option>${condOpts.map(opt => `<option value=\"${opt.value}\"${rule.condition===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+    let contentField = '';
+    if (rule.name === 'email') {
+      contentField = `<input type=\"text\" class=\"rule-content form-control\" style=\"width:220px;display:inline-block;\" value=\"${rule.content||''}\">`;
+    } else if (rule.name === 'status') {
+      contentField = `<select class=\"rule-content form-control\" style=\"width:220px;display:inline-block;\"><option value=""></option>${ruleStatusOptions.map(opt => `<option value=\"${opt.value}\"${rule.content===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+    } else if (rule.name === 'permission') {
+      contentField = `<select class=\"rule-content form-control\" style=\"width:220px;display:inline-block;\"><option value=""></option>${rulePermOptions.map(opt => `<option value=\"${opt.value}\"${rule.content==opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+    }
+    let addBtn = '';
+    let delBtn = '';
+    if (idx === rules.length - 1) {
+      addBtn = `<button class=\"btn btn-success btn-sm rule-add\" style=\"margin-left:8px;\">+</button>`;
+      delBtn = idx > 0 ? `<button class=\"btn btn-danger btn-sm rule-del\" style=\"margin-left:4px;\">-</button>` : '';
+    } else {
+      delBtn = `<button class=\"btn btn-danger btn-sm rule-del\" style=\"margin-left:4px;\">-</button>`;
+    }
+    let searchBtn = '';
+    if (idx === rules.length - 1) {
+      searchBtn = `<button class=\"btn btn-primary btn-sm rule-search\" style=\"margin-left:8px;\">Search</button>`;
+    }
+    $list.append(`<div class=\"rule-row\" data-idx=\"${idx}\" style=\"display:flex;align-items:center;gap:8px;margin-bottom:8px;\">${nameSelect}${condSelect}${contentField}${addBtn}${delBtn}${searchBtn}</div>`);
+  });
+}
+$(document).ready(function() {
+  renderRules();
+  $('#rules-list').on('change', '.rule-name', function() {
+    const idx = $(this).closest('.rule-row').data('idx');
+    rules[idx].name = $(this).val();
+    // Reset content when name changes
+    rules[idx].content = '';
+    renderRules();
+  });
+  $('#rules-list').on('change', '.rule-cond', function() {
+    const idx = $(this).closest('.rule-row').data('idx');
+    rules[idx].condition = $(this).val();
+  });
+  $('#rules-list').on('input change', '.rule-content', function() {
+    const idx = $(this).closest('.rule-row').data('idx');
+    rules[idx].content = $(this).val();
+  });
+  $('#rules-list').on('click', '.rule-add', function() {
+    // Validate all fields before adding a new rule
+    let allFilled = true;
+    $('#rules-list .rule-row').each(function() {
+      $(this).find('.form-control').css('background','');
+      const name = $(this).find('.rule-name').val();
+      const cond = $(this).find('.rule-cond').val();
+      const content = $(this).find('.rule-content').val();
+      if (!name || !cond || !content) {
+        allFilled = false;
+        if (!name) $(this).find('.rule-name').css('background','#ffd6d6');
+        if (!cond) $(this).find('.rule-cond').css('background','#ffd6d6');
+        if (!content) $(this).find('.rule-content').css('background','#ffd6d6');
+      }
+    });
+    if (!allFilled) {
+      alert('Please fill in all fields for every rule.');
+      return;
+    }
+    // Find first unused name
+    const usedNames = rules.map(r => r.name);
+    let nextName = '';
+    for (const opt of ruleNameOptions) {
+      if (!usedNames.includes(opt.value)) {
+        nextName = opt.value;
+        break;
+      }
+    }
+    let newRule = { name: nextName, condition: '', content: '' };
+    // Negation logic for new rule content
+    let prev = rules[rules.length-1];
+    if (prev.name === 'status') {
+      if (prev.content === 'Active') newRule.content = 'Inactive';
+      else if (prev.content === 'Inactive') newRule.content = 'Active';
+      else if (prev.content === 'Pending') newRule.content = 'Active';
+      else newRule.content = 'Inactive';
+    } else if (prev.name === 'permission') {
+      if (prev.content === '1') newRule.content = '2';
+      else if (prev.content === '2') newRule.content = '3';
+      else if (prev.content === '3') newRule.content = '1';
+      else newRule.content = '2';
+    }
+    rules.push(newRule);
+    renderRules();
+  });
+  $('#rules-list').on('click', '.rule-del', function() {
+    const idx = $(this).closest('.rule-row').data('idx');
+    if (confirm('Are you sure you want to delete this rule?')) {
+      rules.splice(idx, 1);
+      renderRules();
+    }
+  });
+  $('#rules-list').on('click', '.rule-search', function() {
+    let allFilled = true;
+    $('#rules-list .rule-row').each(function() {
+      $(this).find('.form-control').css('background','');
+      const name = $(this).find('.rule-name').val();
+      const cond = $(this).find('.rule-cond').val();
+      const content = $(this).find('.rule-content').val();
+      if (!name || !cond || !content) {
+        allFilled = false;
+        if (!name) $(this).find('.rule-name').css('background','#ffd6d6');
+        if (!cond) $(this).find('.rule-cond').css('background','#ffd6d6');
+        if (!content) $(this).find('.rule-content').css('background','#ffd6d6');
+      }
+    });
+    if (!allFilled) {
+      alert('Please fill in all fields for every rule.');
+      return;
+    }
+    // TODO: Implement actual search/filter logic here
+    alert('Search triggered with rules: ' + JSON.stringify(rules));
+  });
+});
+</script>
 </body>
 </html> 

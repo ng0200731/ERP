@@ -14,6 +14,26 @@
     h2 { margin-bottom: 24px; }
     #rules-list .rule-content { width: 220px !important; min-width: 220px; max-width: 220px; }
     #rules-list .rule-add, #rules-list .rule-del { width: 36px; min-width: 36px; max-width: 36px; text-align: center; padding-left: 0; padding-right: 0; }
+    #rules-section-flex { display: flex; gap: 48px; align-items: flex-start; }
+    .rules-panel, .convert-panel {
+      background: #f8f9fa;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px #e0e0e0;
+      padding: 24px 20px 20px 20px;
+      min-width: 340px;
+      max-width: 520px;
+      flex: 1;
+    }
+    .convert-panel {
+      min-width: 240px;
+      max-width: 400px;
+      border-left: 3px solid #e0e0e0;
+    }
+    .convert-disabled {
+      pointer-events: none;
+      opacity: 0.5;
+      filter: grayscale(0.2);
+    }
   </style>
 </head>
 <body>
@@ -27,9 +47,23 @@
   <div class="tab-content w-100" id="adminTabContent">
     <div class="tab-pane fade show active" id="authorized-person" role="tabpanel">
       <h3>Authorized Persons</h3>
-      <div id="rules-section" style="margin-bottom:18px;">
-        <label style="font-weight:600; font-size:1.1rem; margin-bottom:8px; display:block;">Rules</label>
-        <div id="rules-list"></div>
+      <div id="rules-section-flex">
+        <div class="rules-panel" style="overflow-x:auto;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <label style="font-weight:600; font-size:1.1rem; margin-bottom:0;">Rules</label>
+            <button class="btn btn-primary btn-sm rule-search">Search</button>
+            <button class="btn btn-secondary btn-sm rule-cancel">Reset</button>
+          </div>
+          <div id="rules-list"></div>
+        </div>
+        <div class="convert-panel">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <label style="font-weight:600; font-size:1.1rem; margin-bottom:0;">Convert to</label>
+            <button class="btn btn-success btn-sm convert-change-btn">Change</button>
+            <button class="btn btn-secondary btn-sm convert-reset-btn" style="margin-left:8px;">Reset</button>
+          </div>
+          <div id="convert-to-box"></div>
+        </div>
       </div>
       <div id="user-filter-row" style="margin-bottom:12px;display:flex;align-items:center;gap:16px;">
         <input id="user-filter-input" class="form-control" style="width:220px;display:inline-block;" placeholder="Filter by email...">
@@ -155,14 +189,11 @@ function renderRules() {
     } else {
       delBtn = `<button class=\"btn btn-danger btn-sm rule-del\" style=\"margin-left:4px;\">-</button>`;
     }
-    let searchBtn = '';
-    if (idx === rules.length - 1) {
-      searchBtn = `<button class=\"btn btn-primary btn-sm rule-search\" style=\"margin-left:8px;\">Search</button>`;
-    }
-    $list.append(`<div class=\"rule-row\" data-idx=\"${idx}\" style=\"display:flex;align-items:center;gap:8px;margin-bottom:8px;\">${nameSelect}${condSelect}${contentField}${addBtn}${delBtn}${searchBtn}</div>`);
+    $list.append(`<div class=\"rule-row\" data-idx=\"${idx}\" style=\"display:flex;align-items:center;gap:8px;margin-bottom:8px;\">${nameSelect}${condSelect}${contentField}${addBtn}${delBtn}</div>`);
   });
 }
 $(document).ready(function() {
+  $('.convert-panel').addClass('convert-disabled');
   renderRules();
   $('#rules-list').on('change', '.rule-name', function() {
     const idx = $(this).closest('.rule-row').data('idx');
@@ -231,7 +262,7 @@ $(document).ready(function() {
       renderRules();
     }
   });
-  $('#rules-list').on('click', '.rule-search', function() {
+  $(document).on('click', '.rule-search', function() {
     let allFilled = true;
     $('#rules-list .rule-row').each(function() {
       $(this).find('.form-control').css('background','');
@@ -249,8 +280,117 @@ $(document).ready(function() {
       alert('Please fill in all fields for every rule.');
       return;
     }
-    // TODO: Implement actual search/filter logic here
-    alert('Search triggered with rules: ' + JSON.stringify(rules));
+    // Send rules to backend for filtering
+    $.ajax({
+      url: '/admin/users/filter',
+      method: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({ rules }),
+      success: function(res) {
+        // Update user table with filtered results
+        updateUserTable(res.users);
+      },
+      error: function() {
+        alert('Error filtering users.');
+      }
+    });
+  });
+  $(document).on('click', '.rule-cancel', function() {
+    window.location.href = '/admin';
+  });
+});
+
+function updateUserTable(users) {
+  // Preserve select-all state
+  const selectAllChecked = $('#select-all-users').is(':checked');
+  const $tbody = $('#users-table tbody');
+  $tbody.empty();
+  if (!users.length) {
+    $tbody.append('<tr><td colspan="5" class="text-center">No users found.</td></tr>');
+    $('.convert-panel').addClass('convert-disabled');
+    return;
+  }
+  $('.convert-panel').removeClass('convert-disabled');
+  users.forEach(u => {
+    // Compute status
+    let status = 'Pending';
+    if (u.is_approved === 0) status = 'Inactive';
+    else if (u.is_approved === 1) status = 'Active';
+    // Render permission level
+    let levelDisplay = 'No Level';
+    if (u.permission_level == 1) levelDisplay = 'Level 1 (Add/Edit)';
+    if (u.permission_level == 2) levelDisplay = 'Level 2 (Add/Edit/Delete)';
+    if (u.permission_level == 3) levelDisplay = 'Level 3 (Admin)';
+    $tbody.append(`
+      <tr${!u.permission_level ? ' style="background:#fffbe6"' : ''}>
+        <td><input type="checkbox" class="user-select-checkbox" data-id="${u.id}" data-email="${u.email}" data-level="${u.permission_level || ''}" ${u.is_approved === 0 ? 'disabled' : ''}></td>
+        <td>${u.email}</td>
+        <td>${status}</td>
+        <td>
+          <select class="form-control user-level-select" data-id="${u.id}" data-original="${u.permission_level || ''}" ${u.is_approved === 0 ? 'disabled' : ''}>
+            <option value=""${!u.permission_level ? ' selected' : ''}>No Level</option>
+            <option value="1"${u.permission_level==1?' selected':''}>Level 1 (Add/Edit)</option>
+            <option value="2"${u.permission_level==2?' selected':''}>Level 2 (Add/Edit/Delete)</option>
+            <option value="3"${u.permission_level==3?' selected':''}>Level 3 (Admin)</option>
+          </select>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-success update-user-btn" data-id="${u.id}" data-email="${u.email}" disabled ${u.is_approved === 0 ? 'disabled' : ''}>Update</button>
+          ${(u.permission_level != 3 && u.is_approved !== 0) ? `<button class="btn btn-sm btn-warning inactive-user-btn" data-id="${u.id}">Inactive</button>` : ''}
+        </td>
+      </tr>
+    `);
+  });
+  // Restore select-all state
+  $('#select-all-users').prop('checked', selectAllChecked);
+  $('.user-select-checkbox:enabled').prop('checked', selectAllChecked);
+}
+
+// --- Convert to Preset Rule Logic ---
+const convertNameOptions = [
+  { value: 'status', label: 'Status' },
+  { value: 'permission', label: 'Permission Level' }
+];
+const convertStatusOptions = [
+  { value: 'Active', label: 'Active' },
+  { value: 'Inactive', label: 'Inactive' }
+];
+const convertPermOptions = [
+  { value: '1', label: 'Level 1 (Add/Edit)' },
+  { value: '2', label: 'Level 2 (Add/Edit/Delete)' },
+  { value: '3', label: 'Level 3 (Admin)' }
+];
+function renderConvertToRule() {
+  let name = window.convertToName || '';
+  let content = window.convertToContent || '';
+  let nameSelect = `<select id=\"convert-to-name\" class=\"form-control\" style=\"width:160px;display:inline-block;\"><option value=\"\"></option>${convertNameOptions.map(opt => `<option value=\"${opt.value}\"${name===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+  let condText = '<span style=\"width:40px;display:inline-block;text-align:center;font-weight:600;\">=</span>';
+  let contentSelect = '';
+  if (name === 'status') {
+    contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:180px;display:inline-block;\"><option value=\"\"></option>${convertStatusOptions.map(opt => `<option value=\"${opt.value}\"${content===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+  } else if (name === 'permission') {
+    contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:220px;display:inline-block;\"><option value=\"\"></option>${convertPermOptions.map(opt => `<option value=\"${opt.value}\"${content===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+  } else {
+    contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:180px;display:inline-block;\" disabled><option value=\"\"></option></select>`;
+  }
+  $('#convert-to-box').html(`<div style=\"display:flex;align-items:center;gap:8px;\">${nameSelect}${condText}${contentSelect}</div>`);
+}
+$(document).ready(function() {
+  $('.convert-panel').addClass('convert-disabled');
+  renderRules();
+  renderConvertToRule();
+  $(document).on('change', '#convert-to-name', function() {
+    window.convertToName = $(this).val();
+    window.convertToContent = '';
+    renderConvertToRule();
+  });
+  $(document).on('change', '#convert-to-content', function() {
+    window.convertToContent = $(this).val();
+  });
+  $(document).on('click', '.convert-reset-btn', function() {
+    window.convertToName = '';
+    window.convertToContent = '';
+    renderConvertToRule();
   });
 });
 </script>

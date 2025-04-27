@@ -464,6 +464,77 @@ def delete_user(user_id):
     conn.close()
     return '', 204
 
+@app.route('/admin/users/filter', methods=['POST'])
+def filter_users():
+    data = request.get_json()
+    rules = data.get('rules', [])
+    query = 'SELECT id, email, is_approved, last_login, approved_at, permission_level FROM users'
+    where_clauses = []
+    params = []
+    for rule in rules:
+        name = rule.get('name')
+        cond = rule.get('condition')
+        content = rule.get('content')
+        if name == 'email':
+            if cond == 'contains':
+                where_clauses.append('email LIKE ?')
+                params.append(f'%{content}%')
+            elif cond == 'not_contains':
+                where_clauses.append('email NOT LIKE ?')
+                params.append(f'%{content}%')
+            elif cond == 'starts_with':
+                where_clauses.append('email LIKE ?')
+                params.append(f'{content}%')
+            elif cond == 'ends_with':
+                where_clauses.append('email LIKE ?')
+                params.append(f'%{content}')
+            elif cond == 'equal':
+                where_clauses.append('email = ?')
+                params.append(content)
+            elif cond == 'not_equal':
+                where_clauses.append('email != ?')
+                params.append(content)
+        elif name == 'status':
+            # Map status to is_approved and permission_level
+            if cond == 'equal':
+                if content == 'Active':
+                    where_clauses.append('is_approved = 1')
+                elif content == 'Inactive':
+                    where_clauses.append('is_approved = 0 AND permission_level IS NOT NULL')
+                elif content == 'Pending':
+                    where_clauses.append('is_approved = 0 AND (permission_level IS NULL OR permission_level = "")')
+            elif cond == 'not_equal':
+                if content == 'Active':
+                    where_clauses.append('is_approved != 1')
+                elif content == 'Inactive':
+                    where_clauses.append('NOT (is_approved = 0 AND permission_level IS NOT NULL)')
+                elif content == 'Pending':
+                    where_clauses.append('NOT (is_approved = 0 AND (permission_level IS NULL OR permission_level = ""))')
+        elif name == 'permission':
+            if cond == 'equal':
+                where_clauses.append('permission_level = ?')
+                params.append(int(content))
+            elif cond == 'not_equal':
+                where_clauses.append('permission_level != ?')
+                params.append(int(content))
+    if where_clauses:
+        query += ' WHERE ' + ' AND '.join(where_clauses)
+    conn = get_db()
+    users = conn.execute(query, params).fetchall()
+    conn.close()
+    # Map status for frontend
+    result = []
+    for u in users:
+        result.append({
+            'id': u['id'],
+            'email': u['email'],
+            'is_approved': u['is_approved'],
+            'permission_level': u['permission_level'],
+            'approved_at': u['approved_at'],
+            'last_login': u['last_login'],
+        })
+    return jsonify({'users': result})
+
 # --- Set eric.brilliant@gmail.com to level 3 on startup ---
 def set_admin_level():
     conn = get_db()

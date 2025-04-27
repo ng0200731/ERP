@@ -424,9 +424,20 @@ def logout():
 @app.route('/admin/users', methods=['GET'])
 def list_users():
     conn = get_db()
-    users = conn.execute('SELECT id, email, permission_level, approved_at FROM users').fetchall()
+    users = conn.execute('SELECT id, email, permission_level, approved_at, is_approved FROM users').fetchall()
     conn.close()
-    return jsonify([dict(u) for u in users])
+    result = []
+    for u in users:
+        if u['is_approved'] == 1:
+            status = 'Active'
+        elif u['is_approved'] == 0:
+            status = 'Inactive'
+        else:
+            status = 'Pending'
+        user_dict = dict(u)
+        user_dict['status'] = status
+        result.append(user_dict)
+    return jsonify(result)
 
 @app.route('/admin/users', methods=['POST'])
 def add_user():
@@ -536,17 +547,17 @@ def filter_users():
     conn = get_db()
     users = conn.execute(query, params).fetchall()
     conn.close()
-    # Map status for frontend
     result = []
     for u in users:
-        result.append({
-            'id': u['id'],
-            'email': u['email'],
-            'is_approved': u['is_approved'],
-            'permission_level': u['permission_level'],
-            'approved_at': u['approved_at'],
-            'last_login': u['last_login'],
-        })
+        if u['is_approved'] == 1:
+            status = 'Active'
+        elif u['is_approved'] == 0:
+            status = 'Inactive'
+        else:
+            status = 'Pending'
+        user_dict = dict(u)
+        user_dict['status'] = status
+        result.append(user_dict)
     return jsonify({'users': result})
 
 # --- Set eric.brilliant@gmail.com to level 3 on startup ---

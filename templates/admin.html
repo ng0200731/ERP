@@ -77,6 +77,9 @@
             <button class="btn btn-primary btn-sm rule-search">Search</button>
             <button class="btn btn-secondary btn-sm rule-cancel">Reset</button>
           </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <button class="btn btn-info btn-sm" id="refresh-users-btn">Refresh</button>
+          </div>
           <div id="rules-list"></div>
         </div>
         <div class="convert-panel">
@@ -322,6 +325,9 @@ $(document).ready(function() {
   $(document).on('click', '.rule-cancel', function() {
     window.location.href = '/admin';
   });
+  $(document).on('click', '#refresh-users-btn', function() {
+    if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers();
+  });
 });
 
 function updateUserTable(users) {
@@ -335,31 +341,14 @@ function updateUserTable(users) {
   }
   $('.convert-panel').removeClass('convert-disabled');
   users.forEach(u => {
-    // Compute status
-    let status = 'Pending';
-    if (u.is_approved === 0) status = 'Inactive';
-    else if (u.is_approved === 1) status = 'Active';
-    // Render permission level
-    let levelDisplay = 'No Level';
-    if (u.permission_level == 1) levelDisplay = 'Level 1 (Add/Edit)';
-    if (u.permission_level == 2) levelDisplay = 'Level 2 (Add/Edit/Delete)';
-    if (u.permission_level == 3) levelDisplay = 'Level 3 (Admin)';
     $tbody.append(`
-      <tr${!u.permission_level ? ' style=\"background:#fffbe6\"' : ''}>
+      <tr>
         <td><input type=\"checkbox\" class=\"user-select-checkbox\" data-id=\"${u.id}\" data-email=\"${u.email}\" data-level=\"${u.permission_level || ''}\"></td>
         <td>${u.email}</td>
-        <td>${status}</td>
+        <td>${u.status || ''}</td>
+        <td>${u.permission_level || ''}</td>
         <td>
-          <select class=\"form-control user-level-select\" data-id=\"${u.id}\" data-original=\"${u.permission_level || ''}\" ${u.is_approved === 0 ? 'disabled' : ''}>
-            <option value=\"\"${!u.permission_level ? ' selected' : ''}>No Level</option>
-            <option value=\"1\"${u.permission_level==1?' selected':''}>Level 1 (Add/Edit)</option>
-            <option value=\"2\"${u.permission_level==2?' selected':''}>Level 2 (Add/Edit/Delete)</option>
-            <option value=\"3\"${u.permission_level==3?' selected':''}>Level 3 (Admin)</option>
-          </select>
-        </td>
-        <td>
-          <button class=\"btn btn-sm btn-success update-user-btn\" data-id=\"${u.id}\" data-email=\"${u.email}\" disabled ${u.is_approved === 0 ? 'disabled' : ''}>Update</button>
-          ${(u.permission_level != 3 && u.is_approved !== 0) ? `<button class=\"btn btn-sm btn-warning inactive-user-btn\" data-id=\"${u.id}\">Inactive</button>` : ''}
+          <button class=\"btn btn-sm btn-success update-user-btn\" data-id=\"${u.id}\" data-email=\"${u.email}\" disabled>Update</button>
         </td>
       </tr>
     `);
@@ -474,6 +463,31 @@ $(document).ready(function() {
     });
   });
 });
+
+function fetchAndRenderUsers() {
+  // Use the same /admin/users/filter endpoint as search, with no filters
+  $.ajax({
+    url: '/admin/users/filter',
+    method: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify({ rules: [] }),
+    success: function(res) {
+      let users = res.users || [];
+      // Sort by approved_at descending (if available)
+      users.sort((a, b) => {
+        if (b.approved_at && a.approved_at) return b.approved_at.localeCompare(a.approved_at);
+        return 0;
+      });
+      // Get filter value
+      const filter = $('#user-filter-input').val() ? $('#user-filter-input').val().toLowerCase() : '';
+      let filtered = users;
+      if (filter) {
+        filtered = filtered.filter(u => u.email.toLowerCase().includes(filter));
+      }
+      updateUserTable(filtered);
+    }
+  });
+}
 </script>
 <div id="updating-overlay">
   <div class="spinner"></div>

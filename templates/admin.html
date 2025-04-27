@@ -28,6 +28,7 @@
       min-width: 240px;
       max-width: 400px;
       border-left: 3px solid #e0e0e0;
+      display: none; /* Hide by default */
     }
     .convert-disabled {
       pointer-events: none;
@@ -57,6 +58,16 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    .convert-panel-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.7);
+      z-index: 10;
+      border-radius: 10px;
+      cursor: not-allowed;
+      display: none;
+    }
+    .convert-panel.position-relative { position: relative; }
   </style>
 </head>
 <body>
@@ -77,19 +88,9 @@
             <button class="btn btn-primary btn-sm rule-search">Search</button>
             <button class="btn btn-secondary btn-sm rule-cancel">Reset</button>
           </div>
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-            <button class="btn btn-info btn-sm" id="refresh-users-btn">Refresh</button>
-          </div>
           <div id="rules-list"></div>
         </div>
-        <div class="convert-panel">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-            <label style="font-weight:600; font-size:1.1rem; margin-bottom:0;">Convert to</label>
-            <button class="btn btn-success btn-sm convert-change-btn">Change</button>
-            <button class="btn btn-secondary btn-sm convert-reset-btn" style="margin-left:8px;">Reset</button>
-          </div>
-          <div id="convert-to-box"></div>
-        </div>
+        <div id="convert-panel-container"></div>
       </div>
       <div id="user-filter-row" style="margin-bottom:12px;display:flex;align-items:center;gap:16px;">
         <input id="user-filter-input" class="form-control" style="width:220px;display:inline-block;" placeholder="Filter by email...">
@@ -192,20 +193,20 @@ function renderRules() {
   rules.forEach((rule, idx) => {
     // Only show unused names (except for this rule's current name)
     const availableNames = ruleNameOptions.filter(opt => !usedNames.includes(opt.value) || opt.value === rule.name);
-    const nameSelect = `<select class=\"rule-name form-control\" style=\"width:140px;display:inline-block;\"><option value=""></option>${availableNames.map(opt => `<option value=\"${opt.value}\"${rule.name===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+    const nameSelect = `<select class=\"rule-name form-control\" style=\"width:140px;display:inline-block;\"><option value="">-- Select --</option>${availableNames.map(opt => `<option value=\"${opt.value}\"${rule.name===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
     // Condition options depend on name
     let condOpts = ruleConditionOptions;
     if (rule.name === 'status' || rule.name === 'permission') {
       condOpts = ruleConditionOptions.filter(opt => opt.value === 'equal' || opt.value === 'not_equal');
     }
-    const condSelect = `<select class=\"rule-cond form-control\" style=\"width:140px;display:inline-block;\"><option value=""></option>${condOpts.map(opt => `<option value=\"${opt.value}\"${rule.condition===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+    const condSelect = `<select class=\"rule-cond form-control\" style=\"width:140px;display:inline-block;\"><option value="">-- Select --</option>${condOpts.map(opt => `<option value=\"${opt.value}\"${rule.condition===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
     let contentField = '';
     if (rule.name === 'email') {
-      contentField = `<input type=\"text\" class=\"rule-content form-control\" style=\"width:220px;display:inline-block;\" value=\"${rule.content||''}\">`;
+      contentField = `<input type=\"text\" class=\"rule-content form-control\" style=\"width:220px;display:inline-block;\" value=\"${rule.content||''}\" placeholder=\"Enter value...\">`;
     } else if (rule.name === 'status') {
-      contentField = `<select class=\"rule-content form-control\" style=\"width:220px;display:inline-block;\"><option value=""></option>${ruleStatusOptions.map(opt => `<option value=\"${opt.value}\"${rule.content===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+      contentField = `<select class=\"rule-content form-control\" style=\"width:220px;display:inline-block;\"><option value="">-- Select --</option>${ruleStatusOptions.map(opt => `<option value=\"${opt.value}\"${rule.content===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
     } else if (rule.name === 'permission') {
-      contentField = `<select class=\"rule-content form-control\" style=\"width:220px;display:inline-block;\"><option value=""></option>${rulePermOptions.map(opt => `<option value=\"${opt.value}\"${rule.content==opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+      contentField = `<select class=\"rule-content form-control\" style=\"width:220px;display:inline-block;\"><option value="">-- Select --</option>${rulePermOptions.map(opt => `<option value=\"${opt.value}\"${rule.content==opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
     }
     let addBtn = '';
     let delBtn = '';
@@ -219,9 +220,12 @@ function renderRules() {
   });
 }
 $(document).ready(function() {
-  if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers();
-  $('.convert-panel').addClass('convert-disabled');
+  // Always disable Convert to panel on page load
+  setConvertPanelDisabled(true);
+  if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers(false);
   renderRules();
+  // Ensure panel is completely removed on page load
+  clearConvertPanel();
   $('#rules-list').on('change', '.rule-name', function() {
     const idx = $(this).closest('.rule-row').data('idx');
     rules[idx].name = $(this).val();
@@ -315,31 +319,105 @@ $(document).ready(function() {
       data: JSON.stringify({ rules }),
       success: function(res) {
         // Update user table with filtered results
-        updateUserTable(res.users);
+        updateUserTable(res.users, true);
+        
+        // IMPORTANT: Explicitly check and render Convert panel if there are users
+        if (res.users && res.users.length > 0) {
+          // Set up the convert options based on the search results
+          if (rules.length > 0) {
+            const rule = rules[0];
+            // The Convert panel field should match the search field
+            window.convertToName = rule.name;
+            
+            if (rule.name === 'status') {
+              // Status values must be "Active" or "Inactive", not numeric
+              const allStatus = res.users.map(u => u.status);
+              const uniqueStatus = [...new Set(allStatus)];
+              if (uniqueStatus.length === 1) {
+                // Consistent, show negation only
+                window.convertToContent = (uniqueStatus[0] === 'Active') ? 'Inactive' : 'Active';
+                window.convertToStatusOptions = [window.convertToContent];
+              } else {
+                // Mixed, show all
+                window.convertToContent = '';
+                window.convertToStatusOptions = ['Active', 'Inactive'];
+              }
+            } else if (rule.name === 'permission') {
+              // Permission values must be numeric, not status strings
+              const allPerms = res.users.map(u => String(u.permission_level));
+              const uniquePerms = [...new Set(allPerms)];
+              
+              console.log('Search results permission levels:', uniquePerms);
+              
+              if (uniquePerms.length === 1) {
+                // Consistent, show ONLY the negation
+                window.convertToContent = '';
+                
+                // Explicitly create only the negation options
+                window.convertToPermOptions = [];
+                const currentLevel = uniquePerms[0];
+                
+                console.log('Single permission level detected in search:', currentLevel);
+                
+                if (currentLevel !== '1' && currentLevel !== 1) {
+                  window.convertToPermOptions.push({ value: '1', label: 'Level 1 (Add/Edit)' });
+                }
+                if (currentLevel !== '2' && currentLevel !== 2) {
+                  window.convertToPermOptions.push({ value: '2', label: 'Level 2 (Add/Edit/Delete)' });
+                }
+                if (currentLevel !== '3' && currentLevel !== 3) {
+                  window.convertToPermOptions.push({ value: '3', label: 'Level 3 (Admin)' });
+                }
+              } else {
+                // Mixed, show all permission options
+                window.convertToContent = '';
+                window.convertToPermOptions = [
+                  { value: '1', label: 'Level 1 (Add/Edit)' },
+                  { value: '2', label: 'Level 2 (Add/Edit/Delete)' },
+                  { value: '3', label: 'Level 3 (Admin)' }
+                ];
+              }
+              
+              console.log('Created permission options after search:', window.convertToPermOptions);
+            }
+          }
+          
+          // Force render the Convert panel after a short delay to ensure it's not blocked
+          setTimeout(function() {
+            renderConvertToRule();
+            // Make sure the panel is visible
+            $('.convert-panel').css('display', 'block');
+          }, 100);
+        } else {
+          // No users found, ensure panel is removed
+          clearConvertPanel();
+        }
       },
       error: function() {
         alert('Error filtering users.');
+        clearConvertPanel(); // Remove panel on error
       }
     });
   });
   $(document).on('click', '.rule-cancel', function() {
+    clearConvertPanel(); // Remove panel on reset
     window.location.href = '/admin';
   });
-  $(document).on('click', '#refresh-users-btn', function() {
-    if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers();
-  });
+  $('#select-all-users').prop('checked', false);
 });
 
-function updateUserTable(users) {
-  // Always select all after search
+function updateUserTable(users, selectAllChecked = null) {
   const $tbody = $('#users-table tbody');
   $tbody.empty();
   if (!users.length) {
     $tbody.append('<tr><td colspan="5" class="text-center">No users found.</td></tr>');
-    $('.convert-panel').addClass('convert-disabled');
+    clearConvertPanel(); // Remove panel if no users
     return;
   }
-  $('.convert-panel').removeClass('convert-disabled');
+  
+  // NOTE: We no longer render the Convert panel here directly
+  // The panel will be rendered by the calling function (e.g. the search handler)
+  
   users.forEach(u => {
     $tbody.append(`
       <tr>
@@ -353,9 +431,15 @@ function updateUserTable(users) {
       </tr>
     `);
   });
-  // Select all checkboxes and set select-all to checked
-  $('#select-all-users').prop('checked', true);
-  $('.user-select-checkbox:enabled').prop('checked', true);
+  
+  // Set checkboxes based on selectAllChecked param
+  if (selectAllChecked === true) {
+    $('#select-all-users').prop('checked', true);
+    $('.user-select-checkbox:enabled').prop('checked', true);
+  } else if (selectAllChecked === false) {
+    $('#select-all-users').prop('checked', false);
+    $('.user-select-checkbox:enabled').prop('checked', false);
+  }
 }
 
 // --- Convert to Preset Rule Logic ---
@@ -375,96 +459,281 @@ const convertPermOptions = [
 function renderConvertToRule() {
   let name = window.convertToName || '';
   let content = window.convertToContent || '';
-  let nameSelect = `<select id=\"convert-to-name\" class=\"form-control\" style=\"width:160px;display:inline-block;\"><option value=\"\"></option>${convertNameOptions.map(opt => `<option value=\"${opt.value}\"${name===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
+  
+  // Debug: Log the current options
+  console.log('Rendering Convert panel with:', { 
+    name, 
+    content, 
+    permOptions: window.convertToPermOptions,
+    statusOptions: window.convertToStatusOptions 
+  });
+  
+  // Create a dropdown that allows selection between Status and Permission Level
+  let nameSelect = `<select id=\"convert-to-name\" class=\"form-control\" style=\"width:160px;display:inline-block;\">
+    <option value=\"status\"${name==='status'?' selected':''}>Status</option>
+    <option value=\"permission\"${name==='permission'?' selected':''}>Permission Level</option>
+  </select>`;
+  
   let condText = '<span style=\"width:40px;display:inline-block;text-align:center;font-weight:600;\">=</span>';
+  
+  // Prepare the content dropdown based on the selected name
   let contentSelect = '';
   if (name === 'status') {
-    contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:180px;display:inline-block;\"><option value=\"\"></option>${convertStatusOptions.map(opt => `<option value=\"${opt.value}\"${content===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
-  } else if (name === 'permission') {
-    contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:220px;display:inline-block;\"><option value=\"\"></option>${convertPermOptions.map(opt => `<option value=\"${opt.value}\"${content===opt.value?' selected':''}>${opt.label}</option>`).join('')}</select>`;
-  } else {
+    // Status must use text values
+    if (!isNaN(content)) {
+      content = '';
+    }
+    
+    // Only show text status values
+    let statusOpts = window.convertToStatusOptions || ['Active', 'Inactive'];
+    contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:180px;display:inline-block;\">
+      ${statusOpts.map(opt => `<option value=\"${opt}\"${content===opt?' selected':''}>${opt}</option>`).join('')}
+    </select>`;
+  } 
+  else if (name === 'permission') {
+    // Permission must use numeric levels
+    if (content === 'Active' || content === 'Inactive') {
+      content = '';
+    }
+    
+    // If we're not in a "search with results" context, check selected rows now
+    if (!window.convertToPermOptions || window.convertToPermOptions.length === 0) {
+      const selectedPerms = $('.user-select-checkbox:checked').map(function() {
+        return $(this).closest('tr').find('td:eq(3)').text().trim();
+      }).get();
+      
+      if (selectedPerms.length > 0) {
+        const uniquePerms = [...new Set(selectedPerms)];
+        console.log('Selected permission levels:', uniquePerms);
+        
+        if (uniquePerms.length === 1) {
+          // All selected rows have the same permission level
+          // Force rebuild convertToPermOptions from scratch with the negation
+          const currentLevel = uniquePerms[0];
+          console.log('Single permission level detected:', currentLevel);
+          
+          // Explicitly create only the negation options
+          window.convertToPermOptions = [];
+          if (currentLevel !== '1' && currentLevel !== 1) {
+            window.convertToPermOptions.push({ value: '1', label: 'Level 1 (Add/Edit)' });
+          }
+          if (currentLevel !== '2' && currentLevel !== 2) {
+            window.convertToPermOptions.push({ value: '2', label: 'Level 2 (Add/Edit/Delete)' });
+          }
+          if (currentLevel !== '3' && currentLevel !== 3) {
+            window.convertToPermOptions.push({ value: '3', label: 'Level 3 (Admin)' });
+          }
+        } else {
+          // Mixed permissions, show all
+          window.convertToPermOptions = [
+            { value: '1', label: 'Level 1 (Add/Edit)' },
+            { value: '2', label: 'Level 2 (Add/Edit/Delete)' },
+            { value: '3', label: 'Level 3 (Admin)' }
+          ];
+        }
+      } else {
+        // Default if no selection
+        window.convertToPermOptions = [
+          { value: '1', label: 'Level 1 (Add/Edit)' },
+          { value: '2', label: 'Level 2 (Add/Edit/Delete)' },
+          { value: '3', label: 'Level 3 (Admin)' }
+        ];
+      }
+    }
+    
+    console.log('Final permission options:', window.convertToPermOptions);
+    
+    // Render permission options
+    contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:220px;display:inline-block;\">
+      ${window.convertToPermOptions.map(opt => `<option value=\"${opt.value}\"${content===opt.value?' selected':''}>${opt.label}</option>`).join('')}
+    </select>`;
+  }
+  else {
+    // Default empty content select
     contentSelect = `<select id=\"convert-to-content\" class=\"form-control\" style=\"width:180px;display:inline-block;\" disabled><option value=\"\"></option></select>`;
   }
-  $('#convert-to-box').html(`<div style=\"display:flex;align-items:center;gap:8px;\">${nameSelect}${condText}${contentSelect}</div>`);
+  
+  // Create the panel HTML with both field options available
+  $('#convert-panel-container').html(`
+    <div class="convert-panel">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+        <label style="font-weight:600; font-size:1.1rem; margin-bottom:0;">Convert to</label>
+        <button class="btn btn-success btn-sm convert-change-btn">Change</button>
+        <button class="btn btn-secondary btn-sm convert-reset-btn" style="margin-left:8px;">Reset</button>
+      </div>
+      <div id="convert-to-box">
+        <div style="display:flex;align-items:center;gap:8px;">${nameSelect}${condText}${contentSelect}</div>
+      </div>
+    </div>
+  `);
+  
+  // Force display
+  $('.convert-panel').css('display', 'block');
 }
-$(document).ready(function() {
-  if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers();
-  $('.convert-panel').addClass('convert-disabled');
-  renderRules();
-  renderConvertToRule();
-  $(document).on('change', '#convert-to-name', function() {
-    window.convertToName = $(this).val();
+
+// When user selects a dropdown and changes it
+$(document).on('change', '#convert-to-name', function() {
+  const newName = $(this).val();
+  // On field type change, reset options to default for that type
+  if (newName !== window.convertToName) {
+    window.convertToName = newName;
     window.convertToContent = '';
-    renderConvertToRule();
-  });
-  $(document).on('change', '#convert-to-content', function() {
-    window.convertToContent = $(this).val();
-  });
-  $(document).on('click', '.convert-reset-btn', function() {
-    window.convertToName = '';
-    window.convertToContent = '';
-    renderConvertToRule();
-  });
-  $(document).on('click', '.convert-change-btn', function() {
-    if ($('.convert-panel').hasClass('convert-disabled')) return;
-    const name = $('#convert-to-name').val();
-    const value = $('#convert-to-content').val();
-    // Reset backgrounds
-    $('#convert-to-name').css('background', '');
-    $('#convert-to-content').css('background', '');
-    if (!name) $('#convert-to-name').css('background', '#ffd6d6');
-    if (!value) $('#convert-to-content').css('background', '#ffd6d6');
-    if (!name || !value) {
-      alert('Please select both Name and Value in Convert to.');
-      return;
-    }
-    // Get selected user emails
-    const checked = $('.user-select-checkbox:checked');
-    if (checked.length === 0) {
-      alert('Please select at least one user to convert.');
-      return;
-    }
-    const emails = checked.map(function() { return $(this).data('email'); }).get();
-    let nameLabel = name === 'status' ? 'Status' : 'Permission Level';
-    let valueLabel = value;
-    if (name === 'permission') {
-      if (value == 1) valueLabel = 'Level 1 (Add/Edit)';
-      if (value == 2) valueLabel = 'Level 2 (Add/Edit/Delete)';
-      if (value == 3) valueLabel = 'Level 3 (Admin)';
-    }
-    if (name === 'status') {
-      valueLabel = value.charAt(0).toUpperCase() + value.slice(1);
-    }
-    if (!confirm(`Confirm: The selected emails will be converted to ${nameLabel} = ${valueLabel}.`)) return;
-    // Show updating overlay
-    $('#updating-overlay').css('display', 'flex');
-    // For each selected user, send AJAX to update
-    let completed = 0;
-    checked.each(function() {
-      const id = $(this).data('id');
-      let data = {};
-      if (name === 'permission') data.permission_level = value;
-      if (name === 'status') data.is_approved = (value === 'Active' ? 1 : 0);
-      $.ajax({
-        url: `/admin/users/${id}`,
-        type: 'PUT',
-        contentType: 'application/json',
-        data: JSON.stringify(data),
-        complete: function() {
-          completed++;
-          if (completed === checked.length) {
-            setTimeout(function() {
-              $('#updating-overlay').css('display', 'none');
-              if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers();
-            }, 400);
-          }
+    
+    // Reset the specific options to default when switching field types
+    if (newName === 'status') {
+      // Check if we have consistent search results
+      const allStatus = $('.user-select-checkbox:checked').map(function() {
+        const row = $(this).closest('tr');
+        return row.find('td:eq(2)').text().trim(); // Status column
+      }).get();
+      
+      if (allStatus.length > 0) {
+        const uniqueStatus = [...new Set(allStatus)];
+        if (uniqueStatus.length === 1) {
+          // All selected users have same status, show opposite only
+          window.convertToContent = (uniqueStatus[0] === 'Active') ? 'Inactive' : 'Active';
+          window.convertToStatusOptions = [window.convertToContent];
+        } else {
+          // Mixed status, show all options
+          window.convertToStatusOptions = ['Active', 'Inactive'];
         }
-      });
+      } else {
+        // Default if no selection
+        window.convertToStatusOptions = ['Active', 'Inactive'];
+      }
+    } else if (newName === 'permission') {
+      // Check if we have consistent search results for permission level
+      const allPerms = $('.user-select-checkbox:checked').map(function() {
+        const row = $(this).closest('tr');
+        return row.find('td:eq(3)').text().trim(); // Permission Level column
+      }).get();
+      
+      if (allPerms.length > 0) {
+        const uniquePerms = [...new Set(allPerms)];
+        if (uniquePerms.length === 1) {
+          // All selected users have same permission level, show only negation options
+          window.convertToPermOptions = convertPermOptions.filter(opt => 
+            opt.value !== uniquePerms[0] && opt.value !== 'Active' && opt.value !== 'Inactive');
+        } else {
+          // Mixed permissions, show all options
+          window.convertToPermOptions = convertPermOptions.filter(opt => 
+            opt.value !== 'Active' && opt.value !== 'Inactive');
+        }
+      } else {
+        // Default if no selection
+        window.convertToPermOptions = convertPermOptions.filter(opt => 
+          opt.value !== 'Active' && opt.value !== 'Inactive');
+      }
+    }
+  }
+  
+  renderConvertToRule();
+});
+
+$(document).on('change', '#convert-to-content', function() {
+  window.convertToContent = $(this).val();
+});
+
+// Re-add the click handler for the Change button
+$(document).on('click', '.convert-change-btn', function() {
+  const name = $('#convert-to-name').val();
+  const value = $('#convert-to-content').val();
+  
+  // Reset backgrounds
+  $('#convert-to-name').css('background', '');
+  $('#convert-to-content').css('background', '');
+  
+  // Validate inputs
+  if (!name) $('#convert-to-name').css('background', '#ffd6d6');
+  if (!value) $('#convert-to-content').css('background', '#ffd6d6');
+  if (!name || !value) {
+    alert('Please select both Name and Value in Convert to.');
+    return;
+  }
+  
+  // Get selected user emails
+  const checked = $('.user-select-checkbox:checked');
+  if (checked.length === 0) {
+    alert('Please select at least one user to convert.');
+    return;
+  }
+  
+  // Format labels for confirmation
+  let nameLabel = name === 'status' ? 'Status' : 'Permission Level';
+  let valueLabel = value;
+  if (name === 'permission') {
+    if (value == 1) valueLabel = 'Level 1 (Add/Edit)';
+    if (value == 2) valueLabel = 'Level 2 (Add/Edit/Delete)';
+    if (value == 3) valueLabel = 'Level 3 (Admin)';
+  }
+  if (name === 'status') {
+    valueLabel = value.charAt(0).toUpperCase() + value.slice(1);
+  }
+  
+  // Confirm action
+  if (!confirm(`Confirm: The selected emails will be converted to ${nameLabel} = ${valueLabel}.`)) return;
+  
+  // Show updating overlay
+  $('#updating-overlay').css('display', 'flex');
+  
+  // For each selected user, send AJAX to update
+  let completed = 0;
+  checked.each(function() {
+    const id = $(this).data('id');
+    let data = {};
+    if (name === 'permission') data.permission_level = value;
+    if (name === 'status') data.is_approved = (value === 'Active' ? 1 : 0);
+    
+    $.ajax({
+      url: `/admin/users/${id}`,
+      type: 'PUT',
+      contentType: 'application/json',
+      data: JSON.stringify(data),
+      complete: function() {
+        completed++;
+        if (completed === checked.length) {
+          setTimeout(function() {
+            $('#updating-overlay').css('display', 'none');
+            if (typeof fetchAndRenderUsers === 'function') fetchAndRenderUsers(false);
+            
+            // Reset all rule input fields to blank
+            rules = [ { name: '', condition: '', content: '' } ];
+            renderRules();
+            
+            // Reset Convert to fields
+            window.convertToName = '';
+            window.convertToContent = '';
+            
+            // Hide the panel 
+            clearConvertPanel();
+            
+            // Uncheck select all
+            $('#select-all-users').prop('checked', false);
+          }, 400);
+        }
+      }
     });
   });
 });
 
-function fetchAndRenderUsers() {
+function clearConvertPanel() {
+  // Completely remove the panel from DOM
+  $('#convert-panel-container').empty();
+}
+
+function setConvertPanelDisabled(disabled) {
+  if (disabled) {
+    $('.convert-panel').addClass('convert-disabled');
+    $('#convert-to-box').empty(); // Remove dropdown fields but keep header and buttons
+    $('.convert-change-btn, .convert-reset-btn').prop('disabled', true);
+  } else {
+    $('.convert-panel').removeClass('convert-disabled');
+    $('.convert-change-btn, .convert-reset-btn').prop('disabled', false);
+    // The dropdowns are added by renderConvertToRule
+  }
+}
+
+function fetchAndRenderUsers(selectAllChecked = null) {
   // Use the same /admin/users/filter endpoint as search, with no filters
   $.ajax({
     url: '/admin/users/filter',
@@ -484,7 +753,7 @@ function fetchAndRenderUsers() {
       if (filter) {
         filtered = filtered.filter(u => u.email.toLowerCase().includes(filter));
       }
-      updateUserTable(filtered);
+      updateUserTable(filtered, selectAllChecked);
     }
   });
 }

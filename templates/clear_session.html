@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Session</title>
+    <script>
+        // Clear all cookies
+        function clearCookies() {
+            const cookies = document.cookie.split(";");
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i];
+                const eqPos = cookie.indexOf("=");
+                const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+            }
+            document.getElementById('status').innerHTML = 'All cookies cleared. You will be redirected to the login page in 3 seconds...';
+            setTimeout(function() {
+                window.location.href = '/login';
+            }, 3000);
+        }
+    </script>
+</head>
+<body onload="clearCookies()">
+    <div style="text-align: center; margin-top: 100px;">
+        <h1>Clearing Session</h1>
+        <p id="status">Clearing cookies...</p>
+    </div>
+</body>
+</html> 

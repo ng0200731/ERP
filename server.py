@@ -250,6 +250,10 @@ def init_user_db():
         conn.execute('ALTER TABLE users ADD COLUMN permission_level INTEGER DEFAULT 1')
     except Exception:
         pass
+    try:
+        conn.execute('ALTER TABLE users ADD COLUMN last_updated TEXT')
+    except Exception:
+        pass  # Ignore if already exists
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -257,7 +261,8 @@ def init_user_db():
             is_approved INTEGER DEFAULT 0,
             last_login TEXT,
             approved_at TEXT,
-            permission_level INTEGER DEFAULT 1
+            permission_level INTEGER DEFAULT 1,
+            last_updated TEXT
         )
     ''')
     conn.execute('''
@@ -312,11 +317,15 @@ def login():
             return 'Authorization in progress. Please wait for admin approval.'
         else:
             # Insert new user with is_approved=0, permission_level=NULL, approved_at=NULL
+            # Rule 1: New accounts start as "pending" with blank permission
             try:
-                conn.execute('INSERT INTO users (email, is_approved, permission_level, approved_at) VALUES (?, 0, NULL, NULL)', (email,))
+                conn.execute('INSERT INTO users (email, is_approved, permission_level, approved_at, last_updated) VALUES (?, 0, NULL, NULL, ?)', 
+                            (email, now))
                 conn.commit()
+                print(f"[INFO] New pending user created: {email}")
             except Exception as e:
                 print(f'Error inserting new user: {e}')
+            
             # Send acknowledgment email to the real user
             try:
                 msg = Message('We received your login request', sender=app.config['MAIL_USERNAME'], recipients=[email])
@@ -424,7 +433,7 @@ def logout():
 @app.route('/admin/users', methods=['GET'])
 def list_users():
     conn = get_db()
-    users = conn.execute('SELECT id, email, permission_level, approved_at, is_approved FROM users').fetchall()
+    users = conn.execute('SELECT id, email, permission_level, approved_at, is_approved, last_updated FROM users').fetchall()
     conn.close()
     result = []
     for u in users:
@@ -444,9 +453,14 @@ def add_user():
     data = request.json
     email = data.get('email')
     level = int(data.get('permission_level', 1))
+    now = datetime.now(timezone.utc).isoformat()
+    
     conn = get_db()
     try:
-        conn.execute('INSERT INTO users (email, is_approved, permission_level) VALUES (?, 1, ?)', (email, level))
+        conn.execute(
+            'INSERT INTO users (email, is_approved, permission_level, approved_at, last_updated) VALUES (?, 1, ?, ?, ?)', 
+            (email, level, now, now)
+        )
         conn.commit()
         return '', 201
     except sqlite3.IntegrityError:
@@ -459,22 +473,69 @@ def edit_user(user_id):
     data = request.json
     updates = []
     params = []
-    if 'permission_level' in data:
-        updates.append('permission_level=?')
-        params.append(int(data['permission_level']) if data['permission_level'] is not None else None)
+    
+    # Always add a last_updated timestamp for any change
+    now = datetime.now(timezone.utc).isoformat()
+    updates.append('last_updated=?')
+    params.append(now)
+    
+    # Rule 2: When activating, set permission to level 1 if it's null/blank
     if 'is_approved' in data:
         updates.append('is_approved=?')
         params.append(int(data['is_approved']))
+        
+        # When activating a user, update approved_at timestamp and set permission to level 1 if blank
+        if int(data['is_approved']) == 1:
+            updates.append('approved_at=?')
+            params.append(now)
+            
+            # Get current permission level
+            conn = get_db()
+            user = conn.execute('SELECT permission_level FROM users WHERE id=?', (user_id,)).fetchone()
+            conn.close()
+            
+            # If permission is NULL or '', set it to level 1
+            if user and (user['permission_level'] is None or user['permission_level'] == ''):
+                updates.append('permission_level=?')
+                params.append(1)
+                print(f"[INFO] Setting default permission level 1 for newly activated user (ID: {user_id})")
+                
+                # Get user email for notification
+                conn = get_db()
+                user_email = conn.execute('SELECT email FROM users WHERE id=?', (user_id,)).fetchone()
+                conn.close()
+                
+                # Rule 3: Send activation email
+                if user_email:
+                    try:
+                        msg = Message('Your account has been activated', 
+                                    sender=app.config['MAIL_USERNAME'], 
+                                    recipients=[user_email['email']])
+                        msg.body = 'Your account has been activated with Level 1 permissions. You may now log in.'
+                        mail.send(msg)
+                        print(f"[INFO] Activation email sent to {user_email['email']}")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to send activation email: {e}")
+    
+    if 'permission_level' in data:
+        updates.append('permission_level=?')
+        params.append(int(data['permission_level']) if data['permission_level'] is not None else None)
+    
     if not updates:
         return '', 204
+        
     query = f'UPDATE users SET {", ".join(updates)} WHERE id=?'
     params.append(user_id)
+    
     conn = get_db()
     conn.execute(query, params)
     conn.commit()
+    
     # Debug print to confirm update
-    updated = conn.execute('SELECT id, email, is_approved, permission_level FROM users WHERE id=?', (user_id,)).fetchone()
-    print(f'[DEBUG] Updated user: id={updated[0]}, email={updated[1]}, is_approved={updated[2]}, permission_level={updated[3]}')
+    updated = conn.execute('SELECT id, email, is_approved, permission_level, last_updated FROM users WHERE id=?', (user_id,)).fetchone()
+    print(f'[DEBUG] Updated user: id={updated[0]}, email={updated[1]}, is_approved={updated[2]}, ' +
+          f'permission_level={updated[3]}, last_updated={updated["last_updated"]}')
+    
     conn.close()
     return '', 204
 
@@ -493,7 +554,7 @@ def delete_user(user_id):
 def filter_users():
     data = request.get_json()
     rules = data.get('rules', [])
-    query = 'SELECT id, email, is_approved, last_login, approved_at, permission_level FROM users'
+    query = 'SELECT id, email, is_approved, last_login, approved_at, permission_level, last_updated FROM users'
     where_clauses = []
     params = []
     for rule in rules:
@@ -562,10 +623,36 @@ def filter_users():
 
 # --- Set eric.brilliant@gmail.com to level 3 on startup ---
 def set_admin_level():
+    # Ensure eric.brilliant@gmail.com has admin access
+    print("[INFO] Setting admin level for eric.brilliant@gmail.com...")
     conn = get_db()
-    conn.execute('UPDATE users SET permission_level=3 WHERE email=?', ('eric.brilliant@gmail.com',))
+    now = datetime.now(timezone.utc).isoformat()
+    # Use INSERT OR REPLACE to ensure user exists and has admin privileges
+    conn.execute('''
+        INSERT OR REPLACE INTO users 
+        (email, is_approved, permission_level, approved_at, last_updated) 
+        VALUES (?, 1, 3, ?, ?)
+    ''', ('eric.brilliant@gmail.com', now, now))
     conn.commit()
+    
+    # Verify the update
+    result = conn.execute('SELECT id, email, permission_level, is_approved, last_updated FROM users WHERE email=?', 
+                         ('eric.brilliant@gmail.com',)).fetchone()
+    if result:
+        print(f"[INFO] Admin user verified: id={result['id']}, email={result['email']}, " 
+              f"level={result['permission_level']}, is_approved={result['is_approved']}, "
+              f"last_updated={result['last_updated']}")
+    else:
+        print("[WARNING] Failed to find admin user after update")
     conn.close()
+
+@app.route('/clear_session')
+def clear_session():
+    # Clear session on the server side
+    session.clear()
+    print("[INFO] Session cleared via /clear_session route")
+    # Return the page that will clear client-side cookies
+    return render_template('clear_session.html')
 
 # Call all initializers
 if __name__ == '__main__':

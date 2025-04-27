@@ -437,12 +437,15 @@ function updateUserTable(users, selectAllChecked = null) {
       changeDetails = `${change.oldValue} → ${change.newValue}`;
     } 
     // Otherwise check the server timestamps
-    else if (u.updated_at) {
-      lastUpdate = u.updated_at;
-      updateType = 'Updated';
-    } else if (u.last_updated) {
+    else if (u.last_updated) {
       lastUpdate = u.last_updated;
       updateType = 'Updated';
+    } else if (u.updated_at) {
+      lastUpdate = u.updated_at;
+      updateType = 'Updated';
+    } else if (u.last_login) {
+      lastUpdate = u.last_login;
+      updateType = 'Login';
     } else if (u.created_at) {
       lastUpdate = u.created_at;
       updateType = 'Created';
@@ -991,8 +994,17 @@ $(document).ready(function() {
     const id = $(this).data('id');
     const currentStatus = $(this).data('current');
     const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+    const $row = $(this).closest('tr');
+    const currentPermission = $row.find('td:eq(3)').text().trim();
     
-    if (confirm(`Are you sure you want to change status to ${newStatus}?`)) {
+    let confirmMessage = `Are you sure you want to change status to ${newStatus}?`;
+    
+    // For activating a pending account, add info about setting permission level
+    if (currentStatus === 'Inactive' && (currentPermission === '' || !currentPermission)) {
+      confirmMessage = 'This will activate the account and set permission level to 1. Continue?';
+    }
+    
+    if (confirm(confirmMessage)) {
       // Show updating overlay
       $('#updating-overlay').css('display', 'flex');
       

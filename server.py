@@ -236,7 +236,9 @@ def check_option_field():
 
 @app.route('/')
 def serve_index():
-    return render_template('index.html')
+    # Get the user's permission level from session
+    permission_level = session.get('permission_level', 1)
+    return render_template('index.html', permission_level=permission_level)
 
 # --- User and Approval Tables ---
 def init_user_db():
@@ -349,7 +351,16 @@ def verify_code():
         code = request.form.get('code', '').strip()
     
     if code == session.get('pending_code'):
-        session['user'] = session['pending_email']
+        # Set user in session
+        user_email = session['pending_email']
+        session['user'] = user_email
+        
+        # Update last_login timestamp in database
+        now = datetime.now(timezone.utc).isoformat()
+        conn = get_db()
+        conn.execute('UPDATE users SET last_login=? WHERE email=?', (now, user_email))
+        conn.commit()
+        conn.close()
         
         # Check if this is an AJAX request
         if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -506,41 +517,56 @@ def edit_user(user_id):
     
     # Rule 2: When activating, set permission to level 1 if it's null/blank
     if 'is_approved' in data:
+        # Get the current status before changing
+        conn = get_db()
+        current_user = conn.execute('SELECT email, is_approved, permission_level FROM users WHERE id=?', (user_id,)).fetchone()
+        conn.close()
+        
+        was_inactive = current_user and current_user['is_approved'] == 0
+        new_status = int(data['is_approved'])
+        
         updates.append('is_approved=?')
-        params.append(int(data['is_approved']))
+        params.append(new_status)
         
         # When activating a user, update approved_at timestamp and set permission to level 1 if blank
-        if int(data['is_approved']) == 1:
+        if new_status == 1 and was_inactive:
             updates.append('approved_at=?')
             params.append(now)
             
-            # Get current permission level
-            conn = get_db()
-            user = conn.execute('SELECT permission_level FROM users WHERE id=?', (user_id,)).fetchone()
-            conn.close()
-            
             # If permission is NULL or '', set it to level 1
-            if user and (user['permission_level'] is None or user['permission_level'] == ''):
+            if current_user and (current_user['permission_level'] is None or current_user['permission_level'] == ''):
                 updates.append('permission_level=?')
                 params.append(1)
                 print(f"[INFO] Setting default permission level 1 for newly activated user (ID: {user_id})")
-                
-                # Get user email for notification
-                conn = get_db()
-                user_email = conn.execute('SELECT email FROM users WHERE id=?', (user_id,)).fetchone()
-                conn.close()
-                
-                # Rule 3: Send activation email
-                if user_email:
-                    try:
-                        msg = Message('Your account has been activated', 
-                                    sender=app.config['MAIL_USERNAME'], 
-                                    recipients=[user_email['email']])
-                        msg.body = 'Your account has been activated with Level 1 permissions. You may now log in.'
-                        mail.send(msg)
-                        print(f"[INFO] Activation email sent to {user_email['email']}")
-                    except Exception as e:
-                        print(f"[ERROR] Failed to send activation email: {e}")
+            
+            # Send activation email
+            if current_user:
+                try:
+                    # Determine permission level to include in email
+                    permission_level = 1
+                    if 'permission_level' in data:
+                        permission_level = int(data['permission_level'])
+                    elif current_user['permission_level'] is not None:
+                        permission_level = current_user['permission_level']
+                    
+                    # Send detailed activation email
+                    msg = Message('Your account has been activated', 
+                                sender=app.config['MAIL_USERNAME'], 
+                                recipients=[current_user['email']])
+                    msg.body = f'''Hello,
+
+Your account has been activated with Level {permission_level} permissions.
+
+You may now log in to the Customer Management System.
+Thank you for your patience.
+
+Best regards,
+Customer Management Team
+'''
+                    mail.send(msg)
+                    print(f"[INFO] Activation email sent to {current_user['email']}")
+                except Exception as e:
+                    print(f"[ERROR] Failed to send activation email: {e}")
     
     if 'permission_level' in data:
         updates.append('permission_level=?')

@@ -5,6 +5,10 @@
   <title>Customer Management App</title>
   <link rel="stylesheet" href="/static/css/style.css">
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script>
+    // Define permission level in global scope
+    var userPermissionLevel = {{ permission_level }};
+  </script>
 </head>
 <body>
   <div class="container">
@@ -15,6 +19,8 @@
         <button id="btn-modify">Modify</button>
       </div>
       <button id="btn-development">Development</button>
+      <!-- Admin button only for level 3 users -->
+      <button id="btn-admin" style="display:none;">Admin</button>
       <div style="position:absolute;bottom:40px;left:30px;width:160px;text-align:center;">
         <button id="logout-btn" style="padding:10px 32px; background:#eee; border-radius:6px; border:1px solid #ccc; font-size:18px;">Logout</button>
       </div>
@@ -24,8 +30,20 @@
       <div id="welcome">Please select an option from the left.</div>
     </div>
   </div>
+  
   <script src="/static/js/app.js"></script>
   <script>
+    // Show Admin button only for level 3 users
+    if (userPermissionLevel >= 3) {
+      document.getElementById('btn-admin').style.display = 'block';
+    }
+    
+    // Admin button click handler
+    document.getElementById('btn-admin').onclick = function() {
+      window.open('/admin', '_blank');
+    }
+    
+    // Logout button click handler
     document.getElementById('logout-btn').onclick = function() {
       window.location = '/logout';
     }

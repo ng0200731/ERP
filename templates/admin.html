@@ -110,6 +110,7 @@
             <th>Email</th>
             <th>Status</th>
             <th>Permission Level</th>
+            <th>Last Login</th>
             <th>Last Updated</th>
             <th>Actions</th>
           </tr>
@@ -489,11 +490,12 @@ function updateUserTable(users, selectAllChecked = null) {
         <td>${u.email}</td>
         <td>${u.status || ''}</td>
         <td>${u.permission_level || ''}</td>
+        <td>${u.last_login ? formatDateTime(u.last_login) : 'Never'}</td>
         <td>${lastUpdated}</td>
         <td>${actionButtons}</td>
       </tr>
       <tr id="edit-row-${u.id}" class="edit-row" style="display:none;">
-        <td colspan="6">
+        <td colspan="7">
           <div class="card p-3 mb-0">
             <div class="form-row">
               <div class="col">

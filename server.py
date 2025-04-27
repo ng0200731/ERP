@@ -461,6 +461,9 @@ def edit_user(user_id):
     conn = get_db()
     conn.execute(query, params)
     conn.commit()
+    # Debug print to confirm update
+    updated = conn.execute('SELECT id, email, is_approved, permission_level FROM users WHERE id=?', (user_id,)).fetchone()
+    print(f'[DEBUG] Updated user: id={updated[0]}, email={updated[1]}, is_approved={updated[2]}, permission_level={updated[3]}')
     conn.close()
     return '', 204
 

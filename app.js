@@ -10,7 +10,7 @@ let editStep1Data = {};
 let editStep2Data = {};
 
 function fetchCustomers(callback) {
-  $.get('http://localhost:5000/customers', function(data) {
+  $.get('/customers', function(data) {
     customers = data;
     if (callback) callback();
   });
@@ -18,7 +18,7 @@ function fetchCustomers(callback) {
 
 function createCustomer(customer, callback) {
   $.ajax({
-    url: 'http://localhost:5000/customers',
+    url: '/customers',
     type: 'POST',
     contentType: 'application/json',
     data: JSON.stringify(customer),
@@ -28,7 +28,7 @@ function createCustomer(customer, callback) {
 
 function updateCustomer(id, customer, callback) {
   $.ajax({
-    url: 'http://localhost:5000/customers/' + id,
+    url: '/customers/' + id,
     type: 'PUT',
     contentType: 'application/json',
     data: JSON.stringify(customer),
@@ -127,7 +127,7 @@ $(function() {
   const website = slide1Data.website || '';
   const domains = slide1Data.domains && slide1Data.domains.length > 0 ? slide1Data.domains : [''];
   // Fetch Customer Type options from backend
-  $.get('http://localhost:5000/option_databases', function(databases) {
+  $.get('/option_databases', function(databases) {
     const customerTypeDb = databases.find(db => db.name.toLowerCase() === 'customer type');
     let customerTypeOptions = '';
     if (customerTypeDb) {
@@ -321,7 +321,7 @@ function updateDomainButtons() {
       : [{ name: '', position: '', email: '', tel: '', brand: '' }];
 
     // Fetch Brand options from backend
-    $.get('http://localhost:5000/option_databases', function(databases) {
+    $.get('/option_databases', function(databases) {
       const brandDb = databases.find(db => db.name.toLowerCase().includes('brand'));
       let brandOptions = '';
       let isMulti = false;
@@ -549,7 +549,7 @@ const _origHandleSubmitSlide2 = handleSubmitSlide2;
 handleSubmitSlide2 = function() {
   console.log('handleSubmitSlide2 called. addUserCompanyId:', window.addUserCompanyId);
   // Fetch Brand options from backend to get brandDb and isMulti in scope
-  $.get('http://localhost:5000/option_databases', function(databases) {
+  $.get('/option_databases', function(databases) {
     const brandDb = databases.find(db => db.name.toLowerCase().includes('brand'));
     const isMulti = !!(brandDb && brandDb.is_multiselect);
     let problems = [];
@@ -604,7 +604,7 @@ handleSubmitSlide2 = function() {
       const updatedCustomer = { ...cust, keyPeople: updatedKeyPeople, domains: normalizeDomains(cust.domains) };
       console.log('Submitting updateCustomer for company ID', cust.id, updatedCustomer);
       $.ajax({
-        url: 'http://localhost:5000/customers/' + cust.id,
+        url: '/customers/' + cust.id,
         type: 'PUT',
         contentType: 'application/json',
         data: JSON.stringify(updatedCustomer),
@@ -1075,7 +1075,7 @@ function showEditCustomerStep1() {
   `).join('');
 
   // Fetch Customer Type options from backend
-  $.get('http://localhost:5000/option_databases', function(databases) {
+  $.get('/option_databases', function(databases) {
     const customerTypeDb = databases.find(db => db.name.toLowerCase() === 'customer type');
     let customerTypeOptions = '';
     if (customerTypeDb) {
@@ -1183,7 +1183,7 @@ function showEditCustomerStep1() {
       };
       // Send update to backend
       $.ajax({
-        url: 'http://localhost:5000/customers/' + id,
+        url: '/customers/' + id,
         type: 'PUT',
         contentType: 'application/json',
         data: JSON.stringify(customer),
@@ -1203,7 +1203,7 @@ function showEditCustomerStep2() {
   console.log('showEditCustomerStep2 called', editStep2Data);
   console.log('DEBUG at start of showEditCustomerStep2, editStep1Data:', editStep1Data);
   // Fetch Brand options from backend
-  $.get('http://localhost:5000/option_databases', function(databases) {
+  $.get('/option_databases', function(databases) {
     const brandDb = databases.find(db => db.name.toLowerCase().includes('brand'));
     let isMulti = false;
     if (brandDb) {
@@ -1568,7 +1568,7 @@ $(function() {
 
 function showCustomerDatabaseManager() {
   // Fetch all option databases and render UI
-  $.get('http://localhost:5000/option_databases', function(databases) {
+  $.get('/option_databases', function(databases) {
     let dbOptions = databases.map(db => `<option value="${db.id}" data-multi="${db.is_multiselect}">${db.name}</option>`).join('');
     let dbSelectHtml = `
       <label>Select Database:
@@ -1609,7 +1609,7 @@ function showCustomerDatabaseManager() {
         return;
       }
       $.ajax({
-        url: 'http://localhost:5000/option_databases',
+        url: '/option_databases',
         type: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({ name, is_multiselect: is_multi }),
@@ -1658,19 +1658,19 @@ function renderDbOptionsArea(db) {
       return;
     }
     // Check for duplicate
-    $.get('http://localhost:5000/option_fields/check', { database_id: db.id, value }, function(resp) {
+    $.get('/option_fields/check', { database_id: db.id, value }, function(resp) {
       if (resp.exists) {
         $('#option-error').text('Option already exists');
       } else {
         // Add option
         $.ajax({
-          url: 'http://localhost:5000/option_fields',
+          url: '/option_fields',
           type: 'POST',
           contentType: 'application/json',
           data: JSON.stringify({ database_id: db.id, value }),
           success: function() {
             // Refresh options
-            $.get('http://localhost:5000/option_databases', function(dbs) {
+            $.get('/option_databases', function(dbs) {
               const updatedDb = dbs.find(d => d.id == db.id);
               renderDbOptionsArea(updatedDb);
             });
@@ -1686,11 +1686,11 @@ function renderDbOptionsArea(db) {
   $('.delete-option-btn').off('click').on('click', function() {
     const optId = $(this).data('id');
     $.ajax({
-      url: 'http://localhost:5000/option_fields/' + optId,
+      url: '/option_fields/' + optId,
       type: 'DELETE',
       success: function() {
         // Refresh options
-        $.get('http://localhost:5000/option_databases', function(dbs) {
+        $.get('/option_databases', function(dbs) {
           const updatedDb = dbs.find(d => d.id == db.id);
           renderDbOptionsArea(updatedDb);
         });
@@ -1704,7 +1704,7 @@ function renderDbOptionsArea(db) {
       $('#option-error').text('');
       return;
     }
-    $.get('http://localhost:5000/option_fields/check', { database_id: db.id, value }, function(resp) {
+    $.get('/option_fields/check', { database_id: db.id, value }, function(resp) {
       if (resp.exists) {
         $('#option-error').text('Option already exists');
       } else {

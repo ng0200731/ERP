@@ -6,9 +6,19 @@ from datetime import datetime, timezone
 import hashlib
 from flask_mail import Mail, Message
 import os
+import logging
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Enhance CORS configuration to support credentials
+CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True}})
 app.secret_key = 'your-very-secret-key-2025-04-16'  # Set a unique, secret value for session support
 
 # Configure Flask-Mail (update with your SMTP settings)
@@ -27,62 +37,74 @@ def get_db():
 
 @app.route('/customers', methods=['GET'])
 def get_customers():
-    conn = get_db()
-    customers = conn.execute('SELECT * FROM customers').fetchall()
-    result = []
-    for cust in customers:
-        cust_dict = dict(cust)
-        key_people = conn.execute('SELECT name, position, email, tel, brand FROM key_people WHERE customer_id=?', (cust['id'],)).fetchall()
-        cust_dict['keyPeople'] = [dict(kp) for kp in key_people]
-        result.append(cust_dict)
-    conn.close()
-    return jsonify(result)
+    try:
+        logger.info(f"GET /customers request from {request.remote_addr}")
+        conn = get_db()
+        customers = conn.execute('SELECT * FROM customers').fetchall()
+        result = []
+        for cust in customers:
+            cust_dict = dict(cust)
+            key_people = conn.execute('SELECT name, position, email, tel, brand FROM key_people WHERE customer_id=?', (cust['id'],)).fetchall()
+            cust_dict['keyPeople'] = [dict(kp) for kp in key_people]
+            result.append(cust_dict)
+        conn.close()
+        logger.info(f"Returning {len(result)} customers")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error in get_customers: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/customers', methods=['POST'])
 def add_customer():
-    data = request.json
-    conn = get_db()
-    cursor = conn.cursor()
-    # Always use UTC ISO format for created/updated
-    now_utc = datetime.now(timezone.utc).isoformat()
-    # Ensure customerType is a string
-    customer_type = data.get('customerType', '')
-    if isinstance(customer_type, list):
-        customer_type = ','.join(customer_type)
-    cursor.execute(
-        'INSERT INTO customers (company, address, website, domains, customerType, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        (data['company'], data['address'], data['website'], ','.join(data['domains']), customer_type, now_utc, now_utc)
-    )
-    customer_id = cursor.lastrowid
-    # Insert all key people if present
-    if 'keyPeople' in data and data['keyPeople']:
-        for kp in data['keyPeople']:
-            # Ensure brand is a string
-            brand = kp.get('brand', '')
-            if isinstance(brand, list):
-                brand = ','.join(brand)
-            cursor.execute(
-                'INSERT INTO key_people (customer_id, name, position, email, tel, brand) VALUES (?, ?, ?, ?, ?, ?)',
-                (customer_id, kp['name'], kp['position'], kp['email'], kp['tel'], brand)
-            )
-    conn.commit()
-    conn.close()
-    # Send confirmation email to the first key person if present
-    email_status = None
-    email_message = None
-    if 'keyPeople' in data and data['keyPeople'] and 'email' in data['keyPeople'][0]:
-        user_email = '859543169@qq.com'  # Hardcoded for testing
-        try:
-            msg = Message('We received your request', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-            msg.body = 'Thank you for your request. Our team has received it and will review it soon.'
-            mail.send(msg)
-            email_status = 'success'
-            email_message = 'Confirmation email sent successfully.'
-        except Exception as e:
-            print(f'Error sending confirmation email: {e}')
-            email_status = 'error'
-            email_message = f'Error sending confirmation email: {e}'
-    return jsonify({'email_status': email_status, 'email_message': email_message}), 201
+    try:
+        data = request.json
+        logger.info(f"POST /customers request from {request.remote_addr}: {data.get('company', 'Unknown company')}")
+        conn = get_db()
+        cursor = conn.cursor()
+        # Always use UTC ISO format for created/updated
+        now_utc = datetime.now(timezone.utc).isoformat()
+        # Ensure customerType is a string
+        customer_type = data.get('customerType', '')
+        if isinstance(customer_type, list):
+            customer_type = ','.join(customer_type)
+        cursor.execute(
+            'INSERT INTO customers (company, address, website, domains, customerType, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (data['company'], data['address'], data['website'], ','.join(data['domains']), customer_type, now_utc, now_utc)
+        )
+        customer_id = cursor.lastrowid
+        # Insert all key people if present
+        if 'keyPeople' in data and data['keyPeople']:
+            for kp in data['keyPeople']:
+                # Ensure brand is a string
+                brand = kp.get('brand', '')
+                if isinstance(brand, list):
+                    brand = ','.join(brand)
+                cursor.execute(
+                    'INSERT INTO key_people (customer_id, name, position, email, tel, brand) VALUES (?, ?, ?, ?, ?, ?)',
+                    (customer_id, kp['name'], kp['position'], kp['email'], kp['tel'], brand)
+                )
+        conn.commit()
+        conn.close()
+        # Send confirmation email to the first key person if present
+        email_status = None
+        email_message = None
+        if 'keyPeople' in data and data['keyPeople'] and 'email' in data['keyPeople'][0]:
+            user_email = '859543169@qq.com'  # Hardcoded for testing
+            try:
+                msg = Message('We received your request', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
+                msg.body = 'Thank you for your request. Our team has received it and will review it soon.'
+                mail.send(msg)
+                email_status = 'success'
+                email_message = 'Confirmation email sent successfully.'
+            except Exception as e:
+                logger.error(f'Error sending confirmation email: {e}')
+                email_status = 'error'
+                email_message = f'Error sending confirmation email: {e}'
+        logger.info(f"Customer added successfully: ID {customer_id}, {data.get('company')}")
+        return jsonify({'email_status': email_status, 'email_message': email_message, 'customer_id': customer_id}), 201
+    except Exception as e:
+        logger.error(f"Error in add_customer: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/customers/<int:id>', methods=['PUT'])
 def update_customer(id):

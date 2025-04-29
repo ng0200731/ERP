@@ -1627,69 +1627,117 @@ $(function() {
 
 function fetchAndRenderUsers() {
   $.get('/admin/users', function(users) {
-    // Sort by approved_at descending (if available)
     users.sort((a, b) => {
       if (b.approved_at && a.approved_at) return b.approved_at.localeCompare(a.approved_at);
       return 0;
     });
-    // Get filter value
     const filter = $('#user-filter-input').val() ? $('#user-filter-input').val().toLowerCase() : '';
     let filtered = users;
     if (filter) {
       filtered = filtered.filter(u => u.email.toLowerCase().includes(filter));
     }
-    // Render ALL users, including those with permission_level null
+
+    // Always update style for user actions
+    $('#user-actions-style').remove();
+    $('head').append(`
+      <style id="user-actions-style">
+        #users-table td:last-child {
+          min-width: 350px !important;
+          white-space: nowrap !important;
+          text-align: left !important;
+        }
+        .action-btn {
+          margin: 0 3px;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          display: inline-block;
+        }
+        .action-btn.edit { background: #ffe066; color: #333; border: 1px solid #e6b800; }
+        .action-btn.delete-user-btn { background: #dc3545; color: white; border: 1px solid #bd2130; font-weight: bold; font-size: 16px; padding: 4px 12px; }
+        .action-btn.activate { background: #28a745; color: white; border: 1px solid #1e7e34; }
+        .action-btn.deactivate { background: #ffc107; color: #000; border: 1px solid #d39e00; }
+      </style>
+    `);
+
     const tbody = filtered.map(u => {
-      // Compute status
       let status = 'Pending';
       if (u.is_active === 0) status = 'Inactive';
       else if (u.permission_level) status = 'Active';
-      // Render permission level
-      let levelDisplay = 'No Level';
-      if (u.permission_level == 1) levelDisplay = 'Level 1 (Add/Edit)';
-      if (u.permission_level == 2) levelDisplay = 'Level 2 (Add/Edit/Delete)';
-      if (u.permission_level == 3) levelDisplay = 'Level 3 (Admin)';
+
       return `
-      <tr${!u.permission_level ? ' style="background:#fffbe6"' : ''}>
-        <td><input type="checkbox" class="user-select-checkbox" data-id="${u.id}" data-email="${u.email}" data-level="${u.permission_level || ''}" ${u.is_active === 0 ? 'disabled' : ''}></td>
+      <tr${!u.permission_level ? ' style=\"background:#fffbe6\"' : ''}>
+        <td><input type=\"checkbox\" class=\"user-select-checkbox\" data-id=\"${u.id}\" data-email=\"${u.email}\" data-level=\"${u.permission_level || ''}\" ${u.is_active === 0 ? 'disabled' : ''}></td>
         <td>${u.email}</td>
         <td>${status}</td>
         <td>
-          <select class="form-control user-level-select" data-id="${u.id}" data-original="${u.permission_level || ''}" ${u.is_active === 0 ? 'disabled' : ''}>
-            <option value=""${!u.permission_level ? ' selected' : ''}>No Level</option>
-            <option value="1"${u.permission_level==1?' selected':''}>Level 1 (Add/Edit)</option>
-            <option value="2"${u.permission_level==2?' selected':''}>Level 2 (Add/Edit/Delete)</option>
-            <option value="3"${u.permission_level==3?' selected':''}>Level 3 (Admin)</option>
+          <select class=\"form-control user-level-select\" data-id=\"${u.id}\" data-original=\"${u.permission_level || ''}\" ${u.is_active === 0 ? 'disabled' : ''}>
+            <option value=\"\"${!u.permission_level ? ' selected' : ''}>No Level</option>
+            <option value=\"1\"${u.permission_level==1?' selected':''}>Level 1 (Add/Edit)</option>
+            <option value=\"2\"${u.permission_level==2?' selected':''}>Level 2 (Add/Edit/Delete)</option>
+            <option value=\"3\"${u.permission_level==3?' selected':''}>Level 3 (Admin)</option>
           </select>
         </td>
         <td>
-          <button class="btn btn-sm btn-success update-user-btn" data-id="${u.id}" data-email="${u.email}" disabled ${u.is_active === 0 ? 'disabled' : ''}>Update</button>
-          ${(u.permission_level != 3 && u.is_active !== 0) ? `<button class="btn btn-sm btn-warning inactive-user-btn" data-id="${u.id}">Inactive</button>` : ''}
-          <button class="btn btn-sm btn-primary edit-user-btn" data-id="${u.id}" data-email="${u.email}" data-level="${u.permission_level || ''}">Edit</button>
-          <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}" data-email="${u.email}">Delete</button>
+          <button class=\"action-btn edit\" data-id=\"${u.id}\" data-email=\"${u.email}\" data-level=\"${u.permission_level || ''}\">Edit</button>
+          ${u.is_active === 0 
+            ? `<button class=\"action-btn activate\" data-id=\"${u.id}\">Activate</button>` 
+            : (u.permission_level !== 3 ? `<button class=\"action-btn deactivate\" data-id=\"${u.id}\">Deactivate</button>` : '')
+          }
+          ${u.permission_level !== 3 ? `<button class=\"action-btn delete-user-btn\" data-id=\"${u.id}\" data-email=\"${u.email}\">🗑️</button>` : ''}
         </td>
       </tr>
       `;
     }).join('');
     $('#users-table tbody').html(tbody);
+
+    // Rebind event handlers
+    $('.action-btn.edit').off('click').on('click', function() {
+      const id = $(this).data('id');
+      const email = $(this).data('email');
+      const level = $(this).data('level');
+      // Your existing edit logic
+    });
+
+    $('.action-btn.delete-user-btn').off('click').on('click', function() {
+      const id = $(this).data('id');
+      const email = $(this).data('email');
+      if (!confirm(`Are you sure you want to delete user \"${email}\"? This action cannot be undone.`)) return;
+      
+      $.ajax({
+        url: `/admin/users/${id}`,
+        type: 'DELETE',
+        success: function() {
+          fetchAndRenderUsers();
+          showCustomPopup('User deleted successfully');
+        },
+        error: function(xhr) {
+          showCustomPopup(xhr.responseJSON?.error || 'Error deleting user', true);
+        }
+      });
+    });
   });
-  // After rendering the users table, inject a style to ensure actions column is wide enough and buttons are visible
-  if ($('#user-actions-style').length === 0) {
-    $('head').append(`
-      <style id="user-actions-style">
-        #users-table td:last-child, #users-table th:last-child {
-          min-width: 220px !important;
-          white-space: nowrap !important;
-        }
-        .btn.edit-user-btn, .btn.delete-user-btn, .btn.inactive-user-btn, .btn.update-user-btn {
-          margin-right: 4px;
-          display: inline-block !important;
-          white-space: nowrap !important;
-        }
-      </style>
-    `);
-  }
 }
+
+// Delete user handler
+$(document).off('click', '.delete-user-btn');
+$(document).on('click', '.delete-user-btn', function() {
+  const id = $(this).data('id');
+  const email = $(this).data('email');
+  if (!confirm(`Are you sure you want to delete user "${email}"? This action cannot be undone.`)) return;
+  
+  $.ajax({
+    url: `/admin/users/${id}`,
+    type: 'DELETE',
+    success: function() {
+      fetchAndRenderUsers();
+      showCustomPopup('User deleted successfully');
+    },
+    error: function(xhr) {
+      showCustomPopup(xhr.responseJSON?.error || 'Error deleting user', true);
+    }
+  });
+});
 
 // Batch select logic
 $(document).off('change', '#select-all-users');

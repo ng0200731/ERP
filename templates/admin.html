@@ -161,7 +161,7 @@
 <!-- Bootstrap JS -->
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 <!-- Custom App JS -->
-<script src="/static/js/app.js"></script>
+<script src="/static/js/app2.js"></script>
 <script>
 // --- Rules UI Logic ---
 const ruleNameOptions = [
@@ -481,8 +481,10 @@ function updateUserTable(users, selectAllChecked = null) {
                 title="${u.status === 'Active' ? 'Make Inactive' : 'Make Active'}">
           ${u.status === 'Active' ? 'Deactivate' : 'Activate'}
         </button>
-      </div>
-    `;
+        <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}" data-email="${u.email}" title="Delete">
+          X
+        </button>
+      </div>`;
     
     $tbody.append(`
       <tr>

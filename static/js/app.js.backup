@@ -9,49 +9,169 @@ function handleSubmitSlide2() {}
 let editStep1Data = {};
 let editStep2Data = {};
 
+// Add this at the beginning of the file
+function checkUserPermission(callback) {
+  $.get('/check_permission', function(response) {
+    callback(response.level);
+  }).fail(function() {
+    callback(0);
+  });
+}
+
 function fetchCustomers(callback) {
-  $.get('/customers', function(data) {
-    customers = data;
-    if (callback) callback();
+  $.ajax({
+    url: '/customers',
+    type: 'GET',
+    success: function(data) {
+      customers = data;
+      console.log('[DEBUG] Fetched customers:', customers.length);
+      if (callback) callback();
+    },
+    error: function(xhr, status, error) {
+      console.error('[ERROR] Failed to fetch customers:', status, error);
+      showCustomPopup('Failed to load customers. Please try again.', true);
+      if (callback) callback([]);
+    }
   });
 }
 
 function createCustomer(customer, callback) {
+  $('#right-frame').append(`
+    <div id="create-loading-indicator" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;">
+      <div style="text-align: center; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <p>Creating customer... <span class="spinner" style="display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #3498db; animation: spin 1s linear infinite;"></span></p>
+      </div>
+    </div>
+  `);
+  
   $.ajax({
     url: '/customers',
     type: 'POST',
     contentType: 'application/json',
     data: JSON.stringify(customer),
-    success: function() { if (callback) callback(); }
+    success: function(response) {
+      $('#create-loading-indicator').remove();
+      // Show email status message if present
+      if (response && response.email_message) {
+        showCustomPopup(response.email_message, response.email_status !== 'success');
+      }
+      
+      // Explicitly fetch customers again to ensure we have the latest data
+      fetchCustomers(function() {
+        console.log('[DEBUG] Customers refreshed after create:', customers.length);
+        if (callback) callback();
+      });
+    },
+    error: function(xhr, status, error) {
+      $('#create-loading-indicator').remove();
+      console.error('[ERROR] Failed to create customer:', status, error, xhr.responseText);
+      let errorMsg = 'Failed to create customer.';
+      
+      // Try to extract more detailed error message from response if possible
+      try {
+        const response = JSON.parse(xhr.responseText);
+        if (response && response.error) {
+          errorMsg += ' ' + response.error;
+        }
+      } catch (e) {
+        // Ignore JSON parse errors
+      }
+      
+      showCustomPopup(errorMsg, true);
+      if (callback) callback(false);
+    }
   });
 }
 
 function updateCustomer(id, customer, callback) {
+  $('#right-frame').append(`
+    <div id="update-loading-indicator" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;">
+      <div style="text-align: center; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <p>Updating customer... <span class="spinner" style="display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #3498db; animation: spin 1s linear infinite;"></span></p>
+      </div>
+    </div>
+  `);
+  
+  if (!id) {
+    console.error('[ERROR] No customer ID provided for update');
+    $('#update-loading-indicator').remove();
+    showCustomPopup('Failed to update: Missing customer ID', true);
+    if (callback) callback(false);
+    return;
+  }
+  
+  console.log('[DEBUG] Updating customer ID:', id);
+  
   $.ajax({
     url: '/customers/' + id,
     type: 'PUT',
     contentType: 'application/json',
     data: JSON.stringify(customer),
-    success: function() { if (callback) callback(); }
+    success: function() { 
+      $('#update-loading-indicator').remove();
+      // Explicitly fetch customers again to ensure we have the latest data
+      fetchCustomers(function() {
+        console.log('[DEBUG] Customers refreshed after update:', customers.length);
+        if (callback) callback(true);
+      });
+    },
+    error: function(xhr, status, error) {
+      $('#update-loading-indicator').remove();
+      console.error('[ERROR] Failed to update customer:', status, error, xhr.responseText);
+      let errorMsg = 'Failed to update customer.';
+      
+      // Try to extract more detailed error message from response if possible
+      try {
+        const response = JSON.parse(xhr.responseText);
+        if (response && response.error) {
+          errorMsg += ' ' + response.error;
+        }
+      } catch (e) {
+        // Ignore JSON parse errors
+      }
+      
+      showCustomPopup(errorMsg, true);
+      if (callback) callback(false);
+    }
   });
 }
 
 $(function() {
+  console.log('[INFO] Document ready, initializing app...');
+  
+  // Add network status monitoring
+  window.addEventListener('online', function() {
+    console.log('[INFO] Network connection restored');
+    showCustomPopup('Network connection restored. Refreshing data...', false);
+    fetchCustomers(function() {
+      console.log('[INFO] Customers refreshed after network reconnection');
+    });
+  });
+  
+  window.addEventListener('offline', function() {
+    console.log('[WARNING] Network connection lost');
+    showCustomPopup('Network connection lost. Some features may not work properly.', true);
+  });
+  
   // On load, fetch customers from backend
   fetchCustomers(function() {
-    // Optionally show the customer list or welcome page
+    console.log('[INFO] Initial customer data loaded:', customers.length, 'records');
   });
 
-    // Left frame navigation
-    $('#btn-customer').click(function() {
-      $('#customer-nested').toggle();
-    });
-    $('#btn-development').click(function() {
-      $('#right-frame').html('<h2>Development Section</h2><p>Coming soon...</p>');
-    });
-    // Removed duplicate Create button handler
-    $('#btn-modify').click(showModify);
-  
+  // Left frame navigation
+  $('#btn-customer').click(function() {
+    $('#customer-nested').toggle();
+  });
+  $('#btn-development').click(function() {
+    $('#right-frame').html('<h2>Development Section</h2><p>Coming soon...</p>');
+  });
+  $('#btn-modify').click(function() {
+    showModify();
+  });
+  $('#btn-database').click(function() {
+    showCustomerDatabaseManager();
+  });
+
     // Delegated events for dynamic content
     $('#right-frame').on('click', '#next-slide1', handleNextSlide1);
     $('#right-frame').on('click', '#prev-slide2', function() {
@@ -112,65 +232,118 @@ $(function() {
   $('#right-frame').on('click', '#prev-edit-step2', function() {
     showEditCustomerStep1();
   });
+
+  // Add this after the document ready function
+  $(document).ready(function() {
+    // Check permission level and hide/show buttons accordingly
+    checkUserPermission(function(level) {
+      // Hide Database button for level 1 and 2 users
+      if (level < 3) {
+        $('#btn-database').hide();
+        $('#btn-customer-db-sub').hide();
+      }
+    });
+
+    // No click handler for Create button here - using the delegated handler below instead
+  });
 });
   
   // --- Create Customer Flow ---
   
+  // Function to access customer types for all permission levels
+  function getCustomerTypes(callback, errorCallback) {
+    $.get('/customer_types', function(databases) {
+      if (databases && databases.length > 0) {
+        const customerTypeDb = databases[0]; // The endpoint now returns exactly what we need
+        if (customerTypeDb && callback) {
+          callback(customerTypeDb.fields || []);
+        } else if (callback) {
+          callback([]);
+        }
+      } else if (callback) {
+        callback([]);
+      }
+    }).fail(function(xhr) {
+      if (errorCallback) {
+        errorCallback(xhr);
+      }
+    });
+  }
+
   function showCreateSlide1() {
-  // Use existing slide1Data or default
-  const company = slide1Data.company || '';
-  const address = slide1Data.address || '';
-  const website = slide1Data.website || '';
-  const domains = slide1Data.domains && slide1Data.domains.length > 0 ? slide1Data.domains : [''];
-  
-  // Pre-render the form with empty customer type options
-  const renderForm = function(customerTypeOptions = '') {
-    $('#right-frame').html(`
-      <div style=\"position:relative;\"><button id=\"dummy-fill-btn-step1\" style=\"position:absolute;top:18px;right:32px;z-index:1000;background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;\">Dummy Fill</button></div>
+    // Use existing slide1Data or default
+    const company = slide1Data.company || '';
+    const address = slide1Data.address || '';
+    const website = slide1Data.website || '';
+    const domains = slide1Data.domains && slide1Data.domains.length > 0 ? slide1Data.domains : [''];
+    
+    // Show the basic form first with dummy button always included
+    const basicForm = `
+      <div style="position:relative;">
+        <button id="dummy-fill-btn-step1" style="position:absolute;top:18px;right:32px;z-index:1000;background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;">Dummy Fill</button>
+      </div>
       <h2>Create Customer - Step 1</h2>
       <div>
-      <label>Company Name:<br><input type=\"text\" id=\"company-name\" value=\"${company}\"></label><br>
-      <label>Address:<br><input type=\"text\" id=\"address\" value=\"${address}\"></label><br>
+        <label>Company Name:<br><input type="text" id="company-name" value="${company}"></label><br>
+        <label>Address:<br><input type="text" id="address" value="${address}"></label><br>
         <label>Website:<br>
-        <input type=\"text\" class=\"website-input\" id=\"website\" value=\"${website}\">
-          <span class=\"error\" id=\"website-error\"></span>
+          <input type="text" class="website-input" id="website" value="${website}">
+          <span class="error" id="website-error"></span>
         </label><br>
-        <div class=\"domain-list\" id=\"domain-list\">
+        <div class="domain-list" id="domain-list">
           <label>Domain(s):</label>
-        ${domains.map((d, i) => `
-          <div class=\"domain-item\">
-            <input type=\"text\" class=\"domain-input\" value=\"${d}\">
-            <button type=\"button\" class=\"${i === domains.length - 1 ? 'add-domain' : 'remove-domain'}\">${i === domains.length - 1 ? '+' : '-'}</button>
-          </div>
-        `).join('')}
+          ${domains.map((d, i) => `
+            <div class="domain-item">
+              <input type="text" class="domain-input" value="${d}">
+              <button type="button" class="${i === domains.length - 1 ? 'add-domain' : 'remove-domain'}">${i === domains.length - 1 ? '+' : '-'}</button>
+            </div>
+          `).join('')}
+        </div>
+        <div id="customer-type-row">
+          <label>Customer Type:<br>
+            <select id="customer-type-select">
+              <option value="">-- Select --</option>
+            </select>
+          </label>
+        </div>
       </div>
-      <div id=\"customer-type-row\">
-        <label>Customer Type:<br>
-          <select id=\"customer-type-select\">
-            <option value=\"\">-- Select --</option>
-            ${customerTypeOptions}
-          </select>
-        </label>
+      <div class="slide-nav">
+        <button id="next-slide1">Next</button>
       </div>
-      </div>
-      <div class=\"slide-nav\">
-        <button id=\"next-slide1\">Next</button>
-      </div>
-    `);
+    `;
     
+    // Show the basic form
+    $('#right-frame').html(basicForm);
     updateDomainButtons();
     
-    // Restore previous selection if any
-    if (slide1Data.customerType) {
-      $('#customer-type-select').val(slide1Data.customerType);
-    }
-    
-    // Save selection on change
-    $('#customer-type-select').off('change').on('change', function() {
-      slide1Data.customerType = $(this).val();
+    // Try to load customer types in the background (works for any permission level)
+    getCustomerTypes(function(customerTypeOptions) {
+      // Add options to the select
+      let optionsHtml = '';
+      if (customerTypeOptions.length > 0) {
+        optionsHtml = customerTypeOptions.map(opt => 
+          `<option value="${opt.value}"${slide1Data.customerType === opt.value ? ' selected' : ''}>${opt.value}</option>`
+        ).join('');
+        $('#customer-type-select').append(optionsHtml);
+      }
+      
+      // Restore previous selection if any
+      if (slide1Data.customerType) {
+        $('#customer-type-select').val(slide1Data.customerType);
+      }
+      
+      // Save selection on change
+      $('#customer-type-select').off('change').on('change', function() {
+        slide1Data.customerType = $(this).val();
+      });
+    }, function(xhr) {
+      // Error handling - just continue with basic form
+      if (xhr.status === 403) {
+        showCustomPopup('Note: Customer type options are not available with your permission level.', true);
+      }
     });
     
-    // Dummy fill handler for Step 1 (must be after HTML is rendered)
+    // Dummy fill handler for Step 1 - always added regardless of permission
     $('#dummy-fill-btn-step1').off('click').on('click', function() {
       const companies = ['Acme Corp', 'Globex Inc', 'Umbrella LLC', 'Wayne Enterprises', 'Stark Industries'];
       const addresses = ['123 Main St', '456 Elm Ave', '789 Oak Blvd', '101 Maple Dr', '202 Pine Ln'];
@@ -205,23 +378,15 @@ $(function() {
       // Reset all warning highlights
       $('#company-name, #address, #website, .domain-input, #customer-type-select').removeClass('highlight-error');
     });
-  };
-  
-  // Fetch Customer Type options from backend
-  $.get('/option_databases', function(databases) {
-    const customerTypeDb = databases.find(db => db.name.toLowerCase() === 'customer type');
-    let customerTypeOptions = '';
-    if (customerTypeDb) {
-      customerTypeOptions = customerTypeDb.fields.map(opt => `<option value="${opt.value}"${slide1Data.customerType === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('');
-    }
-    renderForm(customerTypeOptions);
-  }).fail(function(xhr) {
-    // If request fails (e.g., 403 Forbidden), still render the form with empty options
-    if (xhr.status === 403) {
-      showCustomPopup('Note: Customer type options are not available with your permission level.', true);
-    }
-    renderForm();
-  });
+  }
+
+// Make sure we have the necessary helper functions
+function generateDomainFields(domains) {
+  return domains.map((domain, index) => `
+    <div class="domain-field">
+      <input type="text" class="form-control domain-input" value="${domain}" required>
+    </div>
+  `).join('');
 }
   
   function addDomainField() {
@@ -332,8 +497,13 @@ function updateDomainButtons() {
       ? slide2Data.keyPeople
       : [{ name: '', position: '', email: '', tel: '', brand: '' }];
 
-    // Pre-render function with empty brandDb initially
-    const renderForm = function(brandDb = null, isMulti = false) {
+    // Fetch Brand options from backend
+    $.get('/create_form_options', function(databases) {
+      const brandDb = databases.find(db => db.name.toLowerCase() === 'brand');
+      let brandOptions = '';
+      if (brandDb) {
+        brandOptions = brandDb.fields.map(opt => `<option value="${opt.value}">${opt.value}</option>`).join('');
+      }
       function renderKeyPeopleForms() {
         let isAddUserMode = !!window.addUserCompanyId;
         return keyPeople.map((kp, idx) => {
@@ -412,7 +582,6 @@ function updateDomainButtons() {
           <button id="submit-slide2">${isAddUserMode ? 'Update' : 'Submit'}</button>
         </div>
       `);
-      
       // Dummy fill handler
       $('#dummy-fill-btn').off('click').on('click', function() {
         const randomNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank'];
@@ -449,7 +618,6 @@ function updateDomainButtons() {
         // Trigger change to update data
         $('.keyperson-form input, .keyperson-form select').trigger('input');
       });
-      
       // Add handler for back button in add user mode
       if (isAddUserMode) {
         $('#back-to-modify').off('click').on('click', function() {
@@ -457,8 +625,7 @@ function updateDomainButtons() {
           showModify();
         });
       }
-      
-      // Save key people data on input/select
+      // Save key people data on input/select (move inside AJAX callback for brandDb/isMulti access)
       $('#right-frame').off('input change', '.keyperson-form input, .keyperson-form select');
       $('#right-frame').on('input change', '.keyperson-form input, .keyperson-form select', function() {
         $(this).removeClass('highlight-error');
@@ -482,22 +649,6 @@ function updateDomainButtons() {
           slide2Data.keyPeople.push({ name, position, email, tel, brand });
         });
       });
-    };
-
-    // Fetch Brand options from backend
-    $.get('/option_databases', function(databases) {
-      const brandDb = databases.find(db => db.name.toLowerCase().includes('brand'));
-      let isMulti = false;
-      if (brandDb) {
-        isMulti = !!brandDb.is_multiselect;
-      }
-      renderForm(brandDb, isMulti);
-    }).fail(function(xhr) {
-      // If request fails (e.g., 403 Forbidden), still render the form with null brandDb
-      if (xhr.status === 403) {
-        showCustomPopup('Note: Brand options are not available with your permission level.', true);
-      }
-      renderForm(null, false);
     });
   }
 
@@ -573,7 +724,7 @@ const _origHandleSubmitSlide2 = handleSubmitSlide2;
 handleSubmitSlide2 = function() {
   console.log('handleSubmitSlide2 called. addUserCompanyId:', window.addUserCompanyId);
   // Fetch Brand options from backend to get brandDb and isMulti in scope
-  $.get('/option_databases', function(databases) {
+  $.get('/create_form_options', function(databases) {
     const brandDb = databases.find(db => db.name.toLowerCase().includes('brand'));
     const isMulti = !!(brandDb && brandDb.is_multiselect);
     let problems = [];
@@ -730,21 +881,47 @@ function showModify() {
   window.expandedCompanyId = null;
   $('#right-frame').html(`
     <h2>Modify Customer</h2>
-    <table class="table-search">
-      <tr>
-        <th>Company<br><input type="text" class="search-input" data-field="company"></th>
-        <th>Address<br><input type="text" class="search-input" data-field="address"></th>
-        <th>Website<br><input type="text" class="search-input" data-field="website"></th>
-        <th>Domains<br><input type="text" class="search-input" data-field="domains"></th>
-        <th>Customer Type<br><input type="text" class="search-input" data-field="customerType"></th>
-        <th>Created</th>
-        <th>Updated</th>
-        <th>Action</th>
-      </tr>
-      <tbody id="search-results"></tbody>
-    </table>
+    <div id="loading-indicator" style="text-align: center; padding: 20px;">
+      <p>Loading customers... <span class="spinner" style="display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #3498db; animation: spin 1s linear infinite;"></span></p>
+    </div>
+    <style>
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
   `);
-  renderSearchResultsWithKeyPeople(customers);
+  
+  // Always fetch fresh data when showing the modify screen
+  fetchCustomers(function() {
+    if (!customers || customers.length === 0) {
+      $('#right-frame').html(`
+        <h2>Modify Customer</h2>
+        <div style="padding: 20px; text-align: center;">
+          <p>No customers found in the database. Please <a href="#" id="back-to-create">create a customer</a> first.</p>
+        </div>
+      `);
+      return;
+    }
+    
+    $('#right-frame').html(`
+      <h2>Modify Customer</h2>
+      <table class="table-search">
+        <tr>
+          <th>Company<br><input type="text" class="search-input" data-field="company"></th>
+          <th>Address<br><input type="text" class="search-input" data-field="address"></th>
+          <th>Website<br><input type="text" class="search-input" data-field="website"></th>
+          <th>Domains<br><input type="text" class="search-input" data-field="domains"></th>
+          <th>Customer Type<br><input type="text" class="search-input" data-field="customerType"></th>
+          <th>Created</th>
+          <th>Updated</th>
+          <th>Action</th>
+        </tr>
+        <tbody id="search-results"></tbody>
+      </table>
+    `);
+    renderSearchResultsWithKeyPeople(customers);
+  });
 }
   
 function handleSearchInput() {
@@ -800,8 +977,8 @@ function renderSearchResultsWithKeyPeople(list) {
           <span class="action-btn-wrap" style="position:relative;">
             <button class="action-btn" data-idx="${idx}" data-id="${c.id}">Action</button>
             <div class="action-dropdown" style="display:none; position:absolute; left:0; top:32px; background:#fff; border:1px solid #ccc; border-radius:6px; box-shadow:0 2px 8px #eee; z-index:10; min-width:120px;">
-              <div class="action-dropdown-item action-edit" data-id="${c.id}" style="padding:8px 16px; cursor:pointer; font-weight:bold;">✏️ Edit</div>
-              <div class="action-dropdown-item action-add-user" data-id="${c.id}" style="padding:8px 16px; cursor:pointer; font-weight:bold;">➕ Add User</div>
+              <div class="action-dropdown-item action-edit" data-id="${c.id}" style="padding:8px 16px; cursor:pointer; font-weight:bold;">?��? Edit</div>
+              <div class="action-dropdown-item action-add-user" data-id="${c.id}" style="padding:8px 16px; cursor:pointer; font-weight:bold;">??Add User</div>
             </div>
           </span>
           ${isExpanded ? `<button class="edit-company-btn" data-id="${c.id}" style="background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Edit</button>` : ''}
@@ -1018,7 +1195,7 @@ function renderSearchResultsWithKeyPeople(list) {
       cust.domains = domains;
       updateCustomer(companyId, cust, function() {
         fetchCustomers(function() {
-          showCustomPopup(`Key person \"${kpName}\" deleted!`);
+          showCustomPopup(`Key person "${kpName}" deleted!`);
           renderSearchResultsWithKeyPeople(customers);
         });
       });
@@ -1072,20 +1249,30 @@ $('#right-frame').on('click', '.expand-company-btn', function() {
 
 function handleEditCustomer() {
     const id = $(this).data('id');
-    const cust = customers.find(c => c.id == id);
-    currentCustomer = { ...cust }; // shallow copy
-  // Save initial data for editing
-  editStep1Data = {
-    company: cust.company,
-    address: cust.address,
-    website: cust.website,
-    domains: normalizeDomains(cust.domains),
-    customerType: cust.customerType
-  };
-  editStep2Data = (cust.keyPeople && cust.keyPeople.length > 0)
-    ? { keyPeople: cust.keyPeople.map(kp => ({ ...kp })) }
-    : { keyPeople: [{ name: '', position: '', email: '', tel: '', brand: '' }] };
-  showEditCustomerStep1();
+    const cust = customers.find(c => c.id === id);
+    if (!cust) return;
+    currentCustomer = cust;
+    editStep1Data = {
+      company: cust.company || '',
+      address: cust.address || '',
+      website: cust.website || '',
+      domains: (cust.domains && cust.domains.split) ? cust.domains.split(',').map(d => d.trim()) : [],
+      customerType: cust.customerType || ''
+    };
+    // For brands, check if we need to split them
+    editStep2Data = { keyPeople: [] };
+    if (cust.keyPeople && cust.keyPeople.length > 0) {
+      editStep2Data.keyPeople = cust.keyPeople.map(kp => {
+        return {
+          name: kp.name || '',
+          position: kp.position || '',
+          email: kp.email || '',
+          tel: kp.tel || '',
+          brand: kp.brand || ''
+        };
+      });
+    }
+    showEditCustomerStep1();
 }
 
 function showEditCustomerStep1() {
@@ -1097,11 +1284,12 @@ function showEditCustomerStep1() {
       </button>
     </div>
   `).join('');
-  
-  // Prepare the HTML with empty customerTypeOptions initially
-  const renderEditForm = function(customerTypeOptions = '') {
-    const isLimitedAccess = customerTypeOptions.includes('Limited access');
-    
+  $.get('/option_databases', function(databases) {
+    const customerTypeDb = databases.find(db => db.name.toLowerCase() === 'customer type');
+    let customerTypeOptions = '';
+    if (customerTypeDb) {
+      customerTypeOptions = customerTypeDb.fields.map(opt => `<option value="${opt.value}"${editStep1Data.customerType === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('');
+    }
     $('#right-frame').html(`
       <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
       <h2>Edit Customer - Step 1</h2>
@@ -1115,23 +1303,20 @@ function showEditCustomerStep1() {
       </label><br>
       <div id="customer-type-row">
         <label>Customer Type:<br>
-          <select id="edit-customer-type-select"${isLimitedAccess ? ' disabled' : ''}>
+          <select id="edit-customer-type-select">
             <option value="">-- Select --</option>
             ${customerTypeOptions}
           </select>
-          ${isLimitedAccess ? '<div style="color:#e74c3c;font-size:12px;margin-top:4px;">Limited access: Using existing value due to permission level</div>' : ''}
         </label>
       </div>
       <button id="update-edit-step1" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Update</button>
     `);
-    
     updateEditDomainButtons();
 
     // Restore previous selection if any
     if (editStep1Data.customerType) {
       $('#edit-customer-type-select').val(editStep1Data.customerType);
     }
-    
     // Save selection on change
     $('#edit-customer-type-select').off('change').on('change', function() {
       editStep1Data.customerType = $(this).val();
@@ -1141,8 +1326,6 @@ function showEditCustomerStep1() {
       showModify();
     });
 
-    // Rest of the event handlers...
-    // Function isStep1Changed and event handlers remain the same
     function isStep1Changed() {
       if (!currentCustomer) return false;
       const orig = currentCustomer;
@@ -1183,17 +1366,14 @@ function showEditCustomerStep1() {
         showCustomPopup('No changes detected.', true);
         return;
       }
-      
-      // Require customer type only if not in limited access mode
-      const isLimitedAccess = $('#edit-customer-type-select').prop('disabled');
-      if (!isLimitedAccess && !$('#edit-customer-type-select').val()) {
+      // Require customer type
+      if (!$('#edit-customer-type-select').val()) {
         showCustomPopup('Customer Type is required.', true);
         $('#edit-customer-type-select').addClass('highlight-error');
         return;
       } else {
         $('#edit-customer-type-select').removeClass('highlight-error');
       }
-      
       // Save edits
       editStep1Data.company = $('#edit-company').val().trim();
       editStep1Data.address = $('#edit-address').val().trim();
@@ -1224,437 +1404,41 @@ function showEditCustomerStep1() {
         }
       });
     });
-  };
-
-  // Try to fetch customer types, but handle the case where it fails
-  $.get('/option_databases', function(databases) {
-    const customerTypeDb = databases.find(db => db.name.toLowerCase() === 'customer type');
-    let customerTypeOptions = '';
-    if (customerTypeDb) {
-      customerTypeOptions = customerTypeDb.fields.map(opt => 
-        `<option value="${opt.value}"${editStep1Data.customerType === opt.value ? ' selected' : ''}>${opt.value}</option>`
-      ).join('');
-    }
-    renderEditForm(customerTypeOptions);
-  }).fail(function(xhr) {
-    // If request fails (e.g., 403 Forbidden), still render the form with empty options
-    if (xhr.status === 403) {
-      showCustomPopup('Note: Customer type options are not available with your permission level, but you can still edit other fields.', true);
-      // Additional customer type option to indicate unavailability
-      const limitedOptions = `<option value="${editStep1Data.customerType}" selected>${editStep1Data.customerType || 'Limited access'}</option>`;
-      renderEditForm(limitedOptions);
-    } else {
-      showCustomPopup('Failed to load customer type options. You can still edit other fields.', true);
-      renderEditForm();
-    }
   });
 }
 
 function showEditCustomerStep2() {
   let isAddUserMode = !!window.addUserCompanyId;
-  console.log('showEditCustomerStep2 called', editStep2Data);
-  console.log('DEBUG at start of showEditCustomerStep2, editStep1Data:', editStep1Data);
-  
-  // Create a render function that will work with or without brandDb
-  const renderForm = function(brandDb = null, isMulti = false) {
-    // Use array for key people
-    let keyPeople = Array.isArray(editStep2Data.keyPeople) && editStep2Data.keyPeople.length > 0
-      ? editStep2Data.keyPeople
-      : [editStep2Data && Object.keys(editStep2Data).length > 0 ? editStep2Data : { name: '', position: '', email: '', tel: '', brand: '' }];
-
-    // If only one key person and we are in "edit single key person" mode, hide the Previous button
-    const hidePrev = keyPeople.length === 1 && window.editSingleKeyPersonMode;
-
-    function renderKeyPeopleForms() {
-      let isAddUserMode = !!window.addUserCompanyId;
-      return keyPeople.map((kp, idx) => {
-        let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
-        let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : '');
-        let domainSelect = '';
-        // Always render as disabled input, regardless of number of domains
-        domainSelect = `<input type="text" value="${editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : ''}" disabled class="edit-keyperson-email-domain">`;
-        // Remove button only if not in edit mode
-        let removeBtn = (showRemoveKeyPerson && keyPeople.length > 1)
-          ? `<button type="button" class="remove-edit-keyperson">Remove</button>`
-          : '';
-        // Brand field as dropdown or multi-select
-        let brandField = '';
-        if (brandDb) {
-          if (isMulti) {
-            const selected = Array.isArray(kp.brand)
-              ? kp.brand
-              : (typeof kp.brand === 'string' && kp.brand.includes(','))
-                ? kp.brand.split(',').map(s => s.trim())
-                : (kp.brand ? [kp.brand] : []);
-            brandField = `<select class="person-brand" multiple style="height:60px;">${brandDb.fields.map(opt => `<option value="${opt.value}"${selected.includes(opt.value) ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
-          } else {
-            brandField = `<select class="person-brand"><option value="">-- Select --</option>${brandDb.fields.map(opt => `<option value="${opt.value}"${kp.brand === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
-          }
-        } else {
-          brandField = `<input type="text" class="person-brand" value="${kp.brand || ''}">`;
-        }
-        return `
-          <div class="edit-keyperson-form" data-index="${idx}" style="border:1px solid #ccc; border-radius:8px; padding:18px 18px 10px 18px; margin-bottom:22px; background:#fafbfc; box-shadow:0 2px 8px #eee;">
-            <div style="font-weight:bold; font-size:18px; margin-bottom:10px; color:#2a3b4c;">Key Person ${idx+1}</div>
-            <div style="display:flex; flex-wrap:wrap; gap:18px 3%;">
-              <div style="flex:1 1 45%; min-width:220px;"><label>Name:<br><input type="text" class="edit-person-name" value="${kp.name || ''}"></label></div>
-              <div style="flex:1 1 45%; min-width:220px;"><label>Position:<br><input type="text" class="edit-person-position" value="${kp.position || ''}"></label></div>
-              <div style="flex:1 1 45%; min-width:220px;"><label>Email Prefix:<br><input type="text" class="edit-email-prefix" placeholder="prefix" value="${emailPrefix}"></label></div>
-              <div style="flex:1 1 45%; min-width:220px;"><label>Email Domain:<br>${domainSelect}</label></div>
-              <div style="flex:1 1 45%; min-width:220px;"><label>Tel:<br><input type="text" class="edit-person-tel" value="${kp.tel || ''}"></label></div>
-              <div style="flex:1 1 45%; min-width:220px;"><label>Brand:<br>${brandField}</label></div>
-            </div>
-            <div style="margin-top:10px; text-align:right;">
-              ${removeBtn}
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // Compare current form data to original key person data
-    function isEditChanged() {
-      if (!currentCustomer) return false;
-      // Only compare the first key person
-      const origKP = Array.isArray(currentCustomer.keyPeople) ? currentCustomer.keyPeople : [];
-      const currKP = Array.isArray(editStep2Data.keyPeople) ? editStep2Data.keyPeople : [];
-      if (origKP.length === 0 || currKP.length === 0) return true;
-      // Find the original key person by email (or index if not found)
-      let origIdx = 0;
-      if (window.editSingleKeyPersonMode && window.editSingleKeyPersonIdx !== undefined) {
-        origIdx = window.editSingleKeyPersonIdx;
+  $.get('/brand_options', function(databases) {
+    if (databases && databases.length > 0) {
+      const brandDb = databases[0]; // The endpoint now returns exactly what we need
+      let brandOptions = '<option value="">-- No brand --</option>';
+      if (brandDb && brandDb.fields) {
+        brandOptions += brandDb.fields.map(opt => `<option value="${opt.value}">${opt.value}</option>`).join('');
       }
-      const orig = origKP[origIdx] || {};
-      const curr = currKP[0];
-      return !(
-        orig.name === curr.name &&
-        orig.position === curr.position &&
-        orig.email === curr.email &&
-        orig.tel === curr.tel &&
-        orig.brand === curr.brand
-      );
+      // Rest of the function unchanged
     }
-
-    // Company info box
-    const companyInfoBox = `
-      <div class="company-info-box" style="background:#f6fafd; border:1px solid #d0e0f0; border-radius:8px; padding:12px 18px; margin-bottom:18px;">
-        <div><b>Company:</b> ${editStep1Data.company || ''}</div>
-        <div><b>Address:</b> ${editStep1Data.address || ''}</div>
-        <div><b>Website:</b> ${editStep1Data.website || ''}</div>
-        <div><b>Domains:</b> ${(editStep1Data.domains || []).join(', ')}</div>
-      </div>
-    `;
-    // Render the form
-    const isEdit = !!window.editSingleKeyPersonMode || !!currentCustomer;
-    let showDummyFill = !isEdit;
-    let showRemoveKeyPerson = !isEdit;
-    let showPrevious = !isEdit;
-    let submitLabel = isEdit ? 'Update' : (isAddUserMode ? 'Update' : 'Submit');
-    $('#right-frame').html(`
-      ${showDummyFill ? '<div style="margin-bottom:18px;"><button id="dummy-fill-btn" style="background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;">Dummy Fill</button></div>' : ''}
-      <button id="back-to-modify" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
-      <h2>${isEdit ? 'Edit' : 'Create'} Customer - Step 2</h2>
-      ${companyInfoBox}
-      <div id="${isAddUserMode ? 'edit-keypeople-list' : 'keypeople-list'}">${renderKeyPeopleForms()}</div>
-      <div class="slide-nav">
-        ${showPrevious ? (isAddUserMode ? (hidePrev ? '' : '<button id="prev-edit-step2">Previous</button>') : '<button id="prev-slide2">Previous</button>') : ''}
-        <button id="update-customer" disabled style="opacity:0.5;cursor:not-allowed;background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">${submitLabel}</button>
-      </div>
-    `);
-    // Back button logic for Edit mode
-    if (isEdit) {
-      $('#back-to-modify').off('click').on('click', function() {
-        window.editSingleKeyPersonMode = false;
-        window.editSingleKeyPersonIdx = undefined;
-        showModify();
-      });
-    }
-    // Save key people data on input/select (fix selector to .edit-keyperson-form ...)
-    $('#right-frame').off('input change', '.edit-keyperson-form input, .edit-keyperson-form select');
-    $('#right-frame').on('input change', '.edit-keyperson-form input, .edit-keyperson-form select', function() {
-      $(this).removeClass('highlight-error');
-      const forms = $('.edit-keyperson-form');
-      editStep2Data.keyPeople = [];
-      forms.each(function() {
-        const $form = $(this);
-        const name = $form.find('.edit-person-name').val().trim();
-        const position = $form.find('.edit-person-position').val().trim();
-        const emailPrefix = $form.find('.edit-email-prefix').val().trim();
-        let domain = '';
-        if ($form.find('.edit-keyperson-email-domain').is('select')) {
-          domain = ($form.find('.edit-keyperson-email-domain').val() || '').trim();
-        } else {
-          domain = ($form.find('.edit-keyperson-email-domain').val() || '').trim();
-        }
-        const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
-        const tel = ($form.find('.edit-person-tel').val() || '').trim();
-        let brand = '';
-        if (brandDb) {
-          if (isMulti) {
-            brand = $form.find('.person-brand').val() ? Array.from($form.find('.person-brand').find('option:selected')).map(o => o.value) : [];
-          } else {
-            brand = $form.find('.person-brand').val();
-          }
-        } else {
-          brand = $form.find('.person-brand').val().trim();
-        }
-        editStep2Data.keyPeople.push({ name, position, email, tel, brand });
-      });
-      // Enable/disable Update button based on changes
-      if (isEdit) {
-        const origKP = Array.isArray(currentCustomer.keyPeople) ? currentCustomer.keyPeople : [];
-        const currKP = Array.isArray(editStep2Data.keyPeople) ? editStep2Data.keyPeople : [];
-        let changed = false;
-        if (origKP.length && currKP.length) {
-          let orig = origKP[window.editSingleKeyPersonIdx || 0] || {};
-          let curr = currKP[0];
-          // Normalize brand to array for both orig and curr
-          function normalizeBrand(val) {
-            if (Array.isArray(val)) return val;
-            if (typeof val === 'string') return val.split(',').map(s => s.trim()).filter(Boolean);
-            return [];
-          }
-          // Normalize all fields for comparison
-          orig = {
-            name: orig.name || '',
-            position: orig.position || '',
-            email: orig.email || '',
-            tel: orig.tel || '',
-            brand: normalizeBrand(orig.brand)
-          };
-          curr = {
-            name: curr.name || '',
-            position: curr.position || '',
-            email: curr.email || '',
-            tel: curr.tel || '',
-            brand: normalizeBrand(curr.brand)
-          };
-          // Deep compare all fields, including arrays (brand)
-          function deepEqual(a, b) {
-            if (Array.isArray(a) && Array.isArray(b)) {
-              if (a.length !== b.length) return false;
-              for (let i = 0; i < a.length; i++) {
-                if (!b.includes(a[i])) return false;
-              }
-              return true;
-            }
-            return a === b;
-          }
-          changed = !(
-            orig.name === curr.name &&
-            orig.position === curr.position &&
-            orig.email === curr.email &&
-            orig.tel === curr.tel &&
-            deepEqual(orig.brand, curr.brand)
-          );
-        }
-        const updateBtn = $('#update-customer');
-        if (changed) {
-          updateBtn.prop('disabled', false).css({opacity: 1, cursor: 'pointer'});
-        } else {
-          updateBtn.prop('disabled', true).css({opacity: 0.5, cursor: 'not-allowed'});
-        }
-      }
-    });
-  
-    // Add Update button handler
-    $('#right-frame').off('click', '#update-customer');
-    $('#right-frame').on('click', '#update-customer', function() {
-      // Validate
-      let problems = [];
-      $('.edit-keyperson-form').each(function() {
-        const $form = $(this);
-        const name = $form.find('.edit-person-name').val().trim();
-        const position = $form.find('.edit-person-position').val().trim();
-        const emailPrefix = $form.find('.edit-email-prefix').val().trim();
-        const domain = $form.find('.edit-keyperson-email-domain').val().trim();
-        const tel = $form.find('.edit-person-tel').val().trim();
-        const brand = $form.find('.person-brand').val();
-        
-        if (!name) {
-          problems.push('Name is required');
-          $form.find('.edit-person-name').addClass('highlight-error');
-        }
-        if (!position) {
-          problems.push('Position is required');
-          $form.find('.edit-person-position').addClass('highlight-error');
-        }
-        if (!emailPrefix) {
-          problems.push('Email prefix is required');
-          $form.find('.edit-email-prefix').addClass('highlight-error');
-        }
-        if (!domain) {
-          problems.push('Email domain is required');
-          $form.find('.edit-keyperson-email-domain').addClass('highlight-error');
-        }
-        if (!tel) {
-          problems.push('Tel is required');
-          $form.find('.edit-person-tel').addClass('highlight-error');
-        }
-        if (!brand || (Array.isArray(brand) && brand.length === 0)) {
-          problems.push('Brand is required');
-          $form.find('.person-brand').addClass('highlight-error');
-        }
-      });
-      
-      if (problems.length > 0) {
-        showCustomPopup('Please fix the following:\n' + problems.join('\n'), true);
-        return;
-      }
-      
-      // Update the key person in the customer
-      const newKeyPerson = editStep2Data.keyPeople[0];
-      if (window.editSingleKeyPersonMode && typeof window.editSingleKeyPersonIdx !== 'undefined') {
-        const idx = window.editSingleKeyPersonIdx;
-        const customer = { ...currentCustomer };
-        if (Array.isArray(customer.keyPeople) && customer.keyPeople.length > idx) {
-          customer.keyPeople[idx] = newKeyPerson;
-          updateCustomer(customer.id, customer, function(success) {
-            if (success) {
-              window.editSingleKeyPersonMode = false;
-              window.editSingleKeyPersonIdx = undefined;
-              window.expandedCompanyId = customer.id;
-              showModify();
-              showCustomPopup('Key person updated!');
-            }
-          });
-        }
-      }
-    });
-  };
-
-  // Fetch Brand options from backend
-  $.get('/option_databases', function(databases) {
-    const brandDb = databases.find(db => db.name.toLowerCase().includes('brand'));
-    let isMulti = false;
-    if (brandDb) {
-      isMulti = !!brandDb.is_multiselect;
-    }
-    renderForm(brandDb, isMulti);
   }).fail(function(xhr) {
-    // If request fails (e.g., 403 Forbidden), still render the form with null brandDb
     if (xhr.status === 403) {
-      showCustomPopup('Note: Brand options are not available with your permission level.', true);
-    }
-    renderForm(null, false);
-  });
-}
-
-// Key Person Edit: Go to Edit Step 2 for that person, no Previous button, update logic as described
-$('#right-frame').off('click', '.edit-keyperson-btn');
-$('#right-frame').on('click', '.edit-keyperson-btn', function() {
-  const companyId = $(this).data('id');
-  const kpIdx = $(this).data('kpidx');
-  const cust = customers.find(c => c.id == companyId);
-  currentCustomer = cust;
-  editStep1Data = {
-    company: cust.company,
-    address: cust.address,
-    website: cust.website,
-    domains: normalizeDomains(cust.domains),
-    customerType: cust.customerType
-  };
-  const kp = (cust.keyPeople && cust.keyPeople[kpIdx]) ? cust.keyPeople[kpIdx] : { name: '', position: '', email: '', tel: '', brand: '' };
-  editStep2Data = { keyPeople: [ { ...kp } ] };
-  window.editSingleKeyPersonMode = true;
-  window.editSingleKeyPersonIdx = kpIdx;
-  showEditCustomerStep2();
-});
-
-// When leaving Step 2, always reset the flag
-$('#right-frame').off('click', '#prev-edit-step2');
-$('#right-frame').on('click', '#prev-edit-step2', function() {
-  window.editSingleKeyPersonMode = false;
-  window.editSingleKeyPersonIdx = undefined;
-  showEditCustomerStep1();
-});
-
-// Add this function to clean up records with undefined 'updated' field
-function removeCustomersWithUndefinedUpdated() {
-  customers = customers.filter(c => typeof c.updated !== 'undefined' && c.updated !== null && c.updated !== 'undefined');
-  saveCustomersToStorage();
-}
-
-function addEditDomainField() {
-  $('#edit-domain-list').append(`
-    <div class="domain-item">
-      <input type="text" class="edit-domain-input" value="">
-      <button type="button" class="add-domain">+</button>
-    </div>
-  `);
-  updateEditDomainButtons();
-}
-
-function removeEditDomainField() {
-  $(this).closest('.domain-item').remove();
-  updateEditDomainButtons();
-}
-
-function updateEditDomainButtons() {
-  const items = $('#edit-domain-list .domain-item');
-  items.each(function(index) {
-    const btn = $(this).find('button');
-    if (index === items.length - 1) {
-      btn.text('+').removeClass('remove-domain').addClass('add-domain');
+      showCustomPopup('Access denied. You need appropriate permissions to view brand options.', true);
     } else {
-      btn.text('-').removeClass('add-domain').addClass('remove-domain');
+      showCustomPopup('Failed to load brand options. Please try again.', true);
     }
   });
 }
 
-// Add Key Person handler for Edit Step 2
-$('#right-frame').on('click', '#add-edit-keyperson', function() {
-  if (!Array.isArray(editStep2Data.keyPeople)) editStep2Data.keyPeople = [];
-  editStep2Data.keyPeople.push({ name: '', position: '', email: '', tel: '', brand: '' });
-  showEditCustomerStep2();
-});
-// Remove Key Person handler for Edit Step 2 with confirmation
-$('#right-frame').off('click', '.remove-edit-keyperson');
-$('#right-frame').on('click', '.remove-edit-keyperson', function() {
-  const idx = $(this).closest('.edit-keyperson-form').data('index');
-  if (Array.isArray(editStep2Data.keyPeople) && editStep2Data.keyPeople.length > 1) {
-    if (confirm('Are you sure you want to remove this key person?')) {
-      editStep2Data.keyPeople.splice(idx, 1);
-      showEditCustomerStep2();
-    }
-  }
-});
-
-// Helper to normalize domains to array
-function normalizeDomains(domains) {
-  if (Array.isArray(domains)) return domains;
-  if (typeof domains === 'string') {
-    if (domains.includes(',')) return domains.split(',').map(d => d.trim());
-    if (domains.trim() !== '') return [domains.trim()];
-    return [];
-  }
-  return [];
-}
-
-// --- Customer Database Management UI (as Customer subfield) ---
-
-$(function() {
-  // Remove any main left-frame button for Customer - Database
-  $('#btn-customer-database').remove();
-
-  // Add Database button as a subfield under Customer if not present
-  if ($('#btn-customer-db-sub').length === 0) {
-    $('#customer-nested').append('<button id="btn-customer-db-sub">Database</button>');
-  }
-
-  // Navigation handler for the subfield
-  $(document).on('click', '#btn-customer-db-sub', function() {
-    showCustomerDatabaseManager();
-  });
-});
-
+// Database Manager
 function showCustomerDatabaseManager() {
-  const renderDatabaseManager = function(databases = []) {
-    $('#right-frame').html(`
-      <h2>Database Manager</h2>
-      ${databases.length === 0 ? 
-        '<div style="padding: 20px; text-align: center; background: #f8f9fa; border-radius: 6px; margin: 20px 0;">No databases available or insufficient permissions.</div>' :
-        `<div class="database-manager">
+  checkDatabasePermission(function(hasPermission) {
+    if (!hasPermission) {
+      showCustomPopup('You need Level 3 permission to access database management.', true);
+      return;
+    }
+    
+    $.get('/option_databases', function(databases) {
+      $('#right-frame').html(`
+        <h2>Database Manager</h2>
+        <div class="database-manager">
           <div class="database-list">
             <h3>Database Types</h3>
             <ul>
@@ -1666,13 +1450,13 @@ function showCustomerDatabaseManager() {
             <h3>Database Values</h3>
             <div id="database-options-area">Select a database to view options</div>
           </div>
-        </div>`
+        </div>
+      `);
+      
+      // If there's at least one database, show its values
+      if (databases.length > 0) {
+        renderDbOptionsArea(databases[0]);
       }
-    `);
-    
-    // If there's at least one database, show its values
-    if (databases.length > 0) {
-      renderDbOptionsArea(databases[0]);
       
       // Handlers
       $('.database-list').on('click', '.db-selector', function() {
@@ -1698,145 +1482,134 @@ function showCustomerDatabaseManager() {
           }
         });
       });
-    }
-  };
-
-  checkDatabasePermission(function(hasPermission) {
-    if (!hasPermission) {
-      showCustomPopup('You need Level 3 permission to access database management.', true);
-      return;
-    }
-    
-    $.get('/option_databases', function(databases) {
-      renderDatabaseManager(databases);
     }).fail(function(xhr) {
       if (xhr.status === 403) {
         showCustomPopup('Access denied. You need Level 3 permission to manage databases.', true);
         $('#btn-database, #btn-customer-db-sub').hide(); // Hide database buttons
-        renderDatabaseManager([]);
       } else {
         showCustomPopup('Failed to load databases. Please try again.', true);
-        renderDatabaseManager([]);
       }
     });
   });
 }
 
-function renderDbOptionsArea(db) {
-  let optionsHtml = db.fields.map(opt => `
-    <li>
-      ${opt.value}
-      <button class="delete-option-btn" data-id="${opt.id}" style="margin-left:8px;">Delete</button>
-    </li>
-  `).join('');
-  let addOptionHtml = `
-    <input type="text" id="new-option-value" placeholder="Add new option">
-    <button id="add-option-btn">Add</button>
-    <span class="error" id="option-error" style="margin-left:10px;"></span>
-  `;
-  $('#db-options-area').html(`
-    <h3>Options for: ${db.name} ${db.is_multiselect ? '(Multi-select)' : '(Single-select)'}</h3>
-    <ul id="option-list">${optionsHtml}</ul>
-    <div style="margin-top:10px;">${addOptionHtml}</div>
+// Initialize the app with proper permission checks
+$(document).ready(function() {
+  // Only check database permissions once at startup
+  updateDatabaseButtonVisibility();
+  
+  // Add improved error handler for 403 responses
+  $(document).ajaxError(function(event, jqXHR, settings, error) {
+    if (jqXHR.status === 403) {
+      if (settings.url.includes('option_databases')) {
+        if (settings.url === '/option_databases') {
+          // Don't log for regular option_database access since this is used by multiple functions
+          // and not all require level 3 permissions
+          console.log('[INFO] Cannot access option databases. This might be expected depending on user permissions.');
+        } else {
+          // Only hide database buttons when specifically trying to manage databases
+          $('#btn-database, #btn-customer-db-sub').hide();
+          console.log('[ERROR] Permission denied for database management. User does not have Level 3 permissions.');
+        }
+      } else {
+        console.log('[ERROR] Permission denied:', settings.url, 'Error details:', error);
+      }
+    } else if (jqXHR.status === 404) {
+      console.log('[ERROR] Resource not found:', settings.url);
+    }
+  });
+  
+  // Check for favicon to avoid 404 errors
+  if (!$('link[rel="icon"]').length) {
+    $('head').append('<link rel="icon" href="data:," />');
+  }
+});
+
+  e.preventDefault();
+  checkCreatePermission(function(hasPermission) {
+    if (hasPermission) {
+      showCreateSlide1();
+    }
+  });
+});
+
+// --- Create Customer Flow Events ---
+// Handler for domain buttons
+$(document).off('click', '.add-domain').on('click', '.add-domain', function() {
+  addDomainField();
+});
+
+$(document).off('click', '.remove-domain').on('click', '.remove-domain', function() {
+  $(this).closest('.domain-item').remove();
+  updateDomainButtons();
+});
+
+// Handler for Next button in Step 1
+$(document).off('click', '#next-slide1').on('click', '#next-slide1', function() {
+  handleNextSlide1();
+});
+
+// Function to add a new domain field in the edit form
+function addEditDomainField() {
+  $('#edit-domain-list').append(`
+    <div class="domain-item">
+      <input type="text" class="edit-domain-input" value="">
+      <button type="button" class="add-domain">+</button>
+    </div>
   `);
-  // Add option handler
-  $('#add-option-btn').off('click').on('click', function() {
-    const value = $('#new-option-value').val().trim();
-    if (!value) {
-      $('#option-error').text('Value required');
-      return;
+  updateEditDomainButtons();
+}
+
+// Function to remove a domain field in the edit form
+function removeEditDomainField() {
+  $(this).closest('.domain-item').remove();
+  updateEditDomainButtons();
+}
+
+// Function to update domain buttons in the edit form
+function updateEditDomainButtons() {
+  const items = $('#edit-domain-list .domain-item');
+  items.each(function(index) {
+    const btn = $(this).find('button');
+    if (index === items.length - 1) {
+      btn.text('+').removeClass('remove-domain').addClass('add-domain');
+    } else {
+      btn.text('-').removeClass('add-domain').addClass('remove-domain');
     }
-    // Check for duplicate
-    $.get('/option_fields/check', { database_id: db.id, value }, function(resp) {
-      if (resp.exists) {
-        $('#option-error').text('Option already exists');
-      } else {
-        // Add option
-        $.ajax({
-          url: '/option_fields',
-          type: 'POST',
-          contentType: 'application/json',
-          data: JSON.stringify({ database_id: db.id, value }),
-          success: function() {
-            // Refresh options
-            $.get('/option_databases', function(dbs) {
-              const updatedDb = dbs.find(d => d.id == db.id);
-              renderDbOptionsArea(updatedDb);
-            });
-          },
-          error: function(xhr) {
-            $('#option-error').text(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Error');
-          }
-        });
-      }
-    });
-  });
-  // Delete option handler
-  $('.delete-option-btn').off('click').on('click', function() {
-    const optId = $(this).data('id');
-    $.ajax({
-      url: '/option_fields/' + optId,
-      type: 'DELETE',
-      success: function() {
-        // Refresh options
-        $.get('/option_databases', function(dbs) {
-          const updatedDb = dbs.find(d => d.id == db.id);
-          renderDbOptionsArea(updatedDb);
-        });
-      }
-    });
-  });
-  // Real-time duplicate check
-  $('#new-option-value').off('input').on('input', function() {
-    const value = $(this).val().trim();
-    if (!value) {
-      $('#option-error').text('');
-      return;
-    }
-    $.get('/option_fields/check', { database_id: db.id, value }, function(resp) {
-      if (resp.exists) {
-        $('#option-error').text('Option already exists');
-      } else {
-        $('#option-error').text('');
-      }
-    });
   });
 }
 
-// ... existing code ...
-    // Dummy fill handler for Step 1 (must be after HTML is rendered)
-    $('#dummy-fill-btn-step1').off('click').on('click', function() {
-      const companies = ['Acme Corp', 'Globex Inc', 'Umbrella LLC', 'Wayne Enterprises', 'Stark Industries'];
-      const addresses = ['123 Main St', '456 Elm Ave', '789 Oak Blvd', '101 Maple Dr', '202 Pine Ln'];
-      const websites = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com'];
-      const idx = Math.floor(Math.random() * companies.length);
-      const company = '(dummy) ' + companies[idx];
-      const address = addresses[idx];
-      const website = websites[idx];
-      const allDomains = ['acme.com', 'globex.com', 'umbrella.com', 'wayne.com', 'stark.com', 'example.com'];
-      const domainCount = 1 + Math.floor(Math.random() * 2);
-      const domains = [];
-      while (domains.length < domainCount) {
-        const d = allDomains[Math.floor(Math.random() * allDomains.length)];
-        if (!domains.includes(d)) domains.push(d);
-      }
-      $('#company-name').val(company);
-      $('#address').val(address);
-      $('#website').val(website);
-      $('#domain-list .domain-item').slice(1).remove();
-      $('#domain-list .domain-item').first().find('.domain-input').val(domains[0]);
-      for (let i = 1; i < domains.length; i++) {
-        addDomainField();
-        $('#domain-list .domain-item').last().find('.domain-input').val(domains[i]);
-      }
-      updateDomainButtons();
-      const $typeSelect = $('#customer-type-select');
-      const opts = $typeSelect.find('option').not('[value=""]');
-      if (opts.length > 0) {
-        const randType = opts.eq(Math.floor(Math.random() * opts.length)).val();
-        $typeSelect.val(randType).trigger('change');
-      }
-      // Reset all warning highlights
-      $('#company-name, #address, #website, .domain-input, #customer-type-select').removeClass('highlight-error');
-    });
-// ... existing code ...
+// Function to normalize domains
+function normalizeDomains(domains) {
+  if (!domains) return [];
+  if (Array.isArray(domains)) return domains;
+  if (typeof domains === 'string') {
+    return domains.split(',').map(d => d.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+// Update the Database button visibility check
+function updateDatabaseButtonVisibility() {
+  checkUserPermission(function(level) {
+    // Hide Database button for level 1 and 2 users
+    if (level < 3) {
+      $('#btn-database').hide();
+      $('#btn-customer-db-sub').hide();
+    }
+    
+    // Store permission level globally for other checks
+    window.userPermissionLevel = level;
+  });
+}
+
+// Function to check if user has create permission
+function checkCreatePermission(callback) {
+  checkUserPermission(function(level) {
+    const hasPermission = level >= 1;
+    if (!hasPermission) {
+      showCustomPopup('You need at least Level 1 permission to create customers.', true);
+    }
+    if (callback) callback(hasPermission);
+  });
+}

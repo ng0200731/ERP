@@ -1348,7 +1348,92 @@ function showEditCustomerStep2() {
     if (brandDb) {
       brandOptions += brandDb.fields.map(opt => `<option value="${opt.value}">${opt.value}</option>`).join('');
     }
-    // Rest of the function unchanged
+    // Render form for editing a single key person
+    const kp = editStep2Data.keyPeople[0];
+    let emailPrefix = kp.email && kp.email.includes('@') ? kp.email.split('@')[0] : '';
+    let emailDomain = kp.email && kp.email.includes('@') ? kp.email.split('@')[1] : (editStep1Data.domains && editStep1Data.domains[0] ? editStep1Data.domains[0] : '');
+    let domainSelect = '';
+    if (editStep1Data.domains.length > 1) {
+      domainSelect = `<select class="keyperson-email-domain">${editStep1Data.domains.map(d => `<option value="${d}"${d===emailDomain?' selected':''}>${d}</option>`).join('')}</select>`;
+    } else {
+      domainSelect = `<input type="text" value="${editStep1Data.domains[0] || ''}" disabled class="keyperson-email-domain">`;
+    }
+    let brandField = '';
+    if (brandDb) {
+      brandField = `<select class="person-brand"><option value="">-- Select --</option>${brandDb.fields.map(opt => `<option value="${opt.value}"${kp.brand === opt.value ? ' selected' : ''}>${opt.value}</option>`).join('')}</select>`;
+    } else {
+      brandField = `<input type="text" class="person-brand" value="${kp.brand || ''}">`;
+    }
+    $('#right-frame').html(`
+      <button id="back-to-edit-step1" style="margin-bottom:12px;background:#eee;border:1px solid #bbb;border-radius:4px;padding:4px 16px;font-size:14px;">Back</button>
+      <h2>Edit Key Person</h2>
+      <div class="keyperson-form" data-index="0">
+        <label>Name:<br><input type="text" class="person-name" value="${kp.name || ''}"></label><br>
+        <label>Position:<br><input type="text" class="person-position" value="${kp.position || ''}"></label><br>
+        <label>Email:<br>
+          <input type="text" class="email-prefix" placeholder="prefix" value="${emailPrefix}">
+          @
+          ${domainSelect}
+        </label><br>
+        <label>Tel:<br><input type="text" class="person-tel" value="${kp.tel || ''}"></label><br>
+        <label>Brand:<br>${brandField}</label><br>
+      </div>
+      <button id="save-keyperson-edit" style="background:#3498db;color:#fff;border:2px solid #3498db;border-radius:4px;padding:2px 12px;font-size:14px;">Save</button>
+    `);
+    // Back button
+    $('#back-to-edit-step1').off('click').on('click', function() {
+      showEditCustomerStep1();
+    });
+    // Save button
+    $('#save-keyperson-edit').off('click').on('click', function() {
+      // Gather edited key person data
+      const name = $('.person-name').val().trim();
+      const position = $('.person-position').val().trim();
+      const emailPrefix = $('.email-prefix').val().trim();
+      let domain = '';
+      if ($('.keyperson-email-domain').is('select')) {
+        domain = $('.keyperson-email-domain').val();
+      } else {
+        domain = $('.keyperson-email-domain').val();
+      }
+      const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
+      const tel = $('.person-tel').val().trim();
+      const brand = $('.person-brand').val();
+      // Validation (minimal)
+      if (!name || !position || !emailPrefix || !tel || !brand) {
+        showCustomPopup('All fields are required.', true);
+        return;
+      }
+      // Update keyPeople in currentCustomer
+      const kpIdx = window.editSingleKeyPersonIdx;
+      const updatedKeyPeople = Array.isArray(currentCustomer.keyPeople) ? [...currentCustomer.keyPeople] : [];
+      updatedKeyPeople[kpIdx] = { name, position, email, tel, brand };
+      // Recalculate domains from all key people emails
+      const domains = [];
+      updatedKeyPeople.forEach(kp => {
+        if (kp.email && kp.email.includes('@')) {
+          const d = kp.email.split('@')[1].trim();
+          if (d && !domains.includes(d)) domains.push(d);
+        }
+      });
+      // Prepare updated customer object
+      const updatedCustomer = {
+        ...currentCustomer,
+        keyPeople: updatedKeyPeople,
+        domains: domains.length > 0 ? domains : currentCustomer.domains
+      };
+      // Save to backend
+      updateCustomer(currentCustomer.id, updatedCustomer, function(success) {
+        if (success) {
+          window.editSingleKeyPersonMode = false;
+          window.editSingleKeyPersonIdx = undefined;
+          fetchCustomers(function() {
+            showModify();
+            showCustomPopup('Key person updated!');
+          });
+        }
+      });
+    });
   });
 }
 
@@ -1525,7 +1610,8 @@ $(function() {
   $(document).off('click', '.delete-user-btn');
   $(document).on('click', '.delete-user-btn', function() {
     const id = $(this).data('id');
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    const email = $(this).data('email');
+    if (!confirm(`Are you sure you want to delete user "${email}"? This action cannot be undone.`)) return;
     $.ajax({
       url: `/admin/users/${id}`,
       type: 'DELETE',
@@ -1579,12 +1665,30 @@ function fetchAndRenderUsers() {
         <td>
           <button class="btn btn-sm btn-success update-user-btn" data-id="${u.id}" data-email="${u.email}" disabled ${u.is_active === 0 ? 'disabled' : ''}>Update</button>
           ${(u.permission_level != 3 && u.is_active !== 0) ? `<button class="btn btn-sm btn-warning inactive-user-btn" data-id="${u.id}">Inactive</button>` : ''}
+          <button class="btn btn-sm btn-primary edit-user-btn" data-id="${u.id}" data-email="${u.email}" data-level="${u.permission_level || ''}">Edit</button>
+          <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}" data-email="${u.email}">Delete</button>
         </td>
       </tr>
       `;
     }).join('');
     $('#users-table tbody').html(tbody);
   });
+  // After rendering the users table, inject a style to ensure actions column is wide enough and buttons are visible
+  if ($('#user-actions-style').length === 0) {
+    $('head').append(`
+      <style id="user-actions-style">
+        #users-table td:last-child, #users-table th:last-child {
+          min-width: 220px !important;
+          white-space: nowrap !important;
+        }
+        .btn.edit-user-btn, .btn.delete-user-btn, .btn.inactive-user-btn, .btn.update-user-btn {
+          margin-right: 4px;
+          display: inline-block !important;
+          white-space: nowrap !important;
+        }
+      </style>
+    `);
+  }
 }
 
 // Batch select logic

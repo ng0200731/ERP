@@ -226,6 +226,14 @@ $(function() {
   $('#right-frame').on('click', '#prev-edit-step2', function() {
     showEditCustomerStep1();
   });
+
+  // Quotation menu logic
+  $('#btn-quotation').on('click', function() {
+    $('#quotation-nested').toggle();
+  });
+  $('#btn-quotation-create').on('click', function() {
+    showQuotationCreateForm();
+  });
 });
   
   // --- Create Customer Flow ---
@@ -1885,4 +1893,217 @@ if (typeof normalizeDomains !== 'function') {
     }
     return [];
   }
+}
+
+function showQuotationCreateForm() {
+  fetchCustomers(function() {
+    const productTypeFields = {
+      "heat transfer": [
+        { name: "quality", label: "Quality", type: "select", options: ["PU", "Silicon"] },
+        { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
+        { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"], dependsOn: { field: "flatOrRaised", value: "Raised" } },
+        { name: "thickness", label: "Thickness", type: "number", dependsOn: { field: "flatOrRaised", value: "Raised" } },
+        { name: "numColors", label: "# of Colors", type: "number" },
+        { name: "colorNames", label: "Color Names", type: "dynamic", dependsOn: { field: "numColors" } },
+        { name: "width", label: "Width", type: "number" },
+        { name: "length", label: "Length", type: "number" }
+      ],
+      "pfl": [
+        { name: "material", label: "Material", type: "text" },
+        { name: "edge", label: "Edge", type: "text" },
+        { name: "cutAndFold", label: "Cut and Fold", type: "text" },
+        { name: "width", label: "Width", type: "number" },
+        { name: "length", label: "Length", type: "number" },
+        { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
+        { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"], dependsOn: { field: "flatOrRaised", value: "Raised" } },
+        { name: "thickness", label: "Thickness", type: "number", dependsOn: { field: "flatOrRaised", value: "Raised" } }
+      ]
+    };
+    const productTypes = Object.keys(productTypeFields);
+    let productTypeOptions = '<option value="">-- Select Product Type --</option>' + productTypes.map(pt => `<option value="${pt}">${pt}</option>`).join("");
+    $('#right-frame').html(`
+      <div style="padding:32px;max-width:600px;">
+        <h2>Create Quotation</h2>
+        <form id="quotation-create-form" autocomplete="off">
+          <label>Company:<br>
+            <input type="text" id="quotation-company-input" placeholder="Type to search..." autocomplete="off">
+            <input type="hidden" id="quotation-company-id">
+            <div id="company-suggestions" style="position:relative;"></div>
+          </label><br><br>
+          <label>Key Person:<br>
+            <select id="quotation-keyperson" required disabled>
+              <option value="">-- Select Key Person --</option>
+            </select>
+          </label><br><br>
+          <label>Product Type:<br>
+            <select id="quotation-product-type" required>
+              ${productTypeOptions}
+            </select>
+          </label><br><br>
+          <div id="quotation-dynamic-fields"></div>
+          <br>
+          <button type="submit" style="padding:8px 32px;">Submit</button>
+        </form>
+      </div>
+    `);
+    // --- Autocomplete logic for company ---
+    $('#quotation-company-input').on('input', function() {
+      const val = $(this).val().toLowerCase();
+      let matches = customers.filter(c => c.company.toLowerCase().includes(val));
+      let html = '';
+      if (val && matches.length > 0) {
+        html = '<ul style="position:absolute;z-index:10;background:#fff;border:1px solid #ccc;width:100%;list-style:none;padding:0;margin:0;max-height:180px;overflow-y:auto;">' +
+          matches.map(c => `<li class="company-suggestion" data-id="${c.id}" style="padding:6px 12px;cursor:pointer;">${c.company}</li>`).join('') +
+          '</ul>';
+      }
+      $('#company-suggestions').html(html);
+      $('#quotation-company-id').val('');
+      $('#quotation-keyperson').html('<option value="">-- Select Key Person --</option>').prop('disabled', true);
+    });
+    // Click on suggestion
+    $('#company-suggestions').on('click', '.company-suggestion', function() {
+      const id = $(this).data('id');
+      const company = customers.find(c => c.id == id);
+      $('#quotation-company-input').val(company.company);
+      $('#quotation-company-id').val(company.id);
+      $('#company-suggestions').empty();
+      // Populate key people
+      let kpOpts = '<option value="">-- Select Key Person --</option>';
+      if (company && Array.isArray(company.keyPeople)) {
+        kpOpts += company.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+        $('#quotation-keyperson').prop('disabled', false);
+      } else {
+        $('#quotation-keyperson').prop('disabled', true);
+      }
+      $('#quotation-keyperson').html(kpOpts);
+    });
+    $('#quotation-company-input').on('blur', function() {
+      setTimeout(() => { $('#company-suggestions').empty(); }, 200);
+    });
+    $('#quotation-product-type').on('change', function() {
+      renderDynamicFields();
+    });
+    function renderDynamicFields() {
+      // --- Preserve current values ---
+      const prevVals = {};
+      $('#quotation-dynamic-fields').find('input, select').each(function() {
+        prevVals[$(this).attr('name')] = $(this).val();
+      });
+      const type = $('#quotation-product-type').val();
+      const fields = productTypeFields[type] || [];
+      let html = '';
+      let flatOrRaised = prevVals['flatOrRaised'] || $('#quotation-dynamic-fields [name="flatOrRaised"]').val() || '';
+      let numColors = parseInt(prevVals['numColors'] || $('#quotation-dynamic-fields [name="numColors"]').val() || '0', 10);
+      fields.forEach(field => {
+        if (field.dependsOn) {
+          if (field.dependsOn.field === 'flatOrRaised') {
+            if ((flatOrRaised !== field.dependsOn.value)) {
+              if (field.name === 'directOrReverse') {
+                html += `<label>${field.label}:<br><input type="text" value="Direct" disabled></label><br>`;
+              } else if (field.name === 'thickness') {
+                html += `<label>${field.label}:<br><input type="number" disabled></label><br>`;
+              }
+              return;
+            }
+          }
+        }
+        if (field.type === 'select') {
+          html += `<label>${field.label}:<br><select name="${field.name}"><option value="">-- Select --</option>${field.options.map(opt => `<option value="${opt}"${prevVals[field.name] === opt ? ' selected' : ''}>${opt}</option>`).join('')}</select></label><br>`;
+        } else if (field.type === 'number') {
+          html += `<label>${field.label}:<br><input type="number" name="${field.name}" min="0" value="${prevVals[field.name] || ''}"></label><br>`;
+        } else if (field.type === 'text') {
+          html += `<label>${field.label}:<br><input type="text" name="${field.name}" value="${prevVals[field.name] || ''}"></label><br>`;
+        } else if (field.type === 'dynamic' && field.name === 'colorNames') {
+          if (numColors > 0) {
+            html += `<label>Color Names:<br>`;
+            for (let i = 0; i < numColors; i++) {
+              const cname = prevVals['colorName'+(i+1)] || '';
+              html += `<input type="text" name="colorName${i+1}" placeholder="Color ${i+1}" value="${cname}"><br>`;
+            }
+            html += `</label><br>`;
+          }
+        }
+      });
+      $('#quotation-dynamic-fields').html(html);
+      $('#quotation-dynamic-fields [name="flatOrRaised"]').off('change').on('change', renderDynamicFields);
+      $('#quotation-dynamic-fields [name="numColors"]').off('input').on('input', renderDynamicFields);
+    }
+    // --- Form submission logic ---
+    $('#quotation-create-form').off('submit').on('submit', function(e) {
+      e.preventDefault();
+      // Validate company
+      const companyId = $('#quotation-company-id').val();
+      if (!companyId) {
+        showCustomPopup('Please select a company from the list.', true);
+        return;
+      }
+      // Validate key person
+      const keyPersonIdx = $('#quotation-keyperson').val();
+      const company = customers.find(c => c.id == companyId);
+      let keyPersonId = null;
+      if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "") {
+        const kp = company.keyPeople[keyPersonIdx];
+        keyPersonId = kp && kp.id ? kp.id : null;
+      }
+      if (!keyPersonId) {
+        showCustomPopup('Please select a key person.', true);
+        return;
+      }
+      // Validate product type
+      const productType = $('#quotation-product-type').val();
+      if (!productType) {
+        showCustomPopup('Please select a product type.', true);
+        return;
+      }
+      // Gather dynamic fields
+      const fields = productTypeFields[productType] || [];
+      const attributes = {};
+      let valid = true;
+      fields.forEach(field => {
+        if (field.type === 'dynamic' && field.name === 'colorNames') {
+          const numColors = parseInt($('#quotation-dynamic-fields [name="numColors"]').val() || '0', 10);
+          if (numColors > 0) {
+            attributes['colorNames'] = [];
+            for (let i = 0; i < numColors; i++) {
+              const val = $('#quotation-dynamic-fields [name="colorName'+(i+1)+'"]').val();
+              attributes['colorNames'].push(val);
+            }
+          }
+        } else if (field.dependsOn) {
+          const depVal = $('#quotation-dynamic-fields [name="'+field.dependsOn.field+'"]:visible').val();
+          if (depVal !== field.dependsOn.value) {
+            // skip, handled by UI
+            return;
+          }
+          attributes[field.name] = $('#quotation-dynamic-fields [name="'+field.name+'"]').val();
+        } else {
+          attributes[field.name] = $('#quotation-dynamic-fields [name="'+field.name+'"]').val();
+        }
+      });
+      // POST to backend
+      $.ajax({
+        url: '/quotations',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+          customer_id: companyId,
+          key_person_id: keyPersonId,
+          product_type: productType,
+          attributes: attributes
+        }),
+        success: function(resp) {
+          showCustomPopup('Quotation created!', false);
+          showQuotationCreateForm();
+        },
+        error: function(xhr) {
+          let msg = 'Failed to create quotation.';
+          try {
+            const r = JSON.parse(xhr.responseText);
+            if (r && r.error) msg += ' ' + r.error;
+          } catch(e) {}
+          showCustomPopup(msg, true);
+        }
+      });
+    });
+  });
 }

@@ -2031,34 +2031,58 @@ function showQuotationCreateForm() {
     // --- Form submission logic ---
     $('#quotation-create-form').off('submit').on('submit', function(e) {
       e.preventDefault();
+      let hasError = false;
       // Validate company
       const companyId = $('#quotation-company-id').val();
       if (!companyId) {
         showCustomPopup('Please select a company from the list.', true);
-        return;
+        $('#quotation-company-input').css('background', '#ffd6d6');
+        hasError = true;
+      } else {
+        $('#quotation-company-input').css('background', '');
       }
       // Validate key person
       const keyPersonIdx = $('#quotation-keyperson').val();
       const company = customers.find(c => c.id == companyId);
       let keyPersonId = null;
-      if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "") {
+      let keyPersonName = null;
+      let keyPersonEmail = null;
+      if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "" && keyPersonIdx !== null && keyPersonIdx !== undefined) {
         const kp = company.keyPeople[keyPersonIdx];
         keyPersonId = kp && kp.id ? kp.id : null;
+        keyPersonName = kp && kp.name ? kp.name : null;
+        keyPersonEmail = kp && kp.email ? kp.email : null;
       }
-      if (!keyPersonId) {
+      if (keyPersonIdx === "" || keyPersonIdx === null || keyPersonIdx === undefined) {
         showCustomPopup('Please select a key person.', true);
-        return;
+        $('#quotation-keyperson').css('background', '#ffd6d6');
+        hasError = true;
+      } else {
+        $('#quotation-keyperson').css('background', '');
       }
       // Validate product type
       const productType = $('#quotation-product-type').val();
       if (!productType) {
         showCustomPopup('Please select a product type.', true);
-        return;
+        $('#quotation-product-type').css('background', '#ffd6d6');
+        hasError = true;
+      } else {
+        $('#quotation-product-type').css('background', '');
       }
       // Gather dynamic fields
       const fields = productTypeFields[productType] || [];
       const attributes = {};
-      let valid = true;
+      // Validate all visible and enabled dynamic fields
+      $('#quotation-dynamic-fields input:visible:enabled, #quotation-dynamic-fields select:visible:enabled').each(function() {
+        const val = $(this).val();
+        if (!val) {
+          $(this).css('background', '#ffd6d6');
+          hasError = true;
+        } else {
+          $(this).css('background', '');
+        }
+      });
+      if (hasError) return;
       fields.forEach(field => {
         if (field.type === 'dynamic' && field.name === 'colorNames') {
           const numColors = parseInt($('#quotation-dynamic-fields [name="numColors"]').val() || '0', 10);
@@ -2088,6 +2112,8 @@ function showQuotationCreateForm() {
         data: JSON.stringify({
           customer_id: companyId,
           key_person_id: keyPersonId,
+          key_person_name: keyPersonName,
+          key_person_email: keyPersonEmail,
           product_type: productType,
           attributes: attributes
         }),
@@ -2104,6 +2130,55 @@ function showQuotationCreateForm() {
           showCustomPopup(msg, true);
         }
       });
+    });
+    // --- update renderDynamicFields for Direct or Reverse ---
+    function renderDynamicFields() {
+      const prevVals = {};
+      $('#quotation-dynamic-fields').find('input, select').each(function() {
+        prevVals[$(this).attr('name')] = $(this).val();
+      });
+      const type = $('#quotation-product-type').val();
+      const fields = productTypeFields[type] || [];
+      let html = '';
+      let flatOrRaised = prevVals['flatOrRaised'] || $('#quotation-dynamic-fields [name="flatOrRaised"]').val() || '';
+      let numColors = parseInt(prevVals['numColors'] || $('#quotation-dynamic-fields [name="numColors"]').val() || '0', 10);
+      fields.forEach(field => {
+        if (field.dependsOn) {
+          if (field.dependsOn.field === 'flatOrRaised') {
+            if ((flatOrRaised !== field.dependsOn.value)) {
+              if (field.name === 'directOrReverse') {
+                html += `<label>${field.label}:<br><input type="text" value="Direct" disabled style="background:#eee;"></label><br>`;
+              } else if (field.name === 'thickness') {
+                html += `<label>${field.label}:<br><input type="number" disabled style="background:#eee;"></label><br>`;
+              }
+              return;
+            }
+          }
+        }
+        if (field.type === 'select') {
+          html += `<label>${field.label}:<br><select name="${field.name}"><option value="">-- Select --</option>${field.options.map(opt => `<option value="${opt}"${prevVals[field.name] === opt ? ' selected' : ''}>${opt}</option>`).join('')}</select></label><br>`;
+        } else if (field.type === 'number') {
+          html += `<label>${field.label}:<br><input type="number" name="${field.name}" min="0" value="${prevVals[field.name] || ''}"></label><br>`;
+        } else if (field.type === 'text') {
+          html += `<label>${field.label}:<br><input type="text" name="${field.name}" value="${prevVals[field.name] || ''}"></label><br>`;
+        } else if (field.type === 'dynamic' && field.name === 'colorNames') {
+          if (numColors > 0) {
+            html += `<label>Color Names:<br>`;
+            for (let i = 0; i < numColors; i++) {
+              const cname = prevVals['colorName'+(i+1)] || '';
+              html += `<input type="text" name="colorName${i+1}" placeholder="Color ${i+1}" value="${cname}"><br>`;
+            }
+            html += `</label><br>`;
+          }
+        }
+      });
+      $('#quotation-dynamic-fields').html(html);
+      $('#quotation-dynamic-fields [name="flatOrRaised"]').off('change').on('change', renderDynamicFields);
+      $('#quotation-dynamic-fields [name="numColors"]').off('input').on('input', renderDynamicFields);
+    }
+    // After rendering the form and key person dropdown:
+    $('#quotation-keyperson').on('change', function() {
+      $(this).css('background', '');
     });
   });
 }

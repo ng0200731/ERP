@@ -260,7 +260,8 @@ def check_option_field():
 def serve_index():
     # Get the user's permission level from session
     permission_level = session.get('permission_level', 1)
-    return render_template('index.html', permission_level=permission_level)
+    user_email = session.get('user', None)
+    return render_template('index.html', permission_level=permission_level, user_email=user_email)
 
 # --- User and Approval Tables ---
 def init_user_db():

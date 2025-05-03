@@ -2107,3 +2107,7 @@ function showQuotationCreateForm() {
     });
   });
 }
+
+$(document).off('click.customerModify').on('click.customerModify', '#btn-ay', function() {
+  showModify();
+});

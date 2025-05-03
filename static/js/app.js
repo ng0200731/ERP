@@ -1331,6 +1331,10 @@ function showEditCustomerStep1() {
         customerType: editStep1Data.customerType,
         keyPeople: Array.isArray(currentCustomer.keyPeople) ? currentCustomer.keyPeople : []
       };
+      // Show loading overlay
+      if ($('#update-loading-overlay').length === 0) {
+        $('body').append('<div id="update-loading-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;"><div style="color:#fff;font-size:22px;">Updating...</div></div>');
+      }
       // Send update to backend
       $.ajax({
         url: '/customers/' + id,
@@ -1338,10 +1342,19 @@ function showEditCustomerStep1() {
         contentType: 'application/json',
         data: JSON.stringify(customer),
         success: function() {
-          fetchCustomers(function() {
-            showModify();
-            showCustomPopup('Record updated!');
-          });
+          setTimeout(function() {
+            $('#update-loading-overlay').remove();
+            fetchCustomers(function() {
+              showModify();
+              showCustomPopup('Record updated!');
+            });
+          }, 500);
+        },
+        error: function() {
+          setTimeout(function() {
+            $('#update-loading-overlay').remove();
+            showCustomPopup('Update failed!', true);
+          }, 500);
         }
       });
     });
@@ -1430,16 +1443,25 @@ function showEditCustomerStep2() {
         keyPeople: updatedKeyPeople,
         domains: domains.length > 0 ? domains : currentCustomer.domains
       };
+      // Show loading overlay
+      if ($('#update-loading-overlay').length === 0) {
+        $('body').append('<div id="update-loading-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;"><div style="color:#fff;font-size:22px;">Updating...</div></div>');
+      }
       // Save to backend
       updateCustomer(currentCustomer.id, updatedCustomer, function(success) {
-        if (success) {
-          window.editSingleKeyPersonMode = false;
-          window.editSingleKeyPersonIdx = undefined;
-          fetchCustomers(function() {
-            showModify();
-            showCustomPopup('Key person updated!');
-          });
-        }
+        setTimeout(function() {
+          $('#update-loading-overlay').remove();
+          if (success) {
+            window.editSingleKeyPersonMode = false;
+            window.editSingleKeyPersonIdx = undefined;
+            fetchCustomers(function() {
+              showModify();
+              showCustomPopup('Key person updated!');
+            });
+          } else {
+            showCustomPopup('Update failed!', true);
+          }
+        }, 500);
       });
     });
   });

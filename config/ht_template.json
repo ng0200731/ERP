@@ -1,0 +1,35 @@
+{
+    "required_columns": [
+        {
+            "name": "temperature",
+            "type": "float",
+            "validation": {
+                "min": 0,
+                "max": 1000
+            }
+        },
+        {
+            "name": "pressure",
+            "type": "float",
+            "validation": {
+                "min": 0,
+                "max": 500
+            }
+        },
+        {
+            "name": "flow_rate",
+            "type": "float",
+            "validation": {
+                "min": 0
+            }
+        },
+        {
+            "name": "heat_transfer_coefficient",
+            "type": "float",
+            "validation": {
+                "min": 0
+            }
+        }
+    ],
+    "template_version": "1.0"
+} 

@@ -168,35 +168,10 @@ function renderDynamicFieldsBlank(productTypeFields) {
 function showQuotationCreateForm2() {
   // First fetch customers for company search
   fetchCustomers(function() {
-    const productTypeFields = {
-      "heat transfer": [
-        { name: "quality", label: "Quality", type: "select", options: ["PU", "Silicon"] },
-        { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
-        { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"] },
-        { name: "thickness", label: "Thickness", type: "number" },
-        { name: "numColors", label: "# of Colors", type: "number" },
-        { name: "colorNames", label: "Color Names", type: "dynamic" },
-        { name: "width", label: "Width", type: "number" },
-        { name: "length", label: "Length", type: "number" }
-      ],
-      "pfl": [
-        { name: "material", label: "Material", type: "text" },
-        { name: "edge", label: "Edge", type: "text" },
-        { name: "cutAndFold", label: "Cut and Fold", type: "text" },
-        { name: "width", label: "Width", type: "number" },
-        { name: "length", label: "Length", type: "number" },
-        { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
-        { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"] },
-        { name: "thickness", label: "Thickness", type: "number" }
-      ]
-    };
-    const productTypes = Object.keys(productTypeFields);
-    let productTypeOptions = '<option value="">-- Select Product Type --</option>' + productTypes.map(pt => `<option value="${pt}">${pt}</option>`).join("");
-    
     $('#right-frame').html(`
       <div style="padding:32px;max-width:600px;">
         <h2>Create Quotation 2</h2>
-        <form id="quotation2-create-form" autocomplete="off">
+        <form id="quotation2-create2-form" autocomplete="off">
           <label>Company:<br>
             <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
             <div id="company2-suggestions" style="position: relative;">
@@ -211,10 +186,46 @@ function showQuotationCreateForm2() {
           </label><br><br>
           <label>Product Type:<br>
             <select id="quotation2-product-type" style="width: 100%; padding: 8px;">
-              ${productTypeOptions}
+              <option value="">-- Select Product Type --</option>
+              <option value="heat transfer">heat transfer</option>
+              <option value="pfl">pfl</option>
             </select>
           </label><br><br>
-          <div id="quotation2-dynamic-fields"></div>
+          <div id="quotation2-dynamic-fields">
+            <label>Quality:<br>
+              <select name="quality">
+                <option value="">-- Select --</option>
+                <option value="PU">PU</option>
+                <option value="Silicon">Silicon</option>
+              </select>
+            </label><br>
+            <label>Flat or Raised:<br>
+              <select name="flatOrRaised">
+                <option value="">-- Select --</option>
+                <option value="Flat">Flat</option>
+                <option value="Raised">Raised</option>
+              </select>
+            </label><br>
+            <label>Direct or Reverse:<br>
+              <select name="directOrReverse">
+                <option value="">-- Select --</option>
+                <option value="Direct">Direct</option>
+                <option value="Reverse">Reverse</option>
+              </select>
+            </label><br>
+            <label>Thickness:<br>
+              <input type="number" name="thickness" min="0" value="">
+            </label><br>
+            <label># of Colors:<br>
+              <input type="number" name="numColors" min="1" value="1">
+            </label><br>
+            <label>Width:<br>
+              <input type="number" name="width" min="0" value="">
+            </label><br>
+            <label>Length:<br>
+              <input type="number" name="length" min="0" value="">
+            </label><br>
+          </div>
           <br>
           <button type="submit" style="padding:8px 32px;">Submit</button>
         </form>
@@ -339,34 +350,5 @@ function showQuotationCreateForm2() {
         currentFocus = -1;
       }
     });
-
-    // Only render dynamic fields, no other functionality
-    $('#quotation2-product-type').on('change', function() {
-      renderDynamicFieldsBlank2(productTypeFields);
-    });
-    renderDynamicFieldsBlank2(productTypeFields);
-  });
-}
-
-function renderDynamicFieldsBlank2(productTypeFields) {
-  const type = $('#quotation2-product-type').val();
-  const fields = productTypeFields[type] || [];
-  let html = '';
-  fields.forEach(field => {
-    if (field.type === 'select') {
-      html += `<label>${field.label}:<br><select name="${field.name}"><option value="">-- Select --</option>${field.options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}</select></label><br>`;
-    } else if (field.type === 'number' && field.name !== 'numColors') {
-      html += `<label>${field.label}:<br><input type="number" name="${field.name}" min="0" value=""></label><br>`;
-    } else if (field.type === 'text') {
-      html += `<label>${field.label}:<br><input type="text" name="${field.name}" value=""></label><br>`;
-    } else if (field.type === 'dynamic' && field.name === 'colorNames') {
-      html += `<label># of Colors:</label><div class="color-group"><input type="number" name="numColors" min="1" value="1" style="width: 95%; margin-bottom: 1em;"></div><label>Color Names:</label><div class="color-names-indent">`;
-      html += `<input type="text" name="colorName1" placeholder="Color 1" value="" style="width: 95%; margin-bottom: 0.5em;">`;
-      html += `</div><br>`;
-    }
-  });
-  $('#quotation2-dynamic-fields').html(html);
-  $('#quotation2-dynamic-fields [name="numColors"]').off('input').on('input', function() {
-    renderDynamicFieldsBlank2(productTypeFields);
   });
 } 

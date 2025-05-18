@@ -6,6 +6,8 @@ $(function() {
   
   // Quotation 2 button handler
   $(document).off('click.quotationCreate2').on('click.quotationCreate2', '#btn-quotation2-create2', function() {
+    console.log('Create 2 clicked');
+    alert('Opening Quotation 2 form...'); // Temporary debug alert
     $('#quotation2-create2-form').show();
     $('#quotation-create-form').hide();
     $('#welcome').hide();
@@ -16,6 +18,13 @@ $(function() {
     e.preventDefault();
     e.stopPropagation();
     $('#quotation2-nested').toggle();
+  });
+
+  // Handle form submission
+  $('#quotation2-create2-form form').submit(function(e) {
+    e.preventDefault();
+    alert('Form submitted!'); // Temporary debug alert
+    // ... rest of the submission code ...
   });
 });
 

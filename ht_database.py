@@ -91,12 +91,23 @@ def get_ht_database():
 def update_ht_database():
     if not current_user.permission_level >= 3:
         return jsonify({'error': 'Permission denied'}), 403
-
     try:
         data = request.json
+        print('=== DATA RECEIVED FOR UPDATE ===')
+        print(data)
         df = pd.DataFrame(data)
         engine = get_db()
-        df.to_sql('ht_database', engine, if_exists='replace', index=False)
+        mode = request.args.get('mode', 'overwrite')
+        if mode == 'append':
+            # Load existing data, append, and save
+            try:
+                existing = pd.read_sql_table('ht_database', engine)
+                df = pd.concat([existing, df], ignore_index=True)
+            except Exception:
+                pass  # If table doesn't exist, just use new data
+            df.to_sql('ht_database', engine, if_exists='replace', index=False)
+        else:
+            df.to_sql('ht_database', engine, if_exists='replace', index=False)
         return jsonify({'message': 'Database updated successfully'})
     except Exception as e:
         print("=== ERROR in /ht_database/update ===")

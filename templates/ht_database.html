@@ -143,6 +143,25 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
+    <!-- Modal for Overwrite or Append -->
+    <div class="modal fade" id="pasteModeModal" tabindex="-1" aria-labelledby="pasteModeModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="pasteModeModalLabel">Paste Mode</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            Do you want to <b>overwrite</b> all existing data or <b>append</b> the new data?
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-danger" id="overwrite-btn">Overwrite</button>
+            <button type="button" class="btn btn-success" id="append-btn">Append</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
         $(document).ready(function() {
             const pasteArea = $('#paste-area');
@@ -158,20 +177,13 @@
                 }
             });
 
+            let lastPastedData = null;
             $(document).on('paste', function(e) {
                 if (pasteArea.hasClass('active')) {
                     e.preventDefault();
-                    
-                    // Get pasted data
                     const pastedData = (e.originalEvent.clipboardData || window.clipboardData).getData('text');
-                    
-                    // Parse the pasted data
                     const rows = pastedData.split('\n').map(row => row.split('\t'));
-                    
-                    // Remove empty rows
                     const cleanRows = rows.filter(row => row.length > 1);
-                    
-                    // Convert to the required format
                     const data = cleanRows.map(row => ({
                         quality: row[0] || '',
                         flat_or_raised: row[1] || '',
@@ -182,23 +194,35 @@
                         width: parseFloat(row[6]) || 0,
                         price: parseFloat(row[7]) || 0
                     }));
-
-                    // Send to server
-                    $.ajax({
-                        url: '/ht_database/update',
-                        type: 'POST',
-                        contentType: 'application/json',
-                        data: JSON.stringify(data),
-                        success: function(response) {
-                            alert('Data updated successfully!');
-                            location.reload();
-                        },
-                        error: function(xhr) {
-                            alert('Error updating data: ' + (xhr.responseJSON?.error || 'Unknown error'));
-                        }
-                    });
+                    lastPastedData = data;
+                    const modal = new bootstrap.Modal(document.getElementById('pasteModeModal'));
+                    modal.show();
                 }
             });
+            $('#overwrite-btn').on('click', function() {
+                $('#pasteModeModal').modal('hide');
+                sendPasteData('overwrite');
+            });
+            $('#append-btn').on('click', function() {
+                $('#pasteModeModal').modal('hide');
+                sendPasteData('append');
+            });
+            function sendPasteData(mode) {
+                if (!lastPastedData) return;
+                $.ajax({
+                    url: '/ht_database/update' + (mode === 'append' ? '?mode=append' : ''),
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(lastPastedData),
+                    success: function(response) {
+                        alert('Data updated successfully!');
+                        if (typeof loadHtData === 'function') { loadHtData(); }
+                    },
+                    error: function(xhr) {
+                        alert('Error updating data: ' + (xhr.responseJSON?.error || 'Unknown error'));
+                    }
+                });
+            }
         });
     </script>
     <script src="{{ url_for('static', filename='js/ht_database.js') }}"></script>

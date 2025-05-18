@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSV Upload Form</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-container { border: 1px solid #ddd; padding: 20px; margin-top: 20px; }
+        .btn { background: #4CAF50; color: white; padding: 10px 15px; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CSV File Upload</h1>
+        <div class="form-container">
+            <!-- Direct Form Post -->
+            <form action="http://192.168.0.165:5000/ht_database/upload_csv" method="POST" enctype="multipart/form-data">
+                <h3>Form POST Method</h3>
+                <p>Select a CSV file:</p>
+                <input type="file" name="file" accept=".csv">
+                <p><button type="submit" class="btn">Upload CSV</button></p>
+            </form>
+        </div>
+    </div>
+</body>
+</html> 

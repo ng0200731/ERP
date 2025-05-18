@@ -1,0 +1,84 @@
+======================================================
+HOW TO IMPORT THE CSV FILE INTO THE HEAT TRANSFER DATABASE
+======================================================
+
+You've successfully uploaded your CSV file. Now you need to import it into the 
+Heat Transfer Database. Here's how to do it:
+
+OPTION 1: Using pandas in Python (recommended)
+----------------------------------------------
+1. Open a Python console or create a new Python script with this code:
+
+```python
+import pandas as pd
+import sqlite3
+
+# Read the CSV file
+df = pd.read_csv('uploads/upload_20250518_143005_datatbase_final_1.csv')
+
+# Connect to the database
+conn = sqlite3.connect('database.db')
+
+# Import to database (replace existing data)
+df.to_sql('ht_database', conn, if_exists='replace', index=False)
+
+# Verify import
+cursor = conn.cursor()
+row_count = cursor.execute("SELECT COUNT(*) FROM ht_database").fetchone()[0]
+print(f"Successfully imported {row_count} rows!")
+
+# Close connection
+conn.close()
+```
+
+2. Run the script with: python your_script_name.py
+
+
+OPTION 2: Using SQLite CLI
+--------------------------
+If you have SQLite installed, you can:
+
+1. Open command prompt
+2. Run these commands:
+
+```
+sqlite3 database.db
+.mode csv
+.import uploads/upload_20250518_143005_datatbase_final_1.csv ht_database
+.exit
+```
+
+
+OPTION 3: Using DB Browser for SQLite
+-------------------------------------
+1. Download DB Browser for SQLite: https://sqlitebrowser.org/
+2. Open 'database.db' with DB Browser
+3. Go to File > Import > Table from CSV file
+4. Select your CSV file and follow the import wizard
+
+
+OPTION 4: Using a different database system
+-------------------------------------------
+If you're using MySQL, PostgreSQL, or another database:
+1. Create the ht_database table with these columns:
+   - Quality (TEXT)
+   - Flat or Raised (TEXT)
+   - Direct or Reverse (TEXT)
+   - Thickness (REAL)
+   - # of Colors (INTEGER)
+   - Length (REAL)
+   - Width (REAL)
+   - Price (REAL)
+2. Import the CSV data using your database's import tools
+
+
+VERIFYING THE IMPORT
+-------------------
+After importing, verify the data with:
+
+```sql
+SELECT COUNT(*) FROM ht_database;
+SELECT * FROM ht_database LIMIT 5;
+```
+
+You should see the correct number of rows and data. 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Heat Transfer Database</title>
+    <title>ERIC Heat Transfer Database</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         /* Basic reset and layout */
@@ -66,6 +66,24 @@
             text-align: center;
             vertical-align: middle;
         }
+
+        #paste-area {
+            margin-bottom: 20px;
+            padding: 32px 15px;
+            border: 3px dashed #0d6efd;
+            border-radius: 10px;
+            text-align: center;
+            background-color: #e7f1ff;
+            color: #0d6efd;
+            font-size: 1.25rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        #paste-area:hover, #paste-area.active {
+            border-color: #084298;
+            background-color: #d0e7ff;
+        }
     </style>
 </head>
 <body>
@@ -73,10 +91,19 @@
         <!-- Left Panel -->
         <div class="left-panel">
             <div class="panel-header">
-                <h2>Heat Transfer Database</h2>
+                <h2>ERIC Heat Transfer Database</h2>
                 <div class="badge bg-primary">Level 3 Only</div>
             </div>
             <div class="content-area">
+                <!-- Paste Area -->
+                <div id="paste-area">
+                    <div style="font-size:2.5rem; margin-bottom:10px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="#0d6efd" viewBox="0 0 16 16"><path d="M10 1.5v1A1.5 1.5 0 0 1 8.5 4h-1A1.5 1.5 0 0 1 6 2.5v-1A.5.5 0 0 1 6.5 1h3a.5.5 0 0 1 .5.5z"/><path d="M4.5 1A1.5 1.5 0 0 0 3 2.5v1A2.5 2.5 0 0 0 5.5 6h5A2.5 2.5 0 0 0 13 3.5v-1A1.5 1.5 0 0 0 11.5 1h-7z"/><path d="M3 7a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H3zm0 1h10a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/></svg>
+                    </div>
+                    <div>Paste Excel Data Here (Click, then Ctrl+V)</div>
+                    <div style="font-size:0.95rem; font-weight:normal; color:#333; margin-top:8px;">Copy rows from Excel, click this box, then press Ctrl+V to import.</div>
+                </div>
+
                 <table class="table table-bordered ht-table">
                     <thead class="table-light">
                         <tr>
@@ -112,5 +139,65 @@
     <!-- Core JavaScript dependencies -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            const pasteArea = $('#paste-area');
+            
+            // Handle paste event
+            pasteArea.on('click', function() {
+                $(this).addClass('active');
+            });
+
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#paste-area').length) {
+                    pasteArea.removeClass('active');
+                }
+            });
+
+            $(document).on('paste', function(e) {
+                if (pasteArea.hasClass('active')) {
+                    e.preventDefault();
+                    
+                    // Get pasted data
+                    const pastedData = (e.originalEvent.clipboardData || window.clipboardData).getData('text');
+                    
+                    // Parse the pasted data
+                    const rows = pastedData.split('\n').map(row => row.split('\t'));
+                    
+                    // Remove empty rows
+                    const cleanRows = rows.filter(row => row.length > 1);
+                    
+                    // Convert to the required format
+                    const data = cleanRows.map(row => ({
+                        quality: row[0] || '',
+                        flat_or_raised: row[1] || '',
+                        direct_or_reverse: row[2] || '',
+                        thickness: parseFloat(row[3]) || 0,
+                        num_colors: parseInt(row[4]) || 0,
+                        length: parseFloat(row[5]) || 0,
+                        width: parseFloat(row[6]) || 0,
+                        price: parseFloat(row[7]) || 0
+                    }));
+
+                    // Send to server
+                    $.ajax({
+                        url: '/ht_database/update',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(data),
+                        success: function(response) {
+                            alert('Data updated successfully!');
+                            location.reload();
+                        },
+                        error: function(xhr) {
+                            alert('Error updating data: ' + (xhr.responseJSON?.error || 'Unknown error'));
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/ht_database.js') }}"></script>
 </body>
 </html> 

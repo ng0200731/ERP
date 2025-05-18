@@ -7,6 +7,8 @@ import hashlib
 from flask_mail import Mail, Message
 import os
 import logging
+from ht_database import ht_database_bp
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
 
 # Set up logging
 logging.basicConfig(
@@ -28,6 +30,31 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'eric.brilliant@gmail.com'
 app.config['MAIL_PASSWORD'] = 'opqx pfna kagb bznr'
 mail = Mail(app)
+
+# --- Flask-Login Setup ---
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# Dummy User class for demonstration (replace with your real user model)
+class User(UserMixin):
+    def __init__(self, id, email, permission_level=1, is_approved=0):
+        self.id = id
+        self.email = email
+        self.permission_level = permission_level
+        self.is_approved = is_approved
+    def get_id(self):
+        return str(self.id)
+
+# User loader for Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    conn = get_db()
+    user = conn.execute('SELECT id, email, permission_level, is_approved FROM users WHERE id=?', (user_id,)).fetchone()
+    conn.close()
+    if user:
+        return User(user['id'], user['email'], user['permission_level'], user['is_approved'])
+    return None
 
 def get_db():
     db_path = os.path.join(os.path.dirname(__file__), 'customers.db')
@@ -751,6 +778,7 @@ if __name__ == '__main__':
         init_option_db()
         init_user_db()
         set_admin_level()
+        app.register_blueprint(ht_database_bp)
         app.run(host='0.0.0.0', port=5000, debug=True)
     except Exception as e:
         print('ERROR STARTING SERVER:', e) 

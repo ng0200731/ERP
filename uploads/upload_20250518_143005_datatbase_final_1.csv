@@ -1,0 +1,37 @@
+﻿Quality,Flat or Raised,Direct or Reverse,Thickness,# of Colors,Length,Width,Price
+PU ,Flat,Direct,0.2,1,39,54,10
+PU ,Flat,Direct,0.2,2,39,54,12
+PU ,Flat,Direct,0.2,3,39,54,14
+PU ,Flat,Direct,0.2,4,39,54,16
+PU ,Flat,Direct,0.2,5,39,54,18
+PU ,Flat,Direct,0.2,6,39,54,20
+silicon,Flat,Direct,0.2,1,39,54,20
+silicon,Flat,Direct,0.2,2,39,54,23
+silicon,Flat,Direct,0.2,3,39,54,26
+silicon,Flat,Direct,0.2,4,39,54,30
+silicon,Flat,Direct,0.2,5,39,54,32
+silicon,Raised,Reverse,0.4,1,39,27,15
+silicon,Raised,Reverse,0.4,2,39,27,17
+silicon,Raised,Reverse,0.4,3,39,27,19
+silicon,Raised,Reverse,0.4,4,39,27,21
+silicon,Raised,Reverse,0.4,5,39,27,23
+silicon,Raised,Reverse,0.4,6,39,27,25
+silicon,Raised,Reverse,0.8,1,39,27,20
+silicon,Raised,Reverse,0.8,2,39,27,21
+silicon,Raised,Reverse,0.8,3,39,27,24
+silicon,Raised,Reverse,0.8,4,39,27,27
+silicon,Raised,Reverse,0.8,5,39,27,30
+silicon,Raised,Reverse,0.8,6,39,27,33
+silicon,Raised,Reverse,0.8,7,39,27,36
+silicon,Raised,Direct,0.4,1,25,34,20
+silicon,Raised,Direct,0.4,2,25,34,22
+silicon,Raised,Direct,0.4,3,25,34,25
+silicon,Raised,Direct,0.4,4,25,34,30
+silicon,Raised,Direct,0.4,5,25,34,35
+silicon,Raised,Direct,0.4,6,25,34,40
+silicon,Raised,Direct,0.8,1,25,34,22
+silicon,Raised,Direct,0.8,2,25,34,25
+silicon,Raised,Direct,0.8,3,25,34,30
+silicon,Raised,Direct,0.8,4,25,34,40
+silicon,Raised,Direct,0.8,5,25,34,60
+silicon,Raised,Direct,0.8,6,25,34,70

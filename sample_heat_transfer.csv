@@ -1,0 +1,6 @@
+quality,flat_or_raised,direct_or_reverse,thickness,num_colors,length,width,price
+Premium,Flat,Direct,0.5,4,100,50,2.50
+Standard,Raised,Reverse,0.8,2,150,75,3.25
+Premium,Flat,Direct,0.6,6,200,100,4.75
+Standard,Raised,Direct,0.7,3,120,60,2.95
+Premium,Flat,Reverse,0.5,5,180,90,4.25 

@@ -4,6 +4,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 from datetime import datetime
 import os
+import traceback
 
 ht_database_bp = Blueprint('ht_database', __name__)
 
@@ -89,4 +90,6 @@ def update_ht_database():
         df.to_sql('ht_database', engine, if_exists='replace', index=False)
         return jsonify({'message': 'Database updated successfully'})
     except Exception as e:
+        print("=== ERROR in /ht_database/update ===")
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500 

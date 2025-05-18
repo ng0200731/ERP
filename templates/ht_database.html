@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HT Database Management</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.2.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.html5.min.js"></script>
+    <style>
+        body { 
+            padding: 20px; 
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+        }
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .upload-section { 
+            margin: 20px 0; 
+            padding: 20px; 
+            background: #f8fafc; 
+            border-radius: 8px;
+            border: 1px solid #e1e8f0;
+        }
+        .table-section { 
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        button { 
+            padding: 8px 16px; 
+            margin: 5px; 
+            cursor: pointer;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background: #fff;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #f0f0f0;
+        }
+        button.primary {
+            background: #4a90e2;
+            color: white;
+            border: none;
+        }
+        button.primary:hover {
+            background: #357abd;
+        }
+        .success { 
+            color: #2ecc71; 
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .error { 
+            color: #e74c3c; 
+            padding: 10px;
+            margin: 10px 0;
+        }
+        #ht-table {
+            width: 100% !important;
+        }
+        .dataTables_wrapper {
+            margin-top: 20px;
+        }
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .file-input-wrapper input[type="file"] {
+            display: none;
+        }
+        .file-input-wrapper label {
+            padding: 8px 16px;
+            background: #4a90e2;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+        .file-input-wrapper label:hover {
+            background: #357abd;
+        }
+        .selected-file {
+            margin-left: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>HT Database Management</h1>
+            <button onclick="window.close()" class="close-btn">Close Window</button>
+        </div>
+        
+        <div class="upload-section">
+            <h2>Upload Excel File</h2>
+            <form id="upload-form">
+                <div class="file-input-wrapper">
+                    <label for="excel-file">Choose Excel File</label>
+                    <input type="file" id="excel-file" accept=".xlsx" required>
+                    <span class="selected-file"></span>
+                </div>
+                <button type="submit" class="primary">Upload</button>
+            </form>
+            <div id="upload-status"></div>
+        </div>
+        
+        <div class="table-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Database Contents</h2>
+                <button id="save-changes" class="primary">Save Changes</button>
+            </div>
+            <table id="ht-table" class="display">
+                <thead>
+                    <!-- Headers will be dynamically populated -->
+                </thead>
+                <tbody>
+                    <!-- Data will be dynamically populated -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let table;
+        
+        // Initialize DataTable
+        function initTable(data) {
+            if (table) {
+                table.destroy();
+            }
+            
+            // Get columns from first row
+            const columns = Object.keys(data[0] || {}).map(key => ({
+                title: key,
+                data: key,
+                editable: true
+            }));
+            
+            table = $('#ht-table').DataTable({
+                data: data,
+                columns: columns,
+                scrollX: true,
+                dom: 'Bfrtip',
+                pageLength: 25,
+                buttons: [
+                    'copy', 'csv', 'excel'
+                ],
+                createdRow: function(row, data, dataIndex) {
+                    // Make cells editable
+                    $(row).children('td').each(function(i) {
+                        $(this).attr('contenteditable', 'true');
+                    });
+                }
+            });
+
+            // Handle cell edits
+            $('#ht-table').on('blur', 'td[contenteditable]', function() {
+                const cell = table.cell(this);
+                cell.data($(this).text()).draw();
+            });
+        }
+        
+        // Load initial data
+        $.get('/ht_database/data')
+            .done(function(data) {
+                initTable(data);
+            })
+            .fail(function(xhr) {
+                alert('Failed to load data: ' + (xhr.responseJSON?.error || 'Unknown error'));
+            });
+            
+        // Handle file selection display
+        $('#excel-file').on('change', function() {
+            const fileName = this.files[0]?.name || 'No file chosen';
+            $('.selected-file').text(fileName);
+        });
+
+        // Handle file upload
+        $('#upload-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            const file = $('#excel-file')[0].files[0];
+            if (!file) {
+                $('#upload-status').html('<p class="error">Please select a file first.</p>');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // Show loading status
+            $('#upload-status').html('<p>Uploading...</p>');
+            
+            $.ajax({
+                url: '/ht_database/upload',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    $('#upload-status').html('<p class="success">Upload successful!</p>');
+                    // Clear file input
+                    $('#excel-file').val('');
+                    $('.selected-file').text('');
+                    // Reload table
+                    $.get('/ht_database/data').done(function(data) {
+                        initTable(data);
+                    });
+                },
+                error: function(xhr) {
+                    $('#upload-status').html('<p class="error">Upload failed: ' + 
+                        (xhr.responseJSON?.error || 'Unknown error') + '</p>');
+                }
+            });
+        });
+        
+        // Handle save changes
+        $('#save-changes').on('click', function() {
+            const data = table.data().toArray();
+            
+            // Show loading status
+            $('#upload-status').html('<p>Saving changes...</p>');
+            
+            $.ajax({
+                url: '/ht_database/update',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function() {
+                    $('#upload-status').html('<p class="success">Changes saved successfully!</p>');
+                    // Reload table to ensure we have the latest data
+                    $.get('/ht_database/data').done(function(data) {
+                        initTable(data);
+                    });
+                },
+                error: function(xhr) {
+                    $('#upload-status').html('<p class="error">Failed to save changes: ' + 
+                        (xhr.responseJSON?.error || 'Unknown error') + '</p>');
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

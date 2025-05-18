@@ -14,7 +14,7 @@
   <!-- User email display -->
   <div style="position:fixed;top:18px;right:32px;z-index:1000;font-size:16px;color:#444;background:#f7f7f7;padding:6px 18px;border-radius:18px;box-shadow:0 2px 8px #eee;">
     {% if user_email %}
-      Logged in as <b>{{ user_email }}</b>
+      Logged in as <b>{{ user_email }}</b> (level {{ permission_level }})
     {% endif %}
   </div>
   <div class="container">

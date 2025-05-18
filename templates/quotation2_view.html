@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quotation Details</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .container { margin-top: 40px; }
+        .card { box-shadow: 0 2px 16px #eee; border-radius: 10px; }
+        .section { 
+            background: #f8f9fa; 
+            border-radius: 10px; 
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .section-title {
+            color: #495057;
+            font-size: 1.1em;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .detail-row {
+            display: flex;
+            margin-bottom: 12px;
+        }
+        .detail-label {
+            font-weight: 500;
+            width: 150px;
+            color: #6c757d;
+        }
+        .detail-value {
+            flex: 1;
+        }
+        @media print {
+            .no-print {
+                display: none;
+            }
+            .container {
+                margin-top: 0;
+                width: 100%;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Quotation #{{ quotation.id }}</h2>
+                    <div class="no-print">
+                        <button onclick="window.print()" class="btn btn-outline-primary mr-2">Print</button>
+                        <a href="/" class="btn btn-outline-secondary">Back</a>
+                    </div>
+                </div>
+
+                <!-- Customer Details -->
+                <div class="section">
+                    <h3 class="section-title">Customer Details</h3>
+                    <div class="detail-row">
+                        <div class="detail-label">Company:</div>
+                        <div class="detail-value">{{ quotation.company }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Key Person:</div>
+                        <div class="detail-value">{{ quotation.key_person_name }} ({{ quotation.key_person_position }})</div>
+                    </div>
+                </div>
+
+                <!-- Product Details -->
+                <div class="section">
+                    <h3 class="section-title">Product Details</h3>
+                    <div class="detail-row">
+                        <div class="detail-label">Category:</div>
+                        <div class="detail-value">{{ quotation.category }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Product:</div>
+                        <div class="detail-value">{{ quotation.product_name }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Base Price:</div>
+                        <div class="detail-value">${{ "%.2f"|format(quotation.product_price) }}</div>
+                    </div>
+                </div>
+
+                <!-- Heat Transfer Specifications -->
+                <div class="section">
+                    <h3 class="section-title">Heat Transfer Specifications</h3>
+                    <div class="detail-row">
+                        <div class="detail-label">Quality:</div>
+                        <div class="detail-value">{{ quotation.quality }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Style:</div>
+                        <div class="detail-value">{{ quotation.flat_or_raised }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Print Type:</div>
+                        <div class="detail-value">{{ quotation.direct_or_reverse }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Thickness:</div>
+                        <div class="detail-value">{{ quotation.thickness }} mm</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Colors:</div>
+                        <div class="detail-value">{{ quotation.num_colors }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Dimensions:</div>
+                        <div class="detail-value">{{ quotation.width }} mm × {{ quotation.length }} mm</div>
+                    </div>
+                </div>
+
+                <!-- Status and Timestamps -->
+                <div class="section">
+                    <h3 class="section-title">Additional Information</h3>
+                    <div class="detail-row">
+                        <div class="detail-label">Status:</div>
+                        <div class="detail-value">
+                            <span class="badge badge-{{ 'success' if quotation.status == 'approved' else 'warning' }}">
+                                {{ quotation.status.title() }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Created:</div>
+                        <div class="detail-value">{{ quotation.created_at }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Last Updated:</div>
+                        <div class="detail-value">{{ quotation.updated_at }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery and Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html> 

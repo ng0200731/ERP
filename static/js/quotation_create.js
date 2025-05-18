@@ -19,8 +19,68 @@ $(function() {
   // Handle form submission
   $('#quotation2-create2-form form').submit(function(e) {
     e.preventDefault();
-    alert('Form submitted!'); // Temporary debug alert
-    // ... rest of the submission code ...
+    
+    // Validate company
+    const companyId = $('#quotation2-company-id').val();
+    if (!companyId) {
+      alert('Please select a company from the list.');
+      return;
+    }
+
+    // Validate key person
+    const keyPersonIdx = $('#quotation2-keyperson').val();
+    const company = customers.find(c => c.id == companyId);
+    let keyPersonId = null;
+    if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "") {
+      const kp = company.keyPeople[keyPersonIdx];
+      keyPersonId = kp && kp.id ? kp.id : null;
+    }
+    if (!keyPersonId) {
+      alert('Please select a key person.');
+      return;
+    }
+
+    // Validate product type
+    const productType = $('#quotation2-product-type').val();
+    if (!productType) {
+      alert('Please select a product type.');
+      return;
+    }
+
+    // Gather dynamic fields
+    const attributes = {};
+    $('#quotation2-dynamic-fields').find('input, select').each(function() {
+      const name = $(this).attr('name');
+      const value = $(this).val();
+      if (name && value) {
+        attributes[name] = value;
+      }
+    });
+
+    // Send to server
+    $.ajax({
+      url: '/quotations2',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({
+        customer_id: companyId,
+        key_person_id: keyPersonId,
+        product_type: productType,
+        attributes: attributes
+      }),
+      success: function(resp) {
+        alert('Quotation created successfully!');
+        showQuotationCreateForm2(); // Reset form
+      },
+      error: function(xhr) {
+        let msg = 'Failed to create quotation.';
+        try {
+          const r = JSON.parse(xhr.responseText);
+          if (r && r.error) msg += ' ' + r.error;
+        } catch(e) {}
+        alert(msg);
+      }
+    });
   });
 });
 
@@ -106,63 +166,107 @@ function renderDynamicFieldsBlank(productTypeFields) {
 }
 
 function showQuotationCreateForm2() {
-  // Copy of showQuotationCreateForm but for Quotation 2
-  const productTypeFields = {
-    "heat transfer": [
-      { name: "quality", label: "Quality", type: "select", options: ["PU", "Silicon"] },
-      { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
-      { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"] },
-      { name: "thickness", label: "Thickness", type: "number" },
-      { name: "numColors", label: "# of Colors", type: "number" },
-      { name: "colorNames", label: "Color Names", type: "dynamic" },
-      { name: "width", label: "Width", type: "number" },
-      { name: "length", label: "Length", type: "number" }
-    ],
-    "pfl": [
-      { name: "material", label: "Material", type: "text" },
-      { name: "edge", label: "Edge", type: "text" },
-      { name: "cutAndFold", label: "Cut and Fold", type: "text" },
-      { name: "width", label: "Width", type: "number" },
-      { name: "length", label: "Length", type: "number" },
-      { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
-      { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"] },
-      { name: "thickness", label: "Thickness", type: "number" }
-    ]
-  };
-  const productTypes = Object.keys(productTypeFields);
-  let productTypeOptions = '<option value="">-- Select Product Type --</option>' + productTypes.map(pt => `<option value="${pt}">${pt}</option>`).join("");
-  
-  $('#right-frame').html(`
-    <div style="padding:32px;max-width:600px;">
-      <h2>Create Quotation 2</h2>
-      <form id="quotation2-create-form" autocomplete="off">
-        <label>Company:<br>
-          <input type="text" id="quotation2-company-input" placeholder="Type to search..." autocomplete="off">
-          <input type="hidden" id="quotation2-company-id">
-          <div id="company2-suggestions" style="position:relative;"></div>
-        </label><br><br>
-        <label>Key Person:<br>
-          <select id="quotation2-keyperson" required disabled>
-            <option value="">-- Select Key Person --</option>
-          </select>
-        </label><br><br>
-        <label>Product Type:<br>
-          <select id="quotation2-product-type" required>
-            ${productTypeOptions}
-          </select>
-        </label><br><br>
-        <div id="quotation2-dynamic-fields"></div>
-        <br>
-        <button type="submit" style="padding:8px 32px;">Submit</button>
-      </form>
-    </div>
-  `);
+  // First fetch customers for company search
+  fetchCustomers(function() {
+    const productTypeFields = {
+      "heat transfer": [
+        { name: "quality", label: "Quality", type: "select", options: ["PU", "Silicon"] },
+        { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
+        { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"] },
+        { name: "thickness", label: "Thickness", type: "number" },
+        { name: "numColors", label: "# of Colors", type: "number" },
+        { name: "colorNames", label: "Color Names", type: "dynamic" },
+        { name: "width", label: "Width", type: "number" },
+        { name: "length", label: "Length", type: "number" }
+      ],
+      "pfl": [
+        { name: "material", label: "Material", type: "text" },
+        { name: "edge", label: "Edge", type: "text" },
+        { name: "cutAndFold", label: "Cut and Fold", type: "text" },
+        { name: "width", label: "Width", type: "number" },
+        { name: "length", label: "Length", type: "number" },
+        { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
+        { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"] },
+        { name: "thickness", label: "Thickness", type: "number" }
+      ]
+    };
+    const productTypes = Object.keys(productTypeFields);
+    let productTypeOptions = '<option value="">-- Select Product Type --</option>' + productTypes.map(pt => `<option value="${pt}">${pt}</option>`).join("");
+    
+    $('#right-frame').html(`
+      <div style="padding:32px;max-width:600px;">
+        <h2>Create Quotation 2</h2>
+        <form id="quotation2-create-form" autocomplete="off">
+          <label>Company:<br>
+            <input type="text" id="quotation2-company-input" list="company2-list" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
+            <datalist id="company2-list">
+              ${customers.map(c => `<option value="${c.company}" data-id="${c.id}">`).join('')}
+            </datalist>
+            <input type="hidden" id="quotation2-company-id">
+          </label><br><br>
+          <label>Key Person:<br>
+            <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
+              <option value="">-- Select Key Person --</option>
+            </select>
+          </label><br><br>
+          <label>Product Type:<br>
+            <select id="quotation2-product-type" style="width: 100%; padding: 8px;">
+              ${productTypeOptions}
+            </select>
+          </label><br><br>
+          <div id="quotation2-dynamic-fields"></div>
+          <br>
+          <button type="submit" style="padding:8px 32px;">Submit</button>
+        </form>
+      </div>
+    `);
 
-  // Render dynamic fields blank
-  $('#quotation2-product-type').on('change', function() {
+    // Company search functionality
+    $('#quotation2-company-input').on('input', function() {
+      const val = $(this).val().toLowerCase();
+      let matches = customers.filter(c => c.company.toLowerCase().includes(val));
+      
+      // Update datalist
+      let html = matches.map(c => `<option value="${c.company}" data-id="${c.id}">`).join('');
+      $('#company2-list').html(html);
+      
+      // Find exact match
+      const exactMatch = customers.find(c => c.company.toLowerCase() === val.toLowerCase());
+      if (exactMatch) {
+        $('#quotation2-company-id').val(exactMatch.id);
+        // Populate key people for the matched company
+        let kpOpts = '<option value="">-- Select Key Person --</option>';
+        if (Array.isArray(exactMatch.keyPeople)) {
+          kpOpts += exactMatch.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+        }
+        $('#quotation2-keyperson').html(kpOpts);
+      } else {
+        $('#quotation2-company-id').val('');
+        $('#quotation2-keyperson').html('<option value="">-- Select Key Person --</option>');
+      }
+    });
+
+    // Handle company selection from datalist
+    $('#quotation2-company-input').on('change', function() {
+      const val = $(this).val();
+      const company = customers.find(c => c.company === val);
+      if (company) {
+        $('#quotation2-company-id').val(company.id);
+        // Populate key people
+        let kpOpts = '<option value="">-- Select Key Person --</option>';
+        if (Array.isArray(company.keyPeople)) {
+          kpOpts += company.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+        }
+        $('#quotation2-keyperson').html(kpOpts);
+      }
+    });
+
+    // Only render dynamic fields, no other functionality
+    $('#quotation2-product-type').on('change', function() {
+      renderDynamicFieldsBlank2(productTypeFields);
+    });
     renderDynamicFieldsBlank2(productTypeFields);
   });
-  renderDynamicFieldsBlank2(productTypeFields); // Initial blank render
 }
 
 function renderDynamicFieldsBlank2(productTypeFields) {

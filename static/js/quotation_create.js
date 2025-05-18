@@ -184,13 +184,6 @@ function showQuotationCreateForm2() {
               <option value="">-- Select Key Person --</option>
             </select>
           </label><br><br>
-          <label>Product Type:<br>
-            <select id="quotation2-product-type" style="width: 100%; padding: 8px;">
-              <option value="">-- Select Product Type --</option>
-              <option value="heat transfer">heat transfer</option>
-              <option value="pfl">pfl</option>
-            </select>
-          </label><br><br>
           <div id="quotation2-dynamic-fields">
             <label>Quality:<br>
               <select name="quality">

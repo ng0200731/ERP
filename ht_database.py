@@ -71,6 +71,17 @@ def get_ht_database():
     try:
         engine = get_db()
         df = pd.read_sql_table('ht_database', engine)
+        # Map columns to frontend keys
+        df = df.rename(columns={
+            'Quality': 'quality',
+            'Flat or Raised': 'flat_or_raised',
+            'Direct or Reverse': 'direct_or_reverse',
+            'Thickness': 'thickness',
+            '# of Colors': 'num_colors',
+            'Length': 'length',
+            'Width': 'width',
+            'Price': 'price'
+        })
         return jsonify(df.to_dict('records'))
     except Exception as e:
         return jsonify({'error': str(e)}), 500

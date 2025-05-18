@@ -104,23 +104,26 @@
                     <div style="font-size:0.95rem; font-weight:normal; color:#333; margin-top:8px;">Copy rows from Excel, click this box, then press Ctrl+V to import.</div>
                 </div>
 
-                <table class="table table-bordered ht-table">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Quality</th>
-                            <th>Flat or Raised</th>
-                            <th>Direct or Reverse</th>
-                            <th>Thickness</th>
-                            <th># of Colors</th>
-                            <th>Length</th>
-                            <th>Width</th>
-                            <th>Price</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Data rows will be inserted here in later steps -->
-                    </tbody>
-                </table>
+                <div id="table-container">
+                    <table id="ht-data-table" class="table table-bordered ht-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Quality</th>
+                                <th>Flat or Raised</th>
+                                <th>Direct or Reverse</th>
+                                <th>Thickness</th>
+                                <th># of Colors</th>
+                                <th>Length</th>
+                                <th>Width</th>
+                                <th>Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="no-data-message" style="display:none; text-align:center; color:#888; margin-top:20px;">No data available.</div>
             </div>
         </div>
 

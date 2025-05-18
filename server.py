@@ -263,6 +263,20 @@ def serve_index():
     user_email = session.get('user', None)
     return render_template('index.html', permission_level=permission_level, user_email=user_email)
 
+@app.route('/check_permission')
+def check_permission():
+    # Return the user's permission level as JSON
+    permission_level = session.get('permission_level', 1)
+    return jsonify({'level': permission_level})
+
+@app.route('/ht_database')
+def ht_database():
+    # Check if user has level 3 permission
+    permission_level = session.get('permission_level', 1)
+    if permission_level < 3:
+        return "Access Denied: You need level 3 permission to access this page", 403
+    return render_template('ht_database.html')
+
 # --- User and Approval Tables ---
 def init_user_db():
     conn = get_db()

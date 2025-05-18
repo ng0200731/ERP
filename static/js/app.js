@@ -1,7 +1,25 @@
 // Remove LocalStorage and in-memory array logic
 // Use AJAX to communicate with Flask backend
 let customers = [];
-// Add a default definition to avoid ReferenceError
+
+// Add this at the beginning of the file
+function checkUserPermission(callback) {
+  $.get('/check_permission', function(response) {
+    callback(response.level);
+  }).fail(function() {
+    callback(0);
+  });
+}
+
+// Function to check if user has database permission (level 3)
+function checkDatabasePermission(callback) {
+  checkUserPermission(function(level) {
+    const hasPermission = level >= 3;
+    if (callback) callback(hasPermission);
+  });
+}
+
+// A default definition to avoid ReferenceError
 function handleSubmitSlide2() {}
   let currentCustomer = null;
   let slide1Data = {};
@@ -2133,4 +2151,13 @@ function showQuotationCreateForm() {
 
 $(document).off('click.customerModify').on('click.customerModify', '#btn-ay', function() {
   showModify();
+});
+
+// Click handler for the "Submit Quote" button visible to all users
+$(document).on('click', '#all-users-btn', function() {
+  // Show confirmation dialog
+  if (confirm('Are you sure you want to submit this quotation?')) {
+    showCustomPopup('Quotation submitted successfully!', false);
+    // You can add actual submission logic here
+  }
 });

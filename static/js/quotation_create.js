@@ -1,5 +1,18 @@
 // Only attach the handler for Quotation Create button once, and do not globally override anything else
 $(function() {
+  // Make sure userPermissionLevel is defined, if not, get it
+  if (typeof userPermissionLevel === 'undefined') {
+    // Check for checkUserPermission function
+    if (typeof checkUserPermission === 'function') {
+      checkUserPermission(function(level) {
+        window.userPermissionLevel = level;
+      });
+    } else {
+      // Default to level 1 if no permission check function exists
+      window.userPermissionLevel = 1;
+    }
+  }
+  
   $(document).off('click.quotationCreate').on('click.quotationCreate', '#btn-quotation-create', function() {
     showQuotationCreateForm();
   });
@@ -166,191 +179,209 @@ function renderDynamicFieldsBlank(productTypeFields) {
 }
 
 function showQuotationCreateForm2() {
-  // First fetch customers for company search
+  // First fetch customers for company search and check permission level
   fetchCustomers(function() {
-    $('#right-frame').html(`
-      <div style="padding:32px;max-width:600px;">
-        <h2>Create Quotation (HT)</h2>
-        <form id="quotation2-create2-form" autocomplete="off">
-          <!-- Customer Details Section -->
-          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-            <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
-            <label>Company:<br>
-              <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
-              <div id="company2-suggestions" style="position: relative;">
-                <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
-              </div>
-              <input type="hidden" id="quotation2-company-id">
-            </label><br><br>
-            <label>Key Person:<br>
-              <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
-                <option value="">-- Select Key Person --</option>
-              </select>
-            </label>
+    // Get the user permission level
+    $.get('/check_permission', function(response) {
+      const userLevel = response.level || 0;
+      
+      $('#right-frame').html(`
+        <div style="padding:32px;max-width:600px;">
+          <h2>Create Quotation (HT)</h2>
+          
+          ${userLevel >= 3 ? `
+          <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
+          <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
+            <a href="/ht_database" target="_blank" style="text-decoration: none;">
+              <button type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                DATABASE
+              </button>
+            </a>
           </div>
-
-          <!-- Item Information Section -->
-          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
-            <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
-            <div id="quotation2-dynamic-fields">
-              <label>Quality:<br>
-                <select name="quality" style="width: 100%; padding: 8px;">
-                  <option value="">-- Select --</option>
-                  <option value="PU">PU</option>
-                  <option value="Silicon">Silicon</option>
+          ` : ''}
+          
+          <form id="quotation2-create2-form" autocomplete="off">
+            <!-- Customer Details Section -->
+            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
+              <label>Company:<br>
+                <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
+                <div id="company2-suggestions" style="position: relative;">
+                  <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
+                </div>
+                <input type="hidden" id="quotation2-company-id">
+              </label><br><br>
+              <label>Key Person:<br>
+                <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
+                  <option value="">-- Select Key Person --</option>
                 </select>
-              </label><br><br>
-              <label>Flat or Raised:<br>
-                <select name="flatOrRaised" style="width: 100%; padding: 8px;">
-                  <option value="">-- Select --</option>
-                  <option value="Flat">Flat</option>
-                  <option value="Raised">Raised</option>
-                </select>
-              </label><br><br>
-              <label>Direct or Reverse:<br>
-                <select name="directOrReverse" style="width: 100%; padding: 8px;">
-                  <option value="">-- Select --</option>
-                  <option value="Direct">Direct</option>
-                  <option value="Reverse">Reverse</option>
-                </select>
-              </label><br><br>
-              <label>Thickness:<br>
-                <input type="number" name="thickness" min="0" value="" style="width: 100%; padding: 8px;">
-              </label><br><br>
-              <label># of Colors:<br>
-                <input type="number" name="numColors" min="1" value="1" style="width: 100%; padding: 8px;">
-              </label><br><br>
-              <label>Width:<br>
-                <input type="number" name="width" min="0" value="" style="width: 100%; padding: 8px;">
-              </label><br><br>
-              <label>Length:<br>
-                <input type="number" name="length" min="0" value="" style="width: 100%; padding: 8px;">
               </label>
             </div>
-          </div>
-          <br>
-          <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
-        </form>
-      </div>
-    `);
 
-    let currentFocus = -1;
+            <!-- Item Information Section -->
+            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
+              <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
+              <div id="quotation2-dynamic-fields">
+                <label>Quality:<br>
+                  <select name="quality" style="width: 100%; padding: 8px;">
+                    <option value="">-- Select --</option>
+                    <option value="PU">PU</option>
+                    <option value="Silicon">Silicon</option>
+                  </select>
+                </label><br><br>
+                <label>Flat or Raised:<br>
+                  <select name="flatOrRaised" style="width: 100%; padding: 8px;">
+                    <option value="">-- Select --</option>
+                    <option value="Flat">Flat</option>
+                    <option value="Raised">Raised</option>
+                  </select>
+                </label><br><br>
+                <label>Direct or Reverse:<br>
+                  <select name="directOrReverse" style="width: 100%; padding: 8px;">
+                    <option value="">-- Select --</option>
+                    <option value="Direct">Direct</option>
+                    <option value="Reverse">Reverse</option>
+                  </select>
+                </label><br><br>
+                <label>Thickness:<br>
+                  <input type="number" name="thickness" min="0" value="" style="width: 100%; padding: 8px;">
+                </label><br><br>
+                <label># of Colors:<br>
+                  <input type="number" name="numColors" min="1" value="1" style="width: 100%; padding: 8px;">
+                </label><br><br>
+                <label>Width:<br>
+                  <input type="number" name="width" min="0" value="" style="width: 100%; padding: 8px;">
+                </label><br><br>
+                <label>Length:<br>
+                  <input type="number" name="length" min="0" value="" style="width: 100%; padding: 8px;">
+                </label>
+              </div>
+            </div>
+            <br>
+            <!-- Submit button at the bottom -->
+            <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
+          </form>
+        </div>
+      `);
 
-    // Function to update suggestion list
-    function updateSuggestions(val = '') {
-      val = val.toLowerCase();
-      let matches = val ? 
-        customers.filter(c => c.company.toLowerCase().includes(val)) :
-        customers;
-      
-      const $suggestionList = $('#company2-suggestions ul');
-      if (matches.length) {
-        const html = matches.map(c => 
-          `<li data-id="${c.id}" style="padding: 8px 12px; cursor: pointer; list-style: none; border-bottom: 1px solid #eee;">${c.company}</li>`
-        ).join('');
-        $suggestionList.html(html).show();
-        currentFocus = -1; // Reset focus when updating list
-      } else {
-        $suggestionList.hide();
-      }
-    }
+      let currentFocus = -1;
 
-    // Function to select company
-    function selectCompany(id) {
-      const company = customers.find(c => c.id == id);
-      if (company) {
-        $('#quotation2-company-input').val(company.company);
-        $('#quotation2-company-id').val(company.id);
-        $('#company2-suggestions ul').hide();
-        // Mark as selected
-        $('#quotation2-company-input').attr('data-selected', 'true');
-
-        // Populate key people
-        let kpOpts = '<option value="">-- Select Key Person --</option>';
-        if (Array.isArray(company.keyPeople)) {
-          kpOpts += company.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+      // Function to update suggestion list
+      function updateSuggestions(val = '') {
+        val = val.toLowerCase();
+        let matches = val ? 
+          customers.filter(c => c.company.toLowerCase().includes(val)) :
+          customers;
+        
+        const $suggestionList = $('#company2-suggestions ul');
+        if (matches.length) {
+          const html = matches.map(c => 
+            `<li data-id="${c.id}" style="padding: 8px 12px; cursor: pointer; list-style: none; border-bottom: 1px solid #eee;">${c.company}</li>`
+          ).join('');
+          $suggestionList.html(html).show();
+          currentFocus = -1; // Reset focus when updating list
+        } else {
+          $suggestionList.hide();
         }
-        $('#quotation2-keyperson').html(kpOpts);
       }
-    }
 
-    // Show companies only when typing or when field is empty
-    $('#quotation2-company-input').on('focus click', function(e) {
-      // Don't show list if company is already selected
-      if ($(this).attr('data-selected') === 'true') {
-        return;
+      // Function to select company
+      function selectCompany(id) {
+        const company = customers.find(c => c.id == id);
+        if (company) {
+          $('#quotation2-company-input').val(company.company);
+          $('#quotation2-company-id').val(company.id);
+          $('#company2-suggestions ul').hide();
+          // Mark as selected
+          $('#quotation2-company-input').attr('data-selected', 'true');
+
+          // Populate key people
+          let kpOpts = '<option value="">-- Select Key Person --</option>';
+          if (Array.isArray(company.keyPeople)) {
+            kpOpts += company.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+          }
+          $('#quotation2-keyperson').html(kpOpts);
+        }
       }
-      updateSuggestions();
-    });
 
-    // Filter companies as user types
-    $('#quotation2-company-input').on('input', function() {
-      const val = $(this).val();
-      // Remove selected state when user starts typing
-      $(this).attr('data-selected', 'false');
-      updateSuggestions(val);
-    });
+      // Show companies only when typing or when field is empty
+      $('#quotation2-company-input').on('focus click', function(e) {
+        // Don't show list if company is already selected
+        if ($(this).attr('data-selected') === 'true') {
+          return;
+        }
+        updateSuggestions();
+      });
 
-    // Handle keyboard navigation
-    $('#quotation2-company-input').on('keydown', function(e) {
-      const $suggestions = $('#company2-suggestions ul');
-      const $items = $suggestions.find('li');
-      
-      if (!$items.length) return;
+      // Filter companies as user types
+      $('#quotation2-company-input').on('input', function() {
+        const val = $(this).val();
+        // Remove selected state when user starts typing
+        $(this).attr('data-selected', 'false');
+        updateSuggestions(val);
+      });
 
-      // Down arrow
-      if (e.keyCode === 40) {
-        currentFocus++;
-        if (currentFocus >= $items.length) currentFocus = 0;
-        $items.removeClass('active').css('background-color', '');
-        $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
-        // Scroll into view if needed
-        const activeItem = $items[currentFocus];
-        if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
-      }
-      // Up arrow
-      else if (e.keyCode === 38) {
-        currentFocus--;
-        if (currentFocus < 0) currentFocus = $items.length - 1;
-        $items.removeClass('active').css('background-color', '');
-        $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
-        // Scroll into view if needed
-        const activeItem = $items[currentFocus];
-        if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
-      }
-      // Enter
-      else if (e.keyCode === 13 && currentFocus > -1) {
-        e.preventDefault(); // Prevent form submission
-        const id = $items.eq(currentFocus).data('id');
+      // Handle keyboard navigation
+      $('#quotation2-company-input').on('keydown', function(e) {
+        const $suggestions = $('#company2-suggestions ul');
+        const $items = $suggestions.find('li');
+        
+        if (!$items.length) return;
+
+        // Down arrow
+        if (e.keyCode === 40) {
+          currentFocus++;
+          if (currentFocus >= $items.length) currentFocus = 0;
+          $items.removeClass('active').css('background-color', '');
+          $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
+          // Scroll into view if needed
+          const activeItem = $items[currentFocus];
+          if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+        }
+        // Up arrow
+        else if (e.keyCode === 38) {
+          currentFocus--;
+          if (currentFocus < 0) currentFocus = $items.length - 1;
+          $items.removeClass('active').css('background-color', '');
+          $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
+          // Scroll into view if needed
+          const activeItem = $items[currentFocus];
+          if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+        }
+        // Enter
+        else if (e.keyCode === 13 && currentFocus > -1) {
+          e.preventDefault(); // Prevent form submission
+          const id = $items.eq(currentFocus).data('id');
+          selectCompany(id);
+        }
+        // Escape
+        else if (e.keyCode === 27) {
+          $suggestions.hide();
+          currentFocus = -1;
+        }
+      });
+
+      // Handle company selection by click
+      $('#company2-suggestions').on('click', 'li', function() {
+        const id = $(this).data('id');
         selectCompany(id);
-      }
-      // Escape
-      else if (e.keyCode === 27) {
-        $suggestions.hide();
-        currentFocus = -1;
-      }
-    });
+      });
 
-    // Handle company selection by click
-    $('#company2-suggestions').on('click', 'li', function() {
-      const id = $(this).data('id');
-      selectCompany(id);
-    });
+      // Handle mouse hover on suggestions
+      $('#company2-suggestions').on('mouseover', 'li', function() {
+        const $items = $('#company2-suggestions ul li');
+        $items.removeClass('active').css('background-color', '');
+        $(this).addClass('active').css('background-color', '#f0f0f0');
+        currentFocus = $items.index(this);
+      });
 
-    // Handle mouse hover on suggestions
-    $('#company2-suggestions').on('mouseover', 'li', function() {
-      const $items = $('#company2-suggestions ul li');
-      $items.removeClass('active').css('background-color', '');
-      $(this).addClass('active').css('background-color', '#f0f0f0');
-      currentFocus = $items.index(this);
-    });
-
-    // Hide suggestions when clicking outside
-    $(document).on('click', function(e) {
-      if (!$(e.target).closest('#quotation2-company-input, #company2-suggestions').length) {
-        $('#company2-suggestions ul').hide();
-        currentFocus = -1;
-      }
+      // Hide suggestions when clicking outside
+      $(document).on('click', function(e) {
+        if (!$(e.target).closest('#quotation2-company-input, #company2-suggestions').length) {
+          $('#company2-suggestions ul').hide();
+          currentFocus = -1;
+        }
+      });
     });
   });
 } 

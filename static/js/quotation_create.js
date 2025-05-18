@@ -198,10 +198,10 @@ function showQuotationCreateForm2() {
         <h2>Create Quotation 2</h2>
         <form id="quotation2-create-form" autocomplete="off">
           <label>Company:<br>
-            <input type="text" id="quotation2-company-input" list="company2-list" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
-            <datalist id="company2-list">
-              ${customers.map(c => `<option value="${c.company}" data-id="${c.id}">`).join('')}
-            </datalist>
+            <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
+            <div id="company2-suggestions" style="position: relative;">
+              <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
+            </div>
             <input type="hidden" id="quotation2-company-id">
           </label><br><br>
           <label>Key Person:<br>
@@ -221,43 +221,122 @@ function showQuotationCreateForm2() {
       </div>
     `);
 
-    // Company search functionality
-    $('#quotation2-company-input').on('input', function() {
-      const val = $(this).val().toLowerCase();
-      let matches = customers.filter(c => c.company.toLowerCase().includes(val));
-      
-      // Update datalist
-      let html = matches.map(c => `<option value="${c.company}" data-id="${c.id}">`).join('');
-      $('#company2-list').html(html);
-      
-      // Find exact match
-      const exactMatch = customers.find(c => c.company.toLowerCase() === val.toLowerCase());
-      if (exactMatch) {
-        $('#quotation2-company-id').val(exactMatch.id);
-        // Populate key people for the matched company
-        let kpOpts = '<option value="">-- Select Key Person --</option>';
-        if (Array.isArray(exactMatch.keyPeople)) {
-          kpOpts += exactMatch.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
-        }
-        $('#quotation2-keyperson').html(kpOpts);
-      } else {
-        $('#quotation2-company-id').val('');
-        $('#quotation2-keyperson').html('<option value="">-- Select Key Person --</option>');
-      }
-    });
+    let currentFocus = -1;
 
-    // Handle company selection from datalist
-    $('#quotation2-company-input').on('change', function() {
-      const val = $(this).val();
-      const company = customers.find(c => c.company === val);
+    // Function to update suggestion list
+    function updateSuggestions(val = '') {
+      val = val.toLowerCase();
+      let matches = val ? 
+        customers.filter(c => c.company.toLowerCase().includes(val)) :
+        customers;
+      
+      const $suggestionList = $('#company2-suggestions ul');
+      if (matches.length) {
+        const html = matches.map(c => 
+          `<li data-id="${c.id}" style="padding: 8px 12px; cursor: pointer; list-style: none; border-bottom: 1px solid #eee;">${c.company}</li>`
+        ).join('');
+        $suggestionList.html(html).show();
+        currentFocus = -1; // Reset focus when updating list
+      } else {
+        $suggestionList.hide();
+      }
+    }
+
+    // Function to select company
+    function selectCompany(id) {
+      const company = customers.find(c => c.id == id);
       if (company) {
+        $('#quotation2-company-input').val(company.company);
         $('#quotation2-company-id').val(company.id);
+        $('#company2-suggestions ul').hide();
+        // Mark as selected
+        $('#quotation2-company-input').attr('data-selected', 'true');
+
         // Populate key people
         let kpOpts = '<option value="">-- Select Key Person --</option>';
         if (Array.isArray(company.keyPeople)) {
           kpOpts += company.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
         }
         $('#quotation2-keyperson').html(kpOpts);
+      }
+    }
+
+    // Show companies only when typing or when field is empty
+    $('#quotation2-company-input').on('focus click', function(e) {
+      // Don't show list if company is already selected
+      if ($(this).attr('data-selected') === 'true') {
+        return;
+      }
+      updateSuggestions();
+    });
+
+    // Filter companies as user types
+    $('#quotation2-company-input').on('input', function() {
+      const val = $(this).val();
+      // Remove selected state when user starts typing
+      $(this).attr('data-selected', 'false');
+      updateSuggestions(val);
+    });
+
+    // Handle keyboard navigation
+    $('#quotation2-company-input').on('keydown', function(e) {
+      const $suggestions = $('#company2-suggestions ul');
+      const $items = $suggestions.find('li');
+      
+      if (!$items.length) return;
+
+      // Down arrow
+      if (e.keyCode === 40) {
+        currentFocus++;
+        if (currentFocus >= $items.length) currentFocus = 0;
+        $items.removeClass('active').css('background-color', '');
+        $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
+        // Scroll into view if needed
+        const activeItem = $items[currentFocus];
+        if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+      }
+      // Up arrow
+      else if (e.keyCode === 38) {
+        currentFocus--;
+        if (currentFocus < 0) currentFocus = $items.length - 1;
+        $items.removeClass('active').css('background-color', '');
+        $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
+        // Scroll into view if needed
+        const activeItem = $items[currentFocus];
+        if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+      }
+      // Enter
+      else if (e.keyCode === 13 && currentFocus > -1) {
+        e.preventDefault(); // Prevent form submission
+        const id = $items.eq(currentFocus).data('id');
+        selectCompany(id);
+      }
+      // Escape
+      else if (e.keyCode === 27) {
+        $suggestions.hide();
+        currentFocus = -1;
+      }
+    });
+
+    // Handle company selection by click
+    $('#company2-suggestions').on('click', 'li', function() {
+      const id = $(this).data('id');
+      selectCompany(id);
+    });
+
+    // Handle mouse hover on suggestions
+    $('#company2-suggestions').on('mouseover', 'li', function() {
+      const $items = $('#company2-suggestions ul li');
+      $items.removeClass('active').css('background-color', '');
+      $(this).addClass('active').css('background-color', '#f0f0f0');
+      currentFocus = $items.index(this);
+    });
+
+    // Hide suggestions when clicking outside
+    $(document).on('click', function(e) {
+      if (!$(e.target).closest('#quotation2-company-input, #company2-suggestions').length) {
+        $('#company2-suggestions ul').hide();
+        currentFocus = -1;
       }
     });
 

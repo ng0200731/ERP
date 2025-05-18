@@ -3,6 +3,20 @@ $(function() {
   $(document).off('click.quotationCreate').on('click.quotationCreate', '#btn-quotation-create', function() {
     showQuotationCreateForm();
   });
+  
+  // Quotation 2 button handler
+  $(document).off('click.quotationCreate2').on('click.quotationCreate2', '#btn-quotation2-create2', function() {
+    $('#quotation2-create2-form').show();
+    $('#quotation-create-form').hide();
+    $('#welcome').hide();
+  });
+
+  // Toggle Quotation 2 nested menu
+  $('#btn-quotation2').on('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $('#quotation2-nested').toggle();
+  });
 });
 
 function showQuotationCreateForm() {
@@ -83,5 +97,182 @@ function renderDynamicFieldsBlank(productTypeFields) {
   $('#quotation-dynamic-fields').html(html);
   $('#quotation-dynamic-fields [name="numColors"]').off('input').on('input', function() {
     renderDynamicFieldsBlank(productTypeFields);
+  });
+}
+
+function showQuotationCreateForm2() {
+  // Render a blank form for quotation 2 creation (duplicate of original)
+  const productTypeFields = {
+    "heat transfer": [
+      { name: "quality", label: "Quality", type: "select", options: ["PU", "Silicon"] },
+      { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
+      { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"] },
+      { name: "thickness", label: "Thickness", type: "number" },
+      { name: "numColors", label: "# of Colors", type: "number" },
+      { name: "colorNames", label: "Color Names", type: "dynamic" },
+      { name: "width", label: "Width", type: "number" },
+      { name: "length", label: "Length", type: "number" }
+    ],
+    "pfl": [
+      { name: "material", label: "Material", type: "text" },
+      { name: "edge", label: "Edge", type: "text" },
+      { name: "cutAndFold", label: "Cut and Fold", type: "text" },
+      { name: "width", label: "Width", type: "number" },
+      { name: "length", label: "Length", type: "number" },
+      { name: "flatOrRaised", label: "Flat or Raised", type: "select", options: ["Flat", "Raised"] },
+      { name: "directOrReverse", label: "Direct or Reverse", type: "select", options: ["Direct", "Reverse"] },
+      { name: "thickness", label: "Thickness", type: "number" }
+    ]
+  };
+  const productTypes = Object.keys(productTypeFields);
+  let productTypeOptions = '<option value="">-- Select Product Type --</option>' + productTypes.map(pt => `<option value="${pt}">${pt}</option>`).join("");
+  $('#right-frame').html(`
+    <div style="padding:32px;max-width:600px;">
+      <h2>Create Quotation 2</h2>
+      <form id="quotation2-create-form" autocomplete="off">
+        <label>Company:<br>
+          <input type="text" id="quotation2-company-input" placeholder="Type to search..." autocomplete="off">
+          <input type="hidden" id="quotation2-company-id">
+          <div id="company2-suggestions" style="position:relative;"></div>
+        </label><br><br>
+        <label>Key Person:<br>
+          <select id="quotation2-keyperson" required disabled>
+            <option value="">-- Select Key Person --</option>
+          </select>
+        </label><br><br>
+        <label>Product Type:<br>
+          <select id="quotation2-product-type" required>
+            ${productTypeOptions}
+          </select>
+        </label><br><br>
+        <div id="quotation2-dynamic-fields"></div>
+        <br>
+        <button type="submit" style="padding:8px 32px;">Submit</button>
+      </form>
+      <div id="quotation2-error-message" class="error-message" style="color: red; margin-top: 10px; display: none;"></div>
+    </div>
+  `);
+  
+  // Add form submission handler with validation
+  $('#quotation2-create-form').on('submit', function(e) {
+    e.preventDefault();
+    const errorDiv = $('#quotation2-error-message');
+    errorDiv.hide();
+    
+    // Basic form validation
+    const companyId = $('#quotation2-company-id').val();
+    const keyPerson = $('#quotation2-keyperson').val();
+    const productType = $('#quotation2-product-type').val();
+    
+    if (!companyId) {
+      errorDiv.text('Please select a company').show();
+      return;
+    }
+    if (!keyPerson) {
+      errorDiv.text('Please select a key person').show();
+      return;
+    }
+    if (!productType) {
+      errorDiv.text('Please select a product type').show();
+      return;
+    }
+
+    // Collect form data
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Add visual feedback
+    const submitBtn = $(this).find('button[type="submit"]');
+    submitBtn.prop('disabled', true).text('Submitting...');
+    
+    // AJAX call to save data
+    $.ajax({
+      url: '/api/quotation2/create',  // Update this URL to match your backend endpoint
+      method: 'POST',
+      data: JSON.stringify(data),
+      contentType: 'application/json',
+      success: function(response) {
+        submitBtn.prop('disabled', false).text('Submit');
+        alert('Quotation 2 created successfully!');
+        // Optionally redirect or clear form
+        // $('#quotation2-create-form')[0].reset();
+      },
+      error: function(xhr, status, error) {
+        submitBtn.prop('disabled', false).text('Submit');
+        let errorMessage = 'An error occurred while saving the quotation.';
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+          errorMessage = xhr.responseJSON.message;
+        }
+        errorDiv.text(errorMessage).show();
+      }
+    });
+  });
+
+  // Add company search functionality
+  $('#quotation2-company-input').on('input', function() {
+    const searchTerm = $(this).val();
+    if (searchTerm.length < 2) return;
+
+    $.ajax({
+      url: '/api/companies/search',  // Update this URL to match your backend endpoint
+      method: 'GET',
+      data: { term: searchTerm },
+      success: function(response) {
+        const suggestions = response.map(company => 
+          `<div class="suggestion" data-id="${company.id}">${company.name}</div>`
+        ).join('');
+        $('#company2-suggestions').html(suggestions).show();
+      }
+    });
+  });
+
+  // Handle company selection
+  $(document).on('click', '#company2-suggestions .suggestion', function() {
+    const companyId = $(this).data('id');
+    const companyName = $(this).text();
+    $('#quotation2-company-id').val(companyId);
+    $('#quotation2-company-input').val(companyName);
+    $('#company2-suggestions').hide();
+    
+    // Load key persons for selected company
+    $.ajax({
+      url: `/api/companies/${companyId}/keypersons`,  // Update this URL to match your backend endpoint
+      method: 'GET',
+      success: function(response) {
+        const options = response.map(person => 
+          `<option value="${person.id}">${person.name}</option>`
+        ).join('');
+        $('#quotation2-keyperson').html('<option value="">-- Select Key Person --</option>' + options).prop('disabled', false);
+      }
+    });
+  });
+
+  // Render dynamic fields blank
+  $('#quotation2-product-type').on('change', function() {
+    renderDynamicFieldsBlank2(productTypeFields);
+  });
+  renderDynamicFieldsBlank2(productTypeFields); // Initial blank render
+}
+
+function renderDynamicFieldsBlank2(productTypeFields) {
+  const type = $('#quotation2-product-type').val();
+  const fields = productTypeFields[type] || [];
+  let html = '';
+  fields.forEach(field => {
+    if (field.type === 'select') {
+      html += `<label>${field.label}:<br><select name="${field.name}"><option value="">-- Select --</option>${field.options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}</select></label><br>`;
+    } else if (field.type === 'number' && field.name !== 'numColors') {
+      html += `<label>${field.label}:<br><input type="number" name="${field.name}" min="0" value=""></label><br>`;
+    } else if (field.type === 'text') {
+      html += `<label>${field.label}:<br><input type="text" name="${field.name}" value=""></label><br>`;
+    } else if (field.type === 'dynamic' && field.name === 'colorNames') {
+      html += `<label># of Colors:</label><div class="color-group"><input type="number" name="numColors" min="1" value="1" style="width: 95%; margin-bottom: 1em;"></div><label>Color Names:</label><div class="color-names-indent">`;
+      html += `<input type="text" name="colorName1" placeholder="Color 1" value="" style="width: 95%; margin-bottom: 0.5em;">`;
+      html += `</div><br>`;
+    }
+  });
+  $('#quotation2-dynamic-fields').html(html);
+  $('#quotation2-dynamic-fields [name="numColors"]').off('input').on('input', function() {
+    renderDynamicFieldsBlank2(productTypeFields);
   });
 } 

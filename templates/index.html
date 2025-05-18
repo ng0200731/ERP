@@ -31,6 +31,10 @@
       <button id="btn-development">Development</button>
       <!-- Admin button only for level 3 users -->
       <button id="btn-admin" style="display:none;">Admin</button>
+      <button id="btn-quotation2">Quotation 2</button>
+      <div id="quotation2-nested" style="display:none; margin-left: 10px;">
+        <button id="btn-quotation2-create2">Create 2</button>
+      </div>
       <div style="position:absolute;bottom:40px;left:30px;width:160px;text-align:center;">
         <button id="logout-btn" style="padding:10px 32px; background:#eee; border-radius:6px; border:1px solid #ccc; font-size:18px;">Logout</button>
       </div>
@@ -38,10 +42,89 @@
     <div class="right-frame" id="right-frame">
       <!-- Dynamic content goes here -->
       <div id="welcome">Please select an option from the left.</div>
+      <!-- Static Quotation Create UI (no JS, no rules, just UI) -->
+      <div id="quotation-create-form" style="padding:32px;max-width:600px; margin-top:40px;">
+        <h2>Create Quotation</h2>
+        <form autocomplete="off">
+          <label>Company:<br><input type="text" name="quotation-company" value=""></label><br><br>
+          <label>Key Person:<br>
+            <select name="quotation-keyperson">
+              <option value="">-- Select --</option>
+            </select>
+          </label><br><br>
+          <label>Product Type:<br>
+            <select name="quotation-product-type">
+              <option value="">-- Select --</option>
+            </select>
+          </label><br><br>
+          <label>Quality:<br>
+            <select name="quality">
+              <option value="">-- Select --</option>
+            </select>
+          </label><br><br>
+          <label>Flat or Raised:<br>
+            <select name="flatOrRaised">
+              <option value="">-- Select --</option>
+            </select>
+          </label><br><br>
+          <label>Direct or Reverse:<br>
+            <select name="directOrReverse">
+              <option value="">-- Select --</option>
+              <option value="Direct">Direct</option>
+              <option value="Reverse">Reverse</option>
+            </select>
+          </label><br><br>
+          <label>Thickness:<br><input type="text" name="thickness" value=""></label><br><br>
+          <label># of Colors:<br><input type="text" name="numColors" value=""></label><br><br>
+          <label>Width:<br><input type="text" name="width" value=""></label><br><br>
+          <label>Length:<br><input type="text" name="length" value=""></label><br><br>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+      <!-- Static Quotation 2 Create 2 UI (no JS, no rules, just UI) -->
+      <div id="quotation2-create2-form" style="display:none; padding:32px;max-width:600px; margin-top:40px;">
+        <h2>Create Quotation 2</h2>
+        <form autocomplete="off">
+          <label>Company:<br><input type="text" name="quotation-company" value=""></label><br><br>
+          <label>Key Person:<br>
+            <select name="quotation-keyperson">
+              <option value="">-- Select --</option>
+            </select>
+          </label><br><br>
+          <label>Product Type:<br>
+            <select name="quotation-product-type">
+              <option value="">-- Select --</option>
+            </select>
+          </label><br><br>
+          <label>Quality:<br>
+            <select name="quality">
+              <option value="">-- Select --</option>
+            </select>
+          </label><br><br>
+          <label>Flat or Raised:<br>
+            <select name="flatOrRaised">
+              <option value="">-- Select --</option>
+            </select>
+          </label><br><br>
+          <label>Direct or Reverse:<br>
+            <select name="directOrReverse">
+              <option value="">-- Select --</option>
+              <option value="Direct">Direct</option>
+              <option value="Reverse">Reverse</option>
+            </select>
+          </label><br><br>
+          <label>Thickness:<br><input type="text" name="thickness" value=""></label><br><br>
+          <label># of Colors:<br><input type="text" name="numColors" value=""></label><br><br>
+          <label>Width:<br><input type="text" name="width" value=""></label><br><br>
+          <label>Length:<br><input type="text" name="length" value=""></label><br><br>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
     </div>
   </div>
   
   <script src="/static/js/app.js"></script>
+  <script src="/static/js/quotation_create.js"></script>
   <script>
     // Show Admin button only for level 3 users
     if (userPermissionLevel >= 3) {

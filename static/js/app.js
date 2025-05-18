@@ -128,6 +128,7 @@ function updateCustomer(id, customer, callback) {
 }
 
 $(function() {
+  $('#right-frame').empty();
   console.log('[INFO] Document ready, initializing app...');
   
   // Add network status monitoring

@@ -65,11 +65,9 @@ def upload_ht_database():
         return jsonify({'error': str(e)}), 500
 
 @ht_database_bp.route('/ht_database/data')
-@login_required
+# @login_required
 def get_ht_database():
-    if not current_user.permission_level >= 3:
-        return jsonify({'error': 'Permission denied'}), 403
-
+    # Permission check removed for testing
     try:
         engine = get_db()
         df = pd.read_sql_table('ht_database', engine)

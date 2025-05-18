@@ -170,57 +170,66 @@ function showQuotationCreateForm2() {
   fetchCustomers(function() {
     $('#right-frame').html(`
       <div style="padding:32px;max-width:600px;">
-        <h2>Create Quotation 2</h2>
+        <h2>Create Quotation (HT)</h2>
         <form id="quotation2-create2-form" autocomplete="off">
-          <label>Company:<br>
-            <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
-            <div id="company2-suggestions" style="position: relative;">
-              <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
+          <!-- Customer Details Section -->
+          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
+            <label>Company:<br>
+              <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
+              <div id="company2-suggestions" style="position: relative;">
+                <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
+              </div>
+              <input type="hidden" id="quotation2-company-id">
+            </label><br><br>
+            <label>Key Person:<br>
+              <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
+                <option value="">-- Select Key Person --</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- Item Information Section -->
+          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
+            <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
+            <div id="quotation2-dynamic-fields">
+              <label>Quality:<br>
+                <select name="quality" style="width: 100%; padding: 8px;">
+                  <option value="">-- Select --</option>
+                  <option value="PU">PU</option>
+                  <option value="Silicon">Silicon</option>
+                </select>
+              </label><br><br>
+              <label>Flat or Raised:<br>
+                <select name="flatOrRaised" style="width: 100%; padding: 8px;">
+                  <option value="">-- Select --</option>
+                  <option value="Flat">Flat</option>
+                  <option value="Raised">Raised</option>
+                </select>
+              </label><br><br>
+              <label>Direct or Reverse:<br>
+                <select name="directOrReverse" style="width: 100%; padding: 8px;">
+                  <option value="">-- Select --</option>
+                  <option value="Direct">Direct</option>
+                  <option value="Reverse">Reverse</option>
+                </select>
+              </label><br><br>
+              <label>Thickness:<br>
+                <input type="number" name="thickness" min="0" value="" style="width: 100%; padding: 8px;">
+              </label><br><br>
+              <label># of Colors:<br>
+                <input type="number" name="numColors" min="1" value="1" style="width: 100%; padding: 8px;">
+              </label><br><br>
+              <label>Width:<br>
+                <input type="number" name="width" min="0" value="" style="width: 100%; padding: 8px;">
+              </label><br><br>
+              <label>Length:<br>
+                <input type="number" name="length" min="0" value="" style="width: 100%; padding: 8px;">
+              </label>
             </div>
-            <input type="hidden" id="quotation2-company-id">
-          </label><br><br>
-          <label>Key Person:<br>
-            <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
-              <option value="">-- Select Key Person --</option>
-            </select>
-          </label><br><br>
-          <div id="quotation2-dynamic-fields">
-            <label>Quality:<br>
-              <select name="quality">
-                <option value="">-- Select --</option>
-                <option value="PU">PU</option>
-                <option value="Silicon">Silicon</option>
-              </select>
-            </label><br>
-            <label>Flat or Raised:<br>
-              <select name="flatOrRaised">
-                <option value="">-- Select --</option>
-                <option value="Flat">Flat</option>
-                <option value="Raised">Raised</option>
-              </select>
-            </label><br>
-            <label>Direct or Reverse:<br>
-              <select name="directOrReverse">
-                <option value="">-- Select --</option>
-                <option value="Direct">Direct</option>
-                <option value="Reverse">Reverse</option>
-              </select>
-            </label><br>
-            <label>Thickness:<br>
-              <input type="number" name="thickness" min="0" value="">
-            </label><br>
-            <label># of Colors:<br>
-              <input type="number" name="numColors" min="1" value="1">
-            </label><br>
-            <label>Width:<br>
-              <input type="number" name="width" min="0" value="">
-            </label><br>
-            <label>Length:<br>
-              <input type="number" name="length" min="0" value="">
-            </label><br>
           </div>
           <br>
-          <button type="submit" style="padding:8px 32px;">Submit</button>
+          <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
         </form>
       </div>
     `);

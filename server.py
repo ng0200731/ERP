@@ -779,6 +779,8 @@ if __name__ == '__main__':
         init_user_db()
         set_admin_level()
         app.register_blueprint(ht_database_bp)
+        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+        app.config['SESSION_COOKIE_SECURE'] = False  # Only True if using HTTPS
         app.run(host='0.0.0.0', port=5000, debug=True)
     except Exception as e:
         print('ERROR STARTING SERVER:', e) 

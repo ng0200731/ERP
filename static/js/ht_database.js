@@ -1,7 +1,8 @@
 $(document).ready(function() {
-    // Initialize the data table
+    // window.alert('[HTDB v1.0.8] JS loaded'); // Remove debug popup
     let htData = [];
     let editingCell = null;
+    let lastTimestamp = null;
     
     // Load data when page loads
     loadHtData();
@@ -10,14 +11,37 @@ $(document).ready(function() {
     $('#upload-form').on('submit', handleFileUpload);
     $('#export-csv').on('click', exportToCsv);
     $('#ht-data-table').on('click', 'td', startEditing);
+    $('#manual-refresh').on('click', function() { loadHtData(); });
     $(document).on('click', function(e) {
         if (!$(e.target).closest('td').length && editingCell) {
             finishEditing();
         }
     });
     
+    // Fixed column order and display names
+    const COLUMN_ORDER = [
+        { key: 'quality', label: 'Quality' },
+        { key: 'flat_or_raised', label: 'Flat or Raised' },
+        { key: 'direct_or_reverse', label: 'Direct or Reverse' },
+        { key: 'thickness', label: 'Thickness' },
+        { key: 'num_colors', label: '# of Colors' },
+        { key: 'length', label: 'Length' },
+        { key: 'width', label: 'Width' },
+        { key: 'price', label: 'Price' }
+    ];
+    
+    // Function to show alert messages
+    function showAlert(message, type) {
+        const alertDiv = $(`<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>`);
+        $('#alerts').html(alertDiv);
+    }
+
     // Handler for file upload
     function handleFileUpload(e) {
+        // window.alert('[HTDB v1.0.8] Upload button clicked'); // Remove debug popup
         e.preventDefault();
         
         const fileInput = $('#excel-file')[0];
@@ -35,35 +59,57 @@ $(document).ready(function() {
         const formData = new FormData();
         formData.append('file', file);
         
+        // Show loading state
+        $('#loading-indicator').show();
+        $('#ht-data-table').hide();
+        showAlert('Uploading file...', 'info');
+        
         $.ajax({
             url: '/ht_database/upload',
             type: 'POST',
             data: formData,
             processData: false,
             contentType: false,
+            xhrFields: { withCredentials: true },
             success: function(response) {
-                showAlert('File uploaded successfully', 'success');
+                fileInput.value = '';
+                showAlert(`File uploaded successfully (${response.row_count} rows)`, 'success');
                 loadHtData();
             },
             error: function(xhr) {
                 const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'Error uploading file';
                 showAlert(errorMsg, 'danger');
+                $('#loading-indicator').hide();
+                $('#ht-data-table').show();
             }
         });
     }
     
     // Function to load HT data from server
     function loadHtData() {
+        // window.alert('[HTDB v1.0.8] loadHtData called'); // Remove debug popup
+        $('#loading-indicator').show();
+        $('#ht-data-table').hide();
+        
         $.ajax({
             url: '/ht_database/data',
             type: 'GET',
+            xhrFields: { withCredentials: true },
             success: function(data) {
-                htData = data;
-                renderDataTable();
+                if (Array.isArray(data.records)) {
+                    htData = data.records;
+                    renderDataTable();
+                } else {
+                    showAlert('Error: Invalid data format received', 'danger');
+                }
+                $('#loading-indicator').hide();
+                $('#ht-data-table').show();
             },
             error: function(xhr) {
                 const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'Error loading data';
                 showAlert(errorMsg, 'danger');
+                $('#loading-indicator').hide();
+                $('#ht-data-table').show();
             }
         });
     }
@@ -71,7 +117,8 @@ $(document).ready(function() {
     // Function to render the data table
     function renderDataTable() {
         const table = $('#ht-data-table');
-        table.empty();
+        const tbody = table.find('tbody');
+        tbody.empty();
         
         if (htData.length === 0) {
             $('#table-container').hide();
@@ -82,41 +129,21 @@ $(document).ready(function() {
         $('#table-container').show();
         $('#no-data-message').hide();
         
-        // Create table header
-        const thead = $('<thead></thead>');
-        const headerRow = $('<tr></tr>');
-        
-        // Get column names from the first object
-        const columns = Object.keys(htData[0]);
-        columns.forEach(column => {
-            headerRow.append(`<th>${column.replace(/_/g, ' ')}</th>`);
-        });
-        
-        thead.append(headerRow);
-        table.append(thead);
-        
-        // Create table body
-        const tbody = $('<tbody></tbody>');
         htData.forEach((row, rowIndex) => {
             const tr = $('<tr></tr>');
-            
-            columns.forEach(column => {
+            COLUMN_ORDER.forEach(col => {
                 const td = $('<td></td>');
                 td.attr('data-row', rowIndex);
-                td.attr('data-column', column);
-                td.text(row[column] || '');
+                td.attr('data-column', col.key);
+                td.text(row[col.key] || '');
                 tr.append(td);
             });
-            
             tbody.append(tr);
         });
-        
-        table.append(tbody);
     }
     
     // Function to start cell editing
     function startEditing() {
-        // Finish any previous editing
         if (editingCell) {
             finishEditing();
         }
@@ -149,13 +176,10 @@ $(document).ready(function() {
         const rowIndex = editingCell.data('row');
         const column = editingCell.data('column');
         
-        // Update the data
         htData[rowIndex][column] = newValue;
         editingCell.text(newValue);
         
-        // Save changes to server
         saveChanges();
-        
         editingCell = null;
     }
     
@@ -178,13 +202,15 @@ $(document).ready(function() {
             type: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(htData),
+            xhrFields: { withCredentials: true },
             success: function(response) {
-                showAlert('Changes saved successfully', 'success', true);
+                showAlert('Changes saved successfully', 'success');
+                loadHtData();
             },
             error: function(xhr) {
                 const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'Error saving changes';
                 showAlert(errorMsg, 'danger');
-                loadHtData(); // Reload data to revert changes
+                loadHtData();
             }
         });
     }
@@ -195,23 +221,6 @@ $(document).ready(function() {
             showAlert('No data to export', 'warning');
             return;
         }
-        
         window.location.href = '/ht_database/export_csv';
-    }
-    
-    // Function to show alert messages
-    function showAlert(message, type, autoHide = false) {
-        const alertDiv = $(`<div class="alert alert-${type} alert-dismissible fade show" role="alert">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>`);
-        
-        $('#alerts').append(alertDiv);
-        
-        if (autoHide) {
-            setTimeout(() => {
-                alertDiv.alert('close');
-            }, 3000);
-        }
     }
 }); 

@@ -95,6 +95,20 @@ $(function() {
       }
     });
   });
+
+  $(document).off('click.htDatabase').on('click.htDatabase', '#btn-ht-database', function() {
+    // Load the Heat Transfer Database HTML into the right-frame
+    $.get('/ht_database', function(data) {
+      $('#right-frame').html(data);
+      // Dynamically reload ht_database.js after HTML is injected
+      var script = document.createElement('script');
+      script.src = '/static/js/ht_database.js';
+      script.onload = function() {
+        // Optionally, you can call loadHtData() here if needed
+      };
+      document.body.appendChild(script);
+    });
+  });
 });
 
 function showQuotationCreateForm() {
@@ -192,11 +206,9 @@ function showQuotationCreateForm2() {
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
           <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
-            <a href="/ht_database" target="_blank" style="text-decoration: none;">
-              <button type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                DATABASE
-              </button>
-            </a>
+            <button id="btn-ht-database" type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+              DATABASE
+            </button>
           </div>
           ` : ''}
           

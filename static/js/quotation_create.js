@@ -201,7 +201,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.1.3</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.1.6</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
@@ -263,7 +263,7 @@ function showQuotationCreateForm2() {
                 </label>
                 <div id="color-names-group" style="margin-top: 10px;"></div>
                 <label>Width:<br>
-                  <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px;">
+                  <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; margin-top: 16px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
                 </label><br><br>
                 <label>Length:<br>
                   <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
@@ -438,6 +438,13 @@ function showQuotationCreateForm2() {
             }
             html += '</div>';
             $('#color-names-group').html(html);
+          });
+
+          // Prevent non-numeric input in width and length fields
+          $('#ht-width, #ht-length').on('keydown', function(e) {
+            if (["e", "E", "+", "-"].includes(e.key)) {
+              e.preventDefault();
+            }
           });
         });
         </script>

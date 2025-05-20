@@ -1,8 +1,6 @@
 $(document).ready(function() {
     // window.alert('[HTDB v1.0.8] JS loaded'); // Remove debug popup
     let htData = [];
-    let editingCell = null;
-    let lastTimestamp = null;
     
     // Load data when page loads
     loadHtData();
@@ -10,13 +8,7 @@ $(document).ready(function() {
     // Set up event handlers
     $('#upload-form').on('submit', handleFileUpload);
     $('#export-csv').on('click', exportToCsv);
-    $('#ht-data-table').on('click', 'td', startEditing);
     $('#manual-refresh').on('click', function() { loadHtData(); });
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('td').length && editingCell) {
-            finishEditing();
-        }
-    });
     
     // Fixed column order and display names
     const COLUMN_ORDER = [
@@ -129,89 +121,14 @@ $(document).ready(function() {
         $('#table-container').show();
         $('#no-data-message').hide();
         
-        htData.forEach((row, rowIndex) => {
+        htData.forEach((row) => {
             const tr = $('<tr></tr>');
             COLUMN_ORDER.forEach(col => {
                 const td = $('<td></td>');
-                td.attr('data-row', rowIndex);
-                td.attr('data-column', col.key);
                 td.text(row[col.key] || '');
                 tr.append(td);
             });
             tbody.append(tr);
-        });
-    }
-    
-    // Function to start cell editing
-    function startEditing() {
-        if (editingCell) {
-            finishEditing();
-        }
-        
-        editingCell = $(this);
-        const rowIndex = editingCell.data('row');
-        const column = editingCell.data('column');
-        const value = htData[rowIndex][column] || '';
-        
-        const input = $('<input type="text" class="form-control">');
-        input.val(value);
-        editingCell.html(input);
-        input.focus();
-        
-        input.on('keydown', function(e) {
-            if (e.key === 'Enter') {
-                finishEditing();
-            } else if (e.key === 'Escape') {
-                cancelEditing();
-            }
-        });
-    }
-    
-    // Function to finish cell editing
-    function finishEditing() {
-        if (!editingCell) return;
-        
-        const input = editingCell.find('input');
-        const newValue = input.val();
-        const rowIndex = editingCell.data('row');
-        const column = editingCell.data('column');
-        
-        htData[rowIndex][column] = newValue;
-        editingCell.text(newValue);
-        
-        saveChanges();
-        editingCell = null;
-    }
-    
-    // Function to cancel cell editing
-    function cancelEditing() {
-        if (!editingCell) return;
-        
-        const rowIndex = editingCell.data('row');
-        const column = editingCell.data('column');
-        const value = htData[rowIndex][column] || '';
-        
-        editingCell.text(value);
-        editingCell = null;
-    }
-    
-    // Function to save changes to server
-    function saveChanges() {
-        $.ajax({
-            url: '/ht_database/update',
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(htData),
-            xhrFields: { withCredentials: true },
-            success: function(response) {
-                showAlert('Changes saved successfully', 'success');
-                loadHtData();
-            },
-            error: function(xhr) {
-                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'Error saving changes';
-                showAlert(errorMsg, 'danger');
-                loadHtData();
-            }
         });
     }
     

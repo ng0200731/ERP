@@ -200,8 +200,8 @@ function showQuotationCreateForm2() {
       const userLevel = response.level || 0;
       
       $('#right-frame').html(`
-        <div style="padding:32px;max-width:600px;">
-          <h2>Create Quotation (HT)</h2>
+        <div style="padding:32px;max-width:600px; min-height:100vh;">
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.0.1</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
@@ -235,28 +235,30 @@ function showQuotationCreateForm2() {
               <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
               <div id="quotation2-dynamic-fields">
                 <label>Quality:<br>
-                  <select name="quality" style="width: 100%; padding: 8px;">
+                  <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
                     <option value="">-- Select --</option>
                     <option value="PU">PU</option>
                     <option value="Silicon">Silicon</option>
                   </select>
                 </label><br><br>
                 <label>Flat or Raised:<br>
-                  <select name="flatOrRaised" style="width: 100%; padding: 8px;">
+                  <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
                     <option value="">-- Select --</option>
                     <option value="Flat">Flat</option>
                     <option value="Raised">Raised</option>
                   </select>
                 </label><br><br>
                 <label>Direct or Reverse:<br>
-                  <select name="directOrReverse" style="width: 100%; padding: 8px;">
+                  <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
                     <option value="">-- Select --</option>
                     <option value="Direct">Direct</option>
                     <option value="Reverse">Reverse</option>
                   </select>
                 </label><br><br>
                 <label>Thickness:<br>
-                  <input type="number" name="thickness" min="0" value="" style="width: 100%; padding: 8px;">
+                  <select id="ht-thickness" name="thickness" style="width: 100%; padding: 8px;" disabled>
+                    <option value="">-- Select --</option>
+                  </select>
                 </label><br><br>
                 <label># of Colors:<br>
                   <input type="number" name="numColors" min="1" value="1" style="width: 100%; padding: 8px;">
@@ -274,6 +276,86 @@ function showQuotationCreateForm2() {
             <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
           </form>
         </div>
+        <script>
+        $(function() {
+          function updateHTForm(triggeredBy) {
+            var quality = $('#ht-quality').val();
+            var flatOrRaised = $('#ht-flat-or-raised').val();
+            var directOrReverse = $('#ht-direct-or-reverse');
+            var thickness = $('#ht-thickness');
+
+            // Handle Quality (L1) changes - Reset everything to default select
+            if (triggeredBy === 'quality') {
+              // First, clear all options and reset to default select
+              directOrReverse.empty();
+              directOrReverse.append('<option value="">-- Select --</option>');
+              
+              // Reset all fields to default select state
+              $('#ht-flat-or-raised').val('').prop('disabled', true);
+              directOrReverse.val('').prop('disabled', true);
+              thickness.val('').prop('disabled', true);
+
+              if (quality === 'PU') {
+                // PU selected - Set defaults
+                $('#ht-flat-or-raised').val('Flat').prop('disabled', true);
+                directOrReverse.append('<option value="Direct">Direct</option>');
+                directOrReverse.val('Direct').prop('disabled', true);
+                thickness.prop('disabled', true);
+              } else if (quality === 'Silicon') {
+                // Silicon selected - Enable L2 only
+                $('#ht-flat-or-raised').prop('disabled', false);
+                // Add Direct option but don't select it
+                directOrReverse.append('<option value="Direct">Direct</option>');
+                directOrReverse.prop('disabled', true);
+                thickness.prop('disabled', true);
+              }
+            }
+
+            // Handle Flat/Raised (L2) changes
+            if (triggeredBy === 'flatOrRaised') {
+              // Reset L3 and L4 to default select
+              directOrReverse.empty();
+              directOrReverse.append('<option value="">-- Select --</option>');
+              directOrReverse.val('').prop('disabled', true);
+              thickness.val('').prop('disabled', true);
+
+              if (flatOrRaised === 'Flat') {
+                // Flat selected
+                directOrReverse.append('<option value="Direct">Direct</option>');
+                directOrReverse.val('Direct').prop('disabled', true);
+                thickness.prop('disabled', true);
+              } else if (flatOrRaised === 'Raised') {
+                // Raised selected
+                directOrReverse.append('<option value="Direct">Direct</option>');
+                directOrReverse.append('<option value="Reverse">Reverse</option>');
+                directOrReverse.val('').prop('disabled', false);
+                thickness.prop('disabled', false);
+              }
+            }
+
+            // L3 changes have no effect on other fields
+            if (triggeredBy === 'directOrReverse') {
+              // No changes needed for other fields
+            }
+          }
+
+          // Attach event handlers
+          $('#ht-quality').on('change', function() { 
+            updateHTForm('quality'); 
+          });
+          
+          $('#ht-flat-or-raised').on('change', function() { 
+            updateHTForm('flatOrRaised'); 
+          });
+          
+          $('#ht-direct-or-reverse').on('change', function() { 
+            updateHTForm('directOrReverse'); 
+          });
+
+          // Initial form state
+          updateHTForm('quality');
+        });
+        </script>
       `);
 
       let currentFocus = -1;
@@ -396,4 +478,87 @@ function showQuotationCreateForm2() {
       });
     });
   });
-} 
+}
+
+// Add this after the form HTML, before the closing script tag
+$(document).ready(function() {
+    // Quality dropdown change handler
+    $('#ht-quality').on('change', function() {
+        const quality = $(this).val();
+        const flatRaisedSelect = $('#ht-flat-or-raised');
+        
+        if (quality) {
+            flatRaisedSelect.prop('disabled', false);
+            
+            // Reset dependent dropdowns
+            $('#ht-direct-or-reverse').prop('disabled', true).val('');
+            $('#ht-thickness').prop('disabled', true).val('');
+            
+            // Reset Flat/Raised dropdown
+            flatRaisedSelect.val('');
+        } else {
+            // If no quality selected, disable all dependent dropdowns
+            flatRaisedSelect.prop('disabled', true).val('');
+            $('#ht-direct-or-reverse').prop('disabled', true).val('');
+            $('#ht-thickness').prop('disabled', true).val('');
+        }
+    });
+
+    // Flat/Raised dropdown change handler
+    $('#ht-flat-or-raised').on('change', function() {
+        const flatRaised = $(this).val();
+        const directReverseSelect = $('#ht-direct-or-reverse');
+        
+        if (flatRaised) {
+            directReverseSelect.prop('disabled', false);
+            
+            // Reset thickness dropdown
+            $('#ht-thickness').prop('disabled', true).val('');
+            
+            // Reset Direct/Reverse dropdown
+            directReverseSelect.val('');
+        } else {
+            // If no flat/raised selected, disable dependent dropdowns
+            directReverseSelect.prop('disabled', true).val('');
+            $('#ht-thickness').prop('disabled', true).val('');
+        }
+    });
+
+    // Direct/Reverse dropdown change handler
+    $('#ht-direct-or-reverse').on('change', function() {
+        const directReverse = $(this).val();
+        const quality = $('#ht-quality').val();
+        const flatRaised = $('#ht-flat-or-raised').val();
+        const thicknessSelect = $('#ht-thickness');
+        
+        if (directReverse && quality && flatRaised) {
+            thicknessSelect.prop('disabled', false);
+            thicknessSelect.empty().append('<option value="">-- Select --</option>');
+            
+            // Add thickness options based on selections
+            if (quality === 'PU') {
+                if (flatRaised === 'Flat') {
+                    ['0.15', '0.20', '0.25', '0.35'].forEach(thickness => {
+                        thicknessSelect.append(`<option value="${thickness}">${thickness}mm</option>`);
+                    });
+                } else { // Raised
+                    ['0.35', '0.45', '0.55'].forEach(thickness => {
+                        thicknessSelect.append(`<option value="${thickness}">${thickness}mm</option>`);
+                    });
+                }
+            } else { // Silicon
+                if (flatRaised === 'Flat') {
+                    ['0.35', '0.45', '0.55'].forEach(thickness => {
+                        thicknessSelect.append(`<option value="${thickness}">${thickness}mm</option>`);
+                    });
+                } else { // Raised
+                    ['0.45', '0.55', '0.65'].forEach(thickness => {
+                        thicknessSelect.append(`<option value="${thickness}">${thickness}mm</option>`);
+                    });
+                }
+            }
+        } else {
+            thicknessSelect.prop('disabled', true).val('');
+        }
+    });
+}); 

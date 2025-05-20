@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  body { background: pink !important; }
+</style>
+<div class="container mt-4">
+    <h2>Heat Transfer Quotation <span style="font-size:1rem;color:#888;">v1.0.0</span></h2>
+    <form id="ht-quotation-form" class="mt-4">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="quality" class="form-label">Quality</label>
+                    <select class="form-select" id="quality" name="quality" required>
+                        <option value="">Select Quality</option>
+                        <option value="PU">PU</option>
+                        <option value="silicon">Silicon</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="flat_or_raised" class="form-label">Flat or Raised</label>
+                    <select class="form-select" id="flat_or_raised" name="flat_or_raised" required>
+                        <option value="">Select Option</option>
+                        <option value="flat">Flat</option>
+                        <option value="raised">Raised</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="direct_or_reverse" class="form-label">Direct or Reverse</label>
+                    <select class="form-select" id="direct_or_reverse" name="direct_or_reverse" required>
+                        <option value="">Select Option</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="thickness" class="form-label">Thickness</label>
+                    <input type="number" class="form-control" id="thickness" name="thickness" step="0.01" min="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Create Quotation</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/ht_quotation.js') }}"></script>
+{% endblock %} 

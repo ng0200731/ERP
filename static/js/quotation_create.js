@@ -256,9 +256,7 @@ function showQuotationCreateForm2() {
                   </select>
                 </label><br><br>
                 <label>Thickness:<br>
-                  <select id="ht-thickness" name="thickness" style="width: 100%; padding: 8px;" disabled>
-                    <option value="">-- Select --</option>
-                  </select>
+                  <input type="number" id="ht-thickness" name="thickness" min="0" step="0.01" style="width: 100%; padding: 8px;" disabled>
                 </label><br><br>
                 <label># of Colors:<br>
                   <input type="number" name="numColors" min="1" value="1" style="width: 100%; padding: 8px;">

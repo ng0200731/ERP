@@ -352,6 +352,13 @@ function showQuotationCreateForm2() {
 
           // Initial form state
           updateHTForm('quality');
+
+          // Prevent non-numeric input in thickness field
+          $('#ht-thickness').on('keydown', function(e) {
+            if (["e", "E", "+", "-"].includes(e.key)) {
+              e.preventDefault();
+            }
+          });
         });
         </script>
       `);

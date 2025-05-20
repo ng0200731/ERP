@@ -201,7 +201,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.0.1</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.1.3</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
@@ -255,8 +255,8 @@ function showQuotationCreateForm2() {
                     <option value="Reverse">Reverse</option>
                   </select>
                 </label><br><br>
-                <label>Thickness:<br>
-                  <input type="number" id="ht-thickness" name="thickness" min="0" step="0.01" style="width: 100%; padding: 8px;" disabled>
+                <label>Thickness 0.1-1.5:<br>
+                  <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
                 </label><br><br>
                 <label># of Colors:<br>
                   <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
@@ -354,11 +354,44 @@ function showQuotationCreateForm2() {
           // Initial form state
           updateHTForm('quality');
 
+          let lastValidThickness = '';
           // Prevent non-numeric input in thickness field
           $('#ht-thickness').on('keydown', function(e) {
             if (["e", "E", "+", "-"].includes(e.key)) {
               e.preventDefault();
             }
+          });
+          // Enforce 1 decimal place and range for thickness in real time
+          $('#ht-thickness').on('input', function() {
+            let val = $(this).val();
+            // Remove all but first decimal point
+            if (val.split('.').length > 2) {
+              val = val.replace(/\.+$/, '');
+              $(this).val(val);
+            }
+            // Only allow 1 decimal place
+            if (/^\d+\.\d{2,}$/.test(val)) {
+              // Do not auto-correct, just leave as is for warning on blur
+            }
+          });
+          // Clamp to range and fix decimals on blur, warn user if invalid
+          $('#ht-thickness').on('focus', function() {
+            lastValidThickness = $(this).val();
+          });
+          $('#ht-thickness').on('blur', function() {
+            let val = $(this).val();
+            if (val === '') return;
+            let num = Number(val);
+            // Accept 0.1-0.9, 1, 1.0-1.5 (1 decimal place max)
+            if (!/^(0\.[1-9]|1(\.[0-5])?)$/.test(val) || isNaN(num) || num < 0.1 || num > 1.5) {
+              alert('Thickness must be a number from 0.1 to 1.5 with only 1 decimal place.');
+              $(this).val(lastValidThickness);
+              setTimeout(() => { $(this).focus(); }, 0);
+              return;
+            }
+            // Always format to 1 decimal place
+            $(this).val(num.toFixed(1));
+            lastValidThickness = $(this).val();
           });
 
           // Prevent non-numeric input in # of colors field
@@ -531,86 +564,3 @@ function showQuotationCreateForm2() {
     });
   });
 }
-
-// Add this after the form HTML, before the closing script tag
-$(document).ready(function() {
-    // Quality dropdown change handler
-    $('#ht-quality').on('change', function() {
-        const quality = $(this).val();
-        const flatRaisedSelect = $('#ht-flat-or-raised');
-        
-        if (quality) {
-            flatRaisedSelect.prop('disabled', false);
-            
-            // Reset dependent dropdowns
-            $('#ht-direct-or-reverse').prop('disabled', true).val('');
-            $('#ht-thickness').prop('disabled', true).val('');
-            
-            // Reset Flat/Raised dropdown
-            flatRaisedSelect.val('');
-        } else {
-            // If no quality selected, disable all dependent dropdowns
-            flatRaisedSelect.prop('disabled', true).val('');
-            $('#ht-direct-or-reverse').prop('disabled', true).val('');
-            $('#ht-thickness').prop('disabled', true).val('');
-        }
-    });
-
-    // Flat/Raised dropdown change handler
-    $('#ht-flat-or-raised').on('change', function() {
-        const flatRaised = $(this).val();
-        const directReverseSelect = $('#ht-direct-or-reverse');
-        
-        if (flatRaised) {
-            directReverseSelect.prop('disabled', false);
-            
-            // Reset thickness dropdown
-            $('#ht-thickness').prop('disabled', true).val('');
-            
-            // Reset Direct/Reverse dropdown
-            directReverseSelect.val('');
-        } else {
-            // If no flat/raised selected, disable dependent dropdowns
-            directReverseSelect.prop('disabled', true).val('');
-            $('#ht-thickness').prop('disabled', true).val('');
-        }
-    });
-
-    // Direct/Reverse dropdown change handler
-    $('#ht-direct-or-reverse').on('change', function() {
-        const directReverse = $(this).val();
-        const quality = $('#ht-quality').val();
-        const flatRaised = $('#ht-flat-or-raised').val();
-        const thicknessSelect = $('#ht-thickness');
-        
-        if (directReverse && quality && flatRaised) {
-            thicknessSelect.prop('disabled', false);
-            thicknessSelect.empty().append('<option value="">-- Select --</option>');
-            
-            // Add thickness options based on selections
-            if (quality === 'PU') {
-                if (flatRaised === 'Flat') {
-                    ['0.15', '0.20', '0.25', '0.35'].forEach(thickness => {
-                        thicknessSelect.append(`<option value="${thickness}">${thickness}mm</option>`);
-                    });
-                } else { // Raised
-                    ['0.35', '0.45', '0.55'].forEach(thickness => {
-                        thicknessSelect.append(`<option value="${thickness}">${thickness}mm</option>`);
-                    });
-                }
-            } else { // Silicon
-                if (flatRaised === 'Flat') {
-                    ['0.35', '0.45', '0.55'].forEach(thickness => {
-                        thicknessSelect.append(`<option value="${thickness}">${thickness}mm</option>`);
-                    });
-                } else { // Raised
-                    ['0.45', '0.55', '0.65'].forEach(thickness => {
-                        thicknessSelect.append(`<option value="${thickness}">${thickness}mm</option>`);
-                    });
-                }
-            }
-        } else {
-            thicknessSelect.prop('disabled', true).val('');
-        }
-    });
-}); 

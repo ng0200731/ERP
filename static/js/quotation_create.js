@@ -259,13 +259,14 @@ function showQuotationCreateForm2() {
                   <input type="number" id="ht-thickness" name="thickness" min="0" step="0.01" style="width: 100%; padding: 8px;" disabled>
                 </label><br><br>
                 <label># of Colors:<br>
-                  <input type="number" name="numColors" min="1" value="1" style="width: 100%; padding: 8px;">
-                </label><br><br>
+                  <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
+                </label>
+                <div id="color-names-group" style="margin-top: 10px;"></div>
                 <label>Width:<br>
-                  <input type="number" name="width" min="0" value="" style="width: 100%; padding: 8px;">
+                  <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px;">
                 </label><br><br>
                 <label>Length:<br>
-                  <input type="number" name="length" min="0" value="" style="width: 100%; padding: 8px;">
+                  <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
                 </label>
               </div>
             </div>
@@ -358,6 +359,52 @@ function showQuotationCreateForm2() {
             if (["e", "E", "+", "-"].includes(e.key)) {
               e.preventDefault();
             }
+          });
+
+          // Prevent non-numeric input in # of colors field
+          $('#ht-num-colors').on('keydown', function(e) {
+            if (["e", "E", "+", "-", "."].includes(e.key)) {
+              e.preventDefault();
+            }
+          });
+
+          // Dynamic color name fields logic
+          let lastNumColors = 0;
+          let colorValues = [];
+          // Only update color fields on blur, not on input
+          $('#ht-num-colors').off('input');
+          $('#ht-num-colors').on('blur', function() {
+            let val = $(this).val();
+            let num = parseInt(val, 10);
+            // Save current color values
+            colorValues = [];
+            $('#color-names-group input[type="text"]').each(function() {
+              colorValues.push($(this).val());
+            });
+            if (isNaN(num) || num < 1) {
+              $('#color-names-group').empty();
+              lastNumColors = 0;
+              colorValues = [];
+              return;
+            }
+            if (num < lastNumColors) {
+              if (!confirm('Reducing the number of colors will remove the last color name field(s). Continue?')) {
+                $(this).val(lastNumColors);
+                return;
+              }
+              // Remove the last value(s)
+              colorValues = colorValues.slice(0, num);
+            }
+            lastNumColors = num;
+            // Build color name fields, keeping previous values
+            let html = '<div style="border: 2px solid #b3c6ff; border-radius: 8px; padding: 16px; background: #f8faff; margin-top: 8px;">';
+            html += '<div style="font-weight: bold; margin-bottom: 8px;">Color Names</div>';
+            for (let i = 1; i <= num; i++) {
+              let val = colorValues[i-1] !== undefined ? colorValues[i-1] : '';
+              html += '<div style="margin-left: 24px; margin-bottom: 8px;"><input type="text" name="colorName' + i + '" placeholder="Color ' + i + '" style="width: 90%; padding: 6px; border-radius: 4px; border: 1px solid #ccc;" value="' + val.replace(/"/g, '&quot;') + '"></div>';
+            }
+            html += '</div>';
+            $('#color-names-group').html(html);
           });
         });
         </script>

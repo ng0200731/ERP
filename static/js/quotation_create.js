@@ -201,7 +201,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.1.6</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.1.7</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
@@ -211,6 +211,23 @@ function showQuotationCreateForm2() {
             </button>
           </div>
           ` : ''}
+          
+          <style>\
+            #quotation2-create2-form input[type="number"],\
+            #quotation2-create2-form input[type="text"],\
+            #quotation2-create2-form select {\
+              width: 100% !important;\
+              box-sizing: border-box;\
+              padding: 8px;\
+              border-radius: 4px;\
+              border: 1.5px solid #b3c6ff;\
+              margin-bottom: 8px;\
+            }\
+            #quotation2-create2-form label {\
+              margin-bottom: 4px;\
+              display: block;\
+            }\
+          </style>
           
           <form id="quotation2-create2-form" autocomplete="off">
             <!-- Customer Details Section -->

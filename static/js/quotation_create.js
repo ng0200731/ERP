@@ -29,8 +29,8 @@ $(function() {
     $('#quotation2-nested').toggle();
   });
 
-  // Handle form submission
-  $('#quotation2-create2-form form').submit(function(e) {
+  // Handle form submission using event delegation
+  $(document).off('submit.quotation2form').on('submit.quotation2form', '#quotation2-create2-form', function(e) {
     e.preventDefault();
     
     // Validate company
@@ -43,32 +43,50 @@ $(function() {
     // Validate key person
     const keyPersonIdx = $('#quotation2-keyperson').val();
     const company = customers.find(c => c.id == companyId);
-    let keyPersonId = null;
-    if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "") {
-      const kp = company.keyPeople[keyPersonIdx];
-      keyPersonId = kp && kp.id ? kp.id : null;
-    }
-    if (!keyPersonId) {
-      alert('Please select a key person.');
-      return;
+    let keyPerson = null;
+    if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "" && keyPersonIdx >= 0 && keyPersonIdx < company.keyPeople.length) {
+      keyPerson = company.keyPeople[keyPersonIdx];
     }
 
-    // Validate product type
-    const productType = $('#quotation2-product-type').val();
-    if (!productType) {
-      alert('Please select a product type.');
+    if (!keyPerson || !keyPerson.id) {
+      alert('Please select a valid key person.');
       return;
     }
+    const keyPersonId = keyPerson.id;
+    const keyPersonName = keyPerson.name || ''; // Assuming name and email might be needed later
+    const keyPersonEmail = keyPerson.email || ''; // Assuming name and email might be needed later
 
-    // Gather dynamic fields
+    // Validate dynamic fields and gather attributes
     const attributes = {};
-    $('#quotation2-dynamic-fields').find('input, select').each(function() {
+    let dynamicFieldsValid = true;
+    let firstMissingFieldName = '';
+
+    $('#quotation2-dynamic-fields').find('input:visible:enabled, select:visible:enabled').each(function() {
       const name = $(this).attr('name');
       const value = $(this).val();
-      if (name && value) {
-        attributes[name] = value;
+      const label = $(this).closest('label').text().replace(':', '').trim(); // Get the label text
+
+      // Check if the field is visible and enabled, and requires a value
+      // We assume most visible/enabled fields require a value unless explicitly not
+      // For simplicity now, we check if the value is empty
+      if (name && !value) {
+         dynamicFieldsValid = false;
+         if (!firstMissingFieldName) {
+             firstMissingFieldName = label || name; // Use label if available, otherwise name
+         }
+         // Optional: highlight the missing field
+         $(this).css('border-color', 'red');
+      } else if (name) {
+          attributes[name] = value;
+          // Optional: reset border color if it was highlighted
+          $(this).css('border-color', '');
       }
     });
+
+    if (!dynamicFieldsValid) {
+        alert(`Please fill in the following required field: ${firstMissingFieldName}`);
+        return;
+    }
 
     // Send to server
     $.ajax({

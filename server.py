@@ -71,7 +71,7 @@ def get_customers():
         result = []
         for cust in customers:
             cust_dict = dict(cust)
-            key_people = conn.execute('SELECT name, position, email, tel, brand FROM key_people WHERE customer_id=?', (cust['id'],)).fetchall()
+            key_people = conn.execute('SELECT id, name, position, email, tel, brand FROM key_people WHERE customer_id=?', (cust['id'],)).fetchall()
             cust_dict['keyPeople'] = [dict(kp) for kp in key_people]
             result.append(cust_dict)
         conn.close()

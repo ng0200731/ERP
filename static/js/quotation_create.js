@@ -33,15 +33,21 @@ $(function() {
   $(document).off('submit.quotation2form').on('submit.quotation2form', '#quotation2-create2-form', function(e) {
     e.preventDefault();
     
-    // Validate company
+    let formIsValid = true;
+
+    // Validate Company
+    const companyInput = $('#quotation2-company-input');
     const companyId = $('#quotation2-company-id').val();
     if (!companyId) {
-      alert('Please select a company from the list.');
-      return;
+      formIsValid = false;
+      companyInput.css('border-color', 'red');
+    } else {
+      companyInput.css('border-color', ''); // Reset border
     }
 
-    // Validate key person
-    const keyPersonIdx = $('#quotation2-keyperson').val();
+    // Validate Key Person
+    const keyPersonSelect = $('#quotation2-keyperson');
+    const keyPersonIdx = keyPersonSelect.val();
     const company = customers.find(c => c.id == companyId);
     let keyPerson = null;
     if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "" && keyPersonIdx >= 0 && keyPersonIdx < company.keyPeople.length) {
@@ -49,44 +55,59 @@ $(function() {
     }
 
     if (!keyPerson || !keyPerson.id) {
-      alert('Please select a valid key person.');
-      return;
+      formIsValid = false;
+      keyPersonSelect.css('border-color', 'red');
+    } else {
+      keyPersonSelect.css('border-color', ''); // Reset border
     }
-    const keyPersonId = keyPerson.id;
-    const keyPersonName = keyPerson.name || ''; // Assuming name and email might be needed later
-    const keyPersonEmail = keyPerson.email || ''; // Assuming name and email might be needed later
 
     // Validate dynamic fields and gather attributes
     const attributes = {};
-    let dynamicFieldsValid = true;
-    let firstMissingFieldName = '';
 
     $('#quotation2-dynamic-fields').find('input:visible:enabled, select:visible:enabled').each(function() {
       const name = $(this).attr('name');
       const value = $(this).val();
-      const label = $(this).closest('label').text().replace(':', '').trim(); // Get the label text
-
-      // Check if the field is visible and enabled, and requires a value
-      // We assume most visible/enabled fields require a value unless explicitly not
-      // For simplicity now, we check if the value is empty
+      
       if (name && !value) {
-         dynamicFieldsValid = false;
-         if (!firstMissingFieldName) {
-             firstMissingFieldName = label || name; // Use label if available, otherwise name
-         }
-         // Optional: highlight the missing field
+         formIsValid = false;
          $(this).css('border-color', 'red');
       } else if (name) {
           attributes[name] = value;
-          // Optional: reset border color if it was highlighted
           $(this).css('border-color', '');
       }
     });
 
-    if (!dynamicFieldsValid) {
-        alert(`Please fill in the following required field: ${firstMissingFieldName}`);
+    // Check dynamic color name fields specifically as they are added dynamically
+    $('#color-names-group input[type="text"]').each(function() {
+        const name = $(this).attr('name');
+        const value = $(this).val();
+        if (name && !value) {
+            formIsValid = false;
+            $(this).css('border-color', 'red');
+        } else if (name) {
+             // These are part of colorNames attribute, handled below
+             $(this).css('border-color', '');
+        }
+    });
+
+    // Special handling for colorNames dynamic field value collection
+    const numColorsInput = $('#ht-num-colors');
+    const numColors = parseInt(numColorsInput.val(), 10);
+    if (!isNaN(numColors) && numColors > 0) {
+        attributes['colorNames'] = [];
+        $('#color-names-group input[type="text"]').each(function() {
+            attributes['colorNames'].push($(this).val());
+        });
+    }
+
+    // If form is not valid, show the single alert and stop submission
+    if (!formIsValid) {
+        alert('Please fill in below highlight in red border fill');
         return;
     }
+
+    // Continue with submission if all fields are valid
+    const productType = 'heat transfer'; // Hardcode product type for this specific form
 
     // Send to server
     $.ajax({
@@ -95,7 +116,7 @@ $(function() {
       contentType: 'application/json',
       data: JSON.stringify({
         customer_id: companyId,
-        key_person_id: keyPersonId,
+        key_person_id: keyPerson.id,
         product_type: productType,
         attributes: attributes
       }),

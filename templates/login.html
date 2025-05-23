@@ -17,6 +17,10 @@
         return false;
       } else {
         errorSpan.textContent = '';
+        // Disable submit button to prevent double submit
+        const submitBtn = document.querySelector('#login-form button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
         return true;
       }
     }
@@ -28,7 +32,7 @@
 <body>
   <div class="container" style="justify-content:center;align-items:center;height:100vh;">
     <form id="login-form" method="POST" action="/login" style="background:#fff;padding:32px 40px;border-radius:10px;box-shadow:0 2px 16px #eee;min-width:320px;">
-      <h2>Login</h2>
+      <h2>Login <span style="font-size:1rem;color:#888;">login-v1.0.0</span></h2>
       <label>Email:</label><br>
       <input type="text" id="login-email" name="email" placeholder="your@email.com" required style="width:100%;">
       <span id="email-error" style="color:red;font-size:13px;"></span>

@@ -29,46 +29,85 @@ $(function() {
     $('#quotation2-nested').toggle();
   });
 
-  // Handle form submission
-  $('#quotation2-create2-form form').submit(function(e) {
+  // Handle form submission using event delegation
+  $(document).off('submit.quotation2form').on('submit.quotation2form', '#quotation2-create2-form', function(e) {
     e.preventDefault();
     
-    // Validate company
+    let formIsValid = true;
+
+    // Validate Company
+    const companyInput = $('#quotation2-company-input');
     const companyId = $('#quotation2-company-id').val();
     if (!companyId) {
-      alert('Please select a company from the list.');
-      return;
+      formIsValid = false;
+      companyInput.css('border-color', 'red');
+    } else {
+      companyInput.css('border-color', ''); // Reset border
     }
 
-    // Validate key person
-    const keyPersonIdx = $('#quotation2-keyperson').val();
+    // Validate Key Person
+    const keyPersonSelect = $('#quotation2-keyperson');
+    const keyPersonIdx = keyPersonSelect.val();
     const company = customers.find(c => c.id == companyId);
-    let keyPersonId = null;
-    if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "") {
-      const kp = company.keyPeople[keyPersonIdx];
-      keyPersonId = kp && kp.id ? kp.id : null;
-    }
-    if (!keyPersonId) {
-      alert('Please select a key person.');
-      return;
+    let keyPerson = null;
+    if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "" && keyPersonIdx >= 0 && keyPersonIdx < company.keyPeople.length) {
+      keyPerson = company.keyPeople[keyPersonIdx];
     }
 
-    // Validate product type
-    const productType = $('#quotation2-product-type').val();
-    if (!productType) {
-      alert('Please select a product type.');
-      return;
+    if (!keyPerson || !keyPerson.id) {
+      formIsValid = false;
+      keyPersonSelect.css('border-color', 'red');
+    } else {
+      keyPersonSelect.css('border-color', ''); // Reset border
     }
 
-    // Gather dynamic fields
+    // Validate dynamic fields and gather attributes
     const attributes = {};
-    $('#quotation2-dynamic-fields').find('input, select').each(function() {
+
+    $('#quotation2-dynamic-fields').find('input:visible:enabled, select:visible:enabled').each(function() {
       const name = $(this).attr('name');
       const value = $(this).val();
-      if (name && value) {
-        attributes[name] = value;
+      
+      if (name && !value) {
+         formIsValid = false;
+         $(this).css('border-color', 'red');
+      } else if (name) {
+          attributes[name] = value;
+          $(this).css('border-color', '');
       }
     });
+
+    // Check dynamic color name fields specifically as they are added dynamically
+    $('#color-names-group input[type="text"]').each(function() {
+        const name = $(this).attr('name');
+        const value = $(this).val();
+        if (name && !value) {
+            formIsValid = false;
+            $(this).css('border-color', 'red');
+        } else if (name) {
+             // These are part of colorNames attribute, handled below
+             $(this).css('border-color', '');
+        }
+    });
+
+    // Special handling for colorNames dynamic field value collection
+    const numColorsInput = $('#ht-num-colors');
+    const numColors = parseInt(numColorsInput.val(), 10);
+    if (!isNaN(numColors) && numColors > 0) {
+        attributes['colorNames'] = [];
+        $('#color-names-group input[type="text"]').each(function() {
+            attributes['colorNames'].push($(this).val());
+        });
+    }
+
+    // If form is not valid, show the single alert and stop submission
+    if (!formIsValid) {
+        alert('Please fill in below highlight in red border fill');
+        return;
+    }
+
+    // Continue with submission if all fields are valid
+    const productType = 'heat transfer'; // Hardcode product type for this specific form
 
     // Send to server
     $.ajax({
@@ -77,7 +116,7 @@ $(function() {
       contentType: 'application/json',
       data: JSON.stringify({
         customer_id: companyId,
-        key_person_id: keyPersonId,
+        key_person_id: keyPerson.id,
         product_type: productType,
         attributes: attributes
       }),
@@ -93,6 +132,20 @@ $(function() {
         } catch(e) {}
         alert(msg);
       }
+    });
+  });
+
+  $(document).off('click.htDatabase').on('click.htDatabase', '#btn-ht-database', function() {
+    // Load the Heat Transfer Database HTML into the right-frame
+    $.get('/ht_database', function(data) {
+      $('#right-frame').html(data);
+      // Dynamically reload ht_database.js after HTML is injected
+      var script = document.createElement('script');
+      script.src = '/static/js/ht_database.js';
+      script.onload = function() {
+        // Optionally, you can call loadHtData() here if needed
+      };
+      document.body.appendChild(script);
     });
   });
 });
@@ -186,19 +239,34 @@ function showQuotationCreateForm2() {
       const userLevel = response.level || 0;
       
       $('#right-frame').html(`
-        <div style="padding:32px;max-width:600px;">
-          <h2>Create Quotation (HT)</h2>
+        <div style="padding:32px;max-width:600px; min-height:100vh;">
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.1.7</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
           <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
-            <a href="/ht_database" target="_blank" style="text-decoration: none;">
-              <button type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                DATABASE
-              </button>
-            </a>
+            <button id="btn-ht-database" type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+              DATABASE
+            </button>
           </div>
           ` : ''}
+          
+          <style>\
+            #quotation2-create2-form input[type="number"],\
+            #quotation2-create2-form input[type="text"],\
+            #quotation2-create2-form select {\
+              width: 100% !important;\
+              box-sizing: border-box;\
+              padding: 8px;\
+              border-radius: 4px;\
+              border: 1.5px solid #b3c6ff;\
+              margin-bottom: 8px;\
+            }\
+            #quotation2-create2-form label {\
+              margin-bottom: 4px;\
+              display: block;\
+            }\
+          </style>
           
           <form id="quotation2-create2-form" autocomplete="off">
             <!-- Customer Details Section -->
@@ -223,37 +291,38 @@ function showQuotationCreateForm2() {
               <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
               <div id="quotation2-dynamic-fields">
                 <label>Quality:<br>
-                  <select name="quality" style="width: 100%; padding: 8px;">
+                  <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
                     <option value="">-- Select --</option>
                     <option value="PU">PU</option>
                     <option value="Silicon">Silicon</option>
                   </select>
                 </label><br><br>
                 <label>Flat or Raised:<br>
-                  <select name="flatOrRaised" style="width: 100%; padding: 8px;">
+                  <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
                     <option value="">-- Select --</option>
                     <option value="Flat">Flat</option>
                     <option value="Raised">Raised</option>
                   </select>
                 </label><br><br>
                 <label>Direct or Reverse:<br>
-                  <select name="directOrReverse" style="width: 100%; padding: 8px;">
+                  <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
                     <option value="">-- Select --</option>
                     <option value="Direct">Direct</option>
                     <option value="Reverse">Reverse</option>
                   </select>
                 </label><br><br>
-                <label>Thickness:<br>
-                  <input type="number" name="thickness" min="0" value="" style="width: 100%; padding: 8px;">
+                <label>Thickness 0.1-1.5:<br>
+                  <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
                 </label><br><br>
                 <label># of Colors:<br>
-                  <input type="number" name="numColors" min="1" value="1" style="width: 100%; padding: 8px;">
-                </label><br><br>
+                  <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
+                </label>
+                <div id="color-names-group" style="margin-top: 10px;"></div>
                 <label>Width:<br>
-                  <input type="number" name="width" min="0" value="" style="width: 100%; padding: 8px;">
+                  <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; margin-top: 16px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
                 </label><br><br>
                 <label>Length:<br>
-                  <input type="number" name="length" min="0" value="" style="width: 100%; padding: 8px;">
+                  <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
                 </label>
               </div>
             </div>
@@ -262,6 +331,179 @@ function showQuotationCreateForm2() {
             <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
           </form>
         </div>
+        <script>
+        $(function() {
+          function updateHTForm(triggeredBy) {
+            var quality = $('#ht-quality').val();
+            var flatOrRaised = $('#ht-flat-or-raised').val();
+            var directOrReverse = $('#ht-direct-or-reverse');
+            var thickness = $('#ht-thickness');
+
+            // Handle Quality (L1) changes - Reset everything to default select
+            if (triggeredBy === 'quality') {
+              // First, clear all options and reset to default select
+              directOrReverse.empty();
+              directOrReverse.append('<option value="">-- Select --</option>');
+              
+              // Reset all fields to default select state
+              $('#ht-flat-or-raised').val('').prop('disabled', true);
+              directOrReverse.val('').prop('disabled', true);
+              thickness.val('').prop('disabled', true);
+
+              if (quality === 'PU') {
+                // PU selected - Set defaults
+                $('#ht-flat-or-raised').val('Flat').prop('disabled', true);
+                directOrReverse.append('<option value="Direct">Direct</option>');
+                directOrReverse.val('Direct').prop('disabled', true);
+                thickness.prop('disabled', true);
+              } else if (quality === 'Silicon') {
+                // Silicon selected - Enable L2 only
+                $('#ht-flat-or-raised').prop('disabled', false);
+                // Add Direct option but don't select it
+                directOrReverse.append('<option value="Direct">Direct</option>');
+                directOrReverse.prop('disabled', true);
+                thickness.prop('disabled', true);
+              }
+            }
+
+            // Handle Flat/Raised (L2) changes
+            if (triggeredBy === 'flatOrRaised') {
+              // Reset L3 and L4 to default select
+              directOrReverse.empty();
+              directOrReverse.append('<option value="">-- Select --</option>');
+              directOrReverse.val('').prop('disabled', true);
+              thickness.val('').prop('disabled', true);
+
+              if (flatOrRaised === 'Flat') {
+                // Flat selected
+                directOrReverse.append('<option value="Direct">Direct</option>');
+                directOrReverse.val('Direct').prop('disabled', true);
+                thickness.prop('disabled', true);
+              } else if (flatOrRaised === 'Raised') {
+                // Raised selected
+                directOrReverse.append('<option value="Direct">Direct</option>');
+                directOrReverse.append('<option value="Reverse">Reverse</option>');
+                directOrReverse.val('').prop('disabled', false);
+                thickness.prop('disabled', false);
+              }
+            }
+
+            // L3 changes have no effect on other fields
+            if (triggeredBy === 'directOrReverse') {
+              // No changes needed for other fields
+            }
+          }
+
+          // Attach event handlers
+          $('#ht-quality').on('change', function() { 
+            updateHTForm('quality'); 
+          });
+          
+          $('#ht-flat-or-raised').on('change', function() { 
+            updateHTForm('flatOrRaised'); 
+          });
+          
+          $('#ht-direct-or-reverse').on('change', function() { 
+            updateHTForm('directOrReverse'); 
+          });
+
+          // Initial form state
+          updateHTForm('quality');
+
+          let lastValidThickness = '';
+          // Prevent non-numeric input in thickness field
+          $('#ht-thickness').on('keydown', function(e) {
+            if (["e", "E", "+", "-"].includes(e.key)) {
+              e.preventDefault();
+            }
+          });
+          // Enforce 1 decimal place and range for thickness in real time
+          $('#ht-thickness').on('input', function() {
+            let val = $(this).val();
+            // Remove all but first decimal point
+            if (val.split('.').length > 2) {
+              val = val.replace(/\.+$/, '');
+              $(this).val(val);
+            }
+            // Only allow 1 decimal place
+            if (/^\d+\.\d{2,}$/.test(val)) {
+              // Do not auto-correct, just leave as is for warning on blur
+            }
+          });
+          // Clamp to range and fix decimals on blur, warn user if invalid
+          $('#ht-thickness').on('focus', function() {
+            lastValidThickness = $(this).val();
+          });
+          $('#ht-thickness').on('blur', function() {
+            let val = $(this).val();
+            if (val === '') return;
+            let num = Number(val);
+            // Accept 0.1-0.9, 1, 1.0-1.5 (1 decimal place max)
+            if (!/^(0\.[1-9]|1(\.[0-5])?)$/.test(val) || isNaN(num) || num < 0.1 || num > 1.5) {
+              alert('Thickness must be a number from 0.1 to 1.5 with only 1 decimal place.');
+              $(this).val(lastValidThickness);
+              setTimeout(() => { $(this).focus(); }, 0);
+              return;
+            }
+            // Always format to 1 decimal place
+            $(this).val(num.toFixed(1));
+            lastValidThickness = $(this).val();
+          });
+
+          // Prevent non-numeric input in # of colors field
+          $('#ht-num-colors').on('keydown', function(e) {
+            if (["e", "E", "+", "-", "."].includes(e.key)) {
+              e.preventDefault();
+            }
+          });
+
+          // Dynamic color name fields logic
+          let lastNumColors = 0;
+          let colorValues = [];
+          // Only update color fields on blur, not on input
+          $('#ht-num-colors').off('input');
+          $('#ht-num-colors').on('blur', function() {
+            let val = $(this).val();
+            let num = parseInt(val, 10);
+            // Save current color values
+            colorValues = [];
+            $('#color-names-group input[type="text"]').each(function() {
+              colorValues.push($(this).val());
+            });
+            if (isNaN(num) || num < 1) {
+              $('#color-names-group').empty();
+              lastNumColors = 0;
+              colorValues = [];
+              return;
+            }
+            if (num < lastNumColors) {
+              if (!confirm('Reducing the number of colors will remove the last color name field(s). Continue?')) {
+                $(this).val(lastNumColors);
+                return;
+              }
+              // Remove the last value(s)
+              colorValues = colorValues.slice(0, num);
+            }
+            lastNumColors = num;
+            // Build color name fields, keeping previous values
+            let html = '<div style="border: 2px solid #b3c6ff; border-radius: 8px; padding: 16px; background: #f8faff; margin-top: 8px;">';
+            html += '<div style="font-weight: bold; margin-bottom: 8px;">Color Names</div>';
+            for (let i = 1; i <= num; i++) {
+              let val = colorValues[i-1] !== undefined ? colorValues[i-1] : '';
+              html += '<div style="margin-left: 24px; margin-bottom: 8px;"><input type="text" name="colorName' + i + '" placeholder="Color ' + i + '" style="width: 90%; padding: 6px; border-radius: 4px; border: 1px solid #ccc;" value="' + val.replace(/"/g, '&quot;') + '"></div>';
+            }
+            html += '</div>';
+            $('#color-names-group').html(html);
+          });
+
+          // Prevent non-numeric input in width and length fields
+          $('#ht-width, #ht-length').on('keydown', function(e) {
+            if (["e", "E", "+", "-"].includes(e.key)) {
+              e.preventDefault();
+            }
+          });
+        });
+        </script>
       `);
 
       let currentFocus = -1;
@@ -384,4 +626,4 @@ function showQuotationCreateForm2() {
       });
     });
   });
-} 
+}

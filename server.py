@@ -71,7 +71,7 @@ def get_customers():
         result = []
         for cust in customers:
             cust_dict = dict(cust)
-            key_people = conn.execute('SELECT name, position, email, tel, brand FROM key_people WHERE customer_id=?', (cust['id'],)).fetchall()
+            key_people = conn.execute('SELECT id, name, position, email, tel, brand FROM key_people WHERE customer_id=?', (cust['id'],)).fetchall()
             cust_dict['keyPeople'] = [dict(kp) for kp in key_people]
             result.append(cust_dict)
         conn.close()
@@ -779,6 +779,8 @@ if __name__ == '__main__':
         init_user_db()
         set_admin_level()
         app.register_blueprint(ht_database_bp)
+        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+        app.config['SESSION_COOKIE_SECURE'] = False  # Only True if using HTTPS
         app.run(host='0.0.0.0', port=5000, debug=True)
     except Exception as e:
         print('ERROR STARTING SERVER:', e) 

@@ -289,6 +289,8 @@ function showQuotationCreateForm2() {
             <!-- Item Information Section -->
             <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
               <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
+              <!-- Dummy Button -->
+              <button type="button" id="dummy-fill-btn" style="position: fixed; top: 20px; right: 20px; padding: 8px 20px; background-color: #ccc; color: #000; border: none; border-radius: 4px; cursor: pointer; z-index: 1000;">Dummy Fill</button>
               <div id="quotation2-dynamic-fields">
                 <label>Quality:<br>
                   <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
@@ -501,6 +503,46 @@ function showQuotationCreateForm2() {
             if (["e", "E", "+", "-"].includes(e.key)) {
               e.preventDefault();
             }
+          });
+
+          // Dummy Fill Button Handler
+          $('#dummy-fill-btn').on('click', function() {
+            // Reset all fields first
+            $('#ht-quality').val('').trigger('change');
+            $('#ht-num-colors').val('').trigger('blur');
+            $('#ht-width').val('');
+            $('#ht-length').val('');
+            $('#color-names-group').empty();
+            
+            // Generate random data
+            const qualities = ['PU', 'Silicon'];
+            const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Purple', 'Orange', 'Pink', 'Brown'];
+            const numColors = Math.floor(Math.random() * 3) + 1; // Random 1-3 colors
+            const width = Math.floor(Math.random() * 200) + 50; // Random 50-250
+            const length = Math.floor(Math.random() * 300) + 100; // Random 100-400
+            
+            // Small delay to ensure reset is complete
+            setTimeout(() => {
+              // Fill Quality
+              const randomQuality = qualities[Math.floor(Math.random() * qualities.length)];
+              $('#ht-quality').val(randomQuality).trigger('change');
+              
+              // Fill Number of Colors
+              $('#ht-num-colors').val(numColors).trigger('blur');
+              
+              // Fill Color Names
+              setTimeout(() => {
+                // Shuffle colors array
+                const shuffledColors = [...colors].sort(() => 0.5 - Math.random());
+                for(let i = 1; i <= numColors; i++) {
+                  $('#color-names-group input[name="colorName' + i + '"]').val(shuffledColors[i-1]);
+                }
+              }, 100);
+              
+              // Fill Width and Length
+              $('#ht-width').val(width);
+              $('#ht-length').val(length);
+            }, 100);
           });
         });
         </script>

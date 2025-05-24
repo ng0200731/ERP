@@ -6,6 +6,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import os
 import logging
+import random
+import string
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +20,20 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 Base = declarative_base()
 
+def generate_item_code():
+    """Generate a random alphanumeric code in format: ABC-12345"""
+    letters = ''.join(random.choices(string.ascii_uppercase, k=3))
+    numbers = ''.join(random.choices(string.digits, k=5))
+    return f"{letters}-{numbers}"
+
 class Quotation(Base):
     __tablename__ = 'quotations'
     
     id = Column(Integer, primary_key=True)
+    customer_name = Column(String(100))
+    key_person_name = Column(String(100))
+    customer_item_code = Column(String(20), nullable=True)  # New field, nullable to handle existing records
+    creator_email = Column(String(100))
     quality = Column(String(50))
     flat_or_raised = Column(String(20))
     direct_or_reverse = Column(String(20))
@@ -29,8 +41,9 @@ class Quotation(Base):
     num_colors = Column(Integer)
     length = Column(Float)
     width = Column(Float)
-    price = Column(Float)
-    last_updated = Column(DateTime, default=datetime.utcnow)
+    price = Column(Float, nullable=True)  # Make price nullable since it's not provided in the form
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 def get_db():
     try:
@@ -42,11 +55,85 @@ def get_db():
         logger.error(f'Error initializing database: {e}')
         raise
 
-# Initialize database on module load
+# Add some dummy data function
+def add_dummy_data():
+    try:
+        engine = get_db()
+        from sqlalchemy.orm import sessionmaker
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Clear existing data
+        session.query(Quotation).delete()
+        
+        # Add dummy records
+        dummy_data = [
+            {
+                'customer_name': 'ABC Company',
+                'key_person_name': 'John Smith (Sales Manager)',
+                'customer_item_code': generate_item_code(),
+                'creator_email': 'eric.brilliant@gmail.com',
+                'quality': 'PU',
+                'flat_or_raised': 'Flat',
+                'direct_or_reverse': 'Direct',
+                'thickness': 0.8,
+                'num_colors': 2,
+                'length': 360,
+                'width': 58,
+                'price': 150.00,
+                'created_at': datetime(2024, 1, 15, 9, 30),
+                'last_updated': datetime(2024, 1, 15, 14, 45)
+            },
+            {
+                'customer_name': 'XYZ Industries',
+                'key_person_name': 'Mary Johnson (Production)',
+                'customer_item_code': generate_item_code(),
+                'creator_email': 'david.smith@company.com',
+                'quality': 'Silicon',
+                'flat_or_raised': 'Raised',
+                'direct_or_reverse': 'Reverse',
+                'thickness': 1.2,
+                'num_colors': 3,
+                'length': 390,
+                'width': 160,
+                'price': 280.50,
+                'created_at': datetime(2024, 2, 1, 11, 15),
+                'last_updated': datetime(2024, 2, 3, 16, 20)
+            },
+            {
+                'customer_name': 'Global Tech',
+                'key_person_name': 'Robert Chen (Purchasing)',
+                'customer_item_code': generate_item_code(),
+                'creator_email': 'sarah.jones@company.com',
+                'quality': 'PU',
+                'flat_or_raised': 'Flat',
+                'direct_or_reverse': 'Direct',
+                'thickness': 0.5,
+                'num_colors': 1,
+                'length': 244,
+                'width': 156,
+                'price': 95.75,
+                'created_at': datetime(2024, 3, 10, 8, 0),
+                'last_updated': datetime(2024, 3, 10, 8, 0)
+            }
+        ]
+        
+        for data in dummy_data:
+            quotation = Quotation(**data)
+            session.add(quotation)
+        
+        session.commit()
+        session.close()
+        print("Dummy data added successfully")
+    except Exception as e:
+        print(f"Error adding dummy data: {e}")
+
+# Initialize database and add dummy data on module load
 try:
     engine = get_db()
     Base.metadata.create_all(engine)
-    logger.info('Database initialized successfully')
+    add_dummy_data()  # Add dummy data
+    logger.info('Database initialized successfully with dummy data')
 except Exception as e:
     logger.error(f'Error initializing database: {e}')
 
@@ -141,4 +228,9 @@ def search_quotation():
         results = df[mask].to_dict('records')
         return jsonify(results)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({'error': str(e)}), 500
+
+@quotation_bp.route('/quotation/generate_code')
+def generate_new_code():
+    """API endpoint to generate a new item code"""
+    return jsonify({'code': generate_item_code()}) 

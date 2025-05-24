@@ -13,6 +13,7 @@ from quotation_database import quotation_bp, Base, Quotation, get_db
 from sqlalchemy import create_engine
 import pandas as pd
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 # Set up logging
 logging.basicConfig(
@@ -780,8 +781,15 @@ def save_quotation():
         engine = create_engine('sqlite:///database.db')
         Base.metadata.create_all(engine)  # Create tables if they don't exist
         
+        # Get user email from session if available, otherwise use a default
+        user_email = session.get('user', 'unknown@example.com') if 'user' in session else 'unknown@example.com'
+        
         # Create a new Quotation object
         quotation = Quotation(
+            customer_name=data['customer_name'],
+            key_person_name=data['key_person_name'],
+            customer_item_code=data['customer_item_code'],
+            creator_email=user_email,
             quality=data['quality'],
             flat_or_raised=data['flat_or_raised'],
             direct_or_reverse=data['direct_or_reverse'],
@@ -789,17 +797,17 @@ def save_quotation():
             num_colors=int(data['num_colors']),
             length=float(data['length']),
             width=float(data['width']),
-            price=float(data.get('price', 0)),
+            price=float(data['price']) if 'price' in data else None,  # Make price optional
+            created_at=datetime.utcnow(),
             last_updated=datetime.utcnow()
         )
         
         # Create a session and add the quotation
-        from sqlalchemy.orm import sessionmaker
         Session = sessionmaker(bind=engine)
-        session = Session()
-        session.add(quotation)
-        session.commit()
-        session.close()
+        db_session = Session()
+        db_session.add(quotation)
+        db_session.commit()
+        db_session.close()
         
         return jsonify({'message': 'Quotation saved successfully'}), 200
     except Exception as e:
@@ -810,8 +818,36 @@ def save_quotation():
 def list_quotations():
     try:
         engine = create_engine('sqlite:///database.db')
-        df = pd.read_sql_table('quotations', engine)
-        return jsonify(df.to_dict('records'))
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Query all quotations
+        quotations = session.query(Quotation).all()
+        
+        # Convert to dictionary format
+        records = []
+        for q in quotations:
+            record = {
+                'id': q.id,
+                'customer_name': q.customer_name,
+                'key_person_name': q.key_person_name,
+                'customer_item_code': q.customer_item_code,
+                'creator_email': q.creator_email,
+                'quality': q.quality,
+                'flat_or_raised': q.flat_or_raised,
+                'direct_or_reverse': q.direct_or_reverse,
+                'thickness': float(q.thickness) if q.thickness else None,
+                'num_colors': q.num_colors,
+                'length': float(q.length) if q.length else None,
+                'width': float(q.width) if q.width else None,
+                'price': float(q.price) if q.price else None,
+                'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S') if q.created_at else None,
+                'last_updated': q.last_updated.strftime('%Y-%m-%d %H:%M:%S') if q.last_updated else None
+            }
+            records.append(record)
+        
+        session.close()
+        return jsonify(records)
     except Exception as e:
         logger.error(f"Error listing quotations: {str(e)}")
         return jsonify({'error': str(e)}), 500

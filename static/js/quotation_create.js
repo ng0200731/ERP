@@ -1,4 +1,4 @@
-// Version v1.2.21
+// Version v1.2.31
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -129,7 +129,7 @@ $(function() {
 
     // Validate dynamic fields and gather attributes
     const attributes = {};
-
+    
     $('#quotation2-dynamic-fields').find('input:visible:enabled, select:visible:enabled').each(function() {
       const name = $(this).attr('name');
       const value = $(this).val();
@@ -138,32 +138,34 @@ $(function() {
          formIsValid = false;
          $(this).css('border-color', 'red');
       } else if (name) {
-          attributes[name] = value;
+          // Convert field names to match the backend expectations
+          let attributeName = name;
+          if (name === 'flatOrRaised') attributeName = 'flat_or_raised';
+          if (name === 'directOrReverse') attributeName = 'direct_or_reverse';
+          if (name === 'numColors') attributeName = 'num_colors';
+          attributes[attributeName] = value;
           $(this).css('border-color', '');
       }
     });
 
     // Check dynamic color name fields specifically as they are added dynamically
+    const colorNames = [];
     $('#color-names-group input[type="text"]').each(function() {
-        const name = $(this).attr('name');
         const value = $(this).val();
-        if (name && !value) {
+        if (!value) {
             formIsValid = false;
             $(this).css('border-color', 'red');
-        } else if (name) {
-             // These are part of colorNames attribute, handled below
-             $(this).css('border-color', '');
+        } else {
+            colorNames.push(value);
+            $(this).css('border-color', '');
         }
     });
+    attributes['color_names'] = colorNames;
 
-    // Special handling for colorNames dynamic field value collection
-    const numColorsInput = $('#ht-num-colors');
-    const numColors = parseInt(numColorsInput.val(), 10);
-    if (!isNaN(numColors) && numColors > 0) {
-        attributes['colorNames'] = [];
-        $('#color-names-group input[type="text"]').each(function() {
-            attributes['colorNames'].push($(this).val());
-        });
+    // Additional validation for Silicon + Raised combination
+    if (attributes.quality === 'Silicon' && attributes.flat_or_raised === 'Raised' && !attributes.thickness) {
+        formIsValid = false;
+        $('#ht-thickness').css('border-color', 'red');
     }
 
     // If form is not valid, show the single alert and stop submission
@@ -173,32 +175,64 @@ $(function() {
     }
 
     // Prepare data for saving
-    const quotationData = {
-        quality: attributes.quality || '',
-        flat_or_raised: attributes.flatOrRaised || '',
-        direct_or_reverse: attributes.directOrReverse || '',
-        thickness: parseFloat(attributes.thickness) || 0,
-        num_colors: parseInt(attributes.numColors) || 0,
-        length: parseFloat(attributes.length) || 0,
-        width: parseFloat(attributes.width) || 0,
-        price: parseFloat(attributes.price) || 0
+    const formData = {
+        customer_name: company ? company.company : '',
+        key_person_name: keyPerson ? keyPerson.name : '',
+        customer_item_code: $('#customer-item-code').val(),
+        customer_id: company ? company.id : '',
+        key_person_id: keyPerson ? keyPerson.id : '',
+        quality: $('#ht-quality').val(),
+        flat_or_raised: $('#ht-flat-or-raised').val(),
+        direct_or_reverse: $('#ht-direct-or-reverse').val(),
+        thickness: parseFloat($('#ht-thickness').val()) || 0,
+        num_colors: parseInt($('#ht-num-colors').val()) || 0,
+        width: parseFloat($('#ht-width').val()) || 0,
+        length: parseFloat($('#ht-length').val()) || 0,
+        color_names: colorNames
     };
 
-    // Save to SQLite via API
+    // Get CSRF token from meta tag
+    const csrfToken = $('meta[name="csrf-token"]').attr('content');
+
+    // Save to database with CSRF token
     $.ajax({
         url: '/quotation/save',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify(quotationData),
+        data: JSON.stringify(formData),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-Token': csrfToken
+        },
+        xhrFields: {
+            withCredentials: true
+        },
         success: function(response) {
+            if (response.error) {
+                showCustomPopup('Error: ' + response.error, true);
+                return;
+            }
             showCustomPopup('Quotation saved successfully', false);
-            // Load view page in right frame after showing success message
+            // Load the quotation records view in the same frame after a short delay
             setTimeout(() => {
                 $('#right-frame').load('/view_quotations_simple');
             }, 1000);
         },
         error: function(xhr, status, error) {
-            showCustomPopup('Error saving quotation: ' + error, true);
+            let errorMsg = 'Error saving quotation';
+            try {
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg += ': ' + xhr.responseJSON.error;
+                } else if (xhr.responseText) {
+                    errorMsg += ': ' + xhr.responseText;
+                } else {
+                    errorMsg += ': ' + error;
+                }
+            } catch(e) {
+                errorMsg += ': ' + error;
+            }
+            showCustomPopup(errorMsg, true);
+            console.error('Save error:', xhr, status, error); // Add debug logging
         }
     });
   });
@@ -431,7 +465,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.21</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.30</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
@@ -439,6 +473,7 @@ function showQuotationCreateForm2() {
             <button id="btn-ht-database" type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
               DATABASE
             </button>
+            <div style="margin-top: 8px; font-size: 12px; color: #666;">Access HT Database (Level 3 users only)</div>
           </div>
           ` : ''}
           
@@ -483,6 +518,12 @@ function showQuotationCreateForm2() {
               <!-- Dummy Button -->
               <button type="button" id="dummy-fill-btn" style="position: fixed; top: 20px; right: 20px; padding: 8px 20px; background-color: #ccc; color: #000; border: none; border-radius: 4px; cursor: pointer; z-index: 1000;">Dummy Fill</button>
               <div id="quotation2-dynamic-fields">
+                <label>Item Code:<br>
+                  <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                    <input type="text" id="customer-item-code" name="customer_item_code" style="flex: 1; padding: 8px;" readonly>
+                    <button type="button" onclick="generateItemCode()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate</button>
+                  </div>
+                </label>
                 <label>Quality:<br>
                   <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
                     <option value="">-- Select --</option>
@@ -753,6 +794,191 @@ function showQuotationCreateForm2() {
               $('#ht-width').val(width);
               $('#ht-length').val(length);
             }, 100);
+          });
+
+          // Add the generateItemCode function
+          window.generateItemCode = function() {
+            fetch('/quotation/generate_code')
+              .then(response => response.json())
+              .then(data => {
+                document.getElementById('customer-item-code').value = data.code;
+              });
+          };
+
+          // Generate an initial code when form loads
+          generateItemCode();
+
+          // Form submission handler
+          $('#quotation2-create2-form').off('submit').on('submit', function(e) {
+            e.preventDefault();
+            
+            let formIsValid = true;
+
+            // Validate Company
+            const companyInput = $('#quotation2-company-input');
+            const companyId = $('#quotation2-company-id').val();
+            if (!companyId) {
+                formIsValid = false;
+                companyInput.css('border-color', 'red');
+            } else {
+                companyInput.css('border-color', '');
+            }
+
+            // Validate Key Person
+            const keyPersonSelect = $('#quotation2-keyperson');
+            const keyPersonIdx = keyPersonSelect.val();
+            if (!keyPersonIdx) {
+                formIsValid = false;
+                keyPersonSelect.css('border-color', 'red');
+            } else {
+                keyPersonSelect.css('border-color', '');
+            }
+
+            // Get company and key person data
+            const company = customers.find(c => c.id == companyId);
+            const keyPerson = company && company.keyPeople[keyPersonIdx];
+
+            // Validate Quality
+            const qualitySelect = $('#ht-quality');
+            if (!qualitySelect.val()) {
+                formIsValid = false;
+                qualitySelect.css('border-color', 'red');
+            } else {
+                qualitySelect.css('border-color', '');
+            }
+
+            // Validate Flat/Raised
+            const flatRaisedSelect = $('#ht-flat-or-raised');
+            if (!flatRaisedSelect.val()) {
+                formIsValid = false;
+                flatRaisedSelect.css('border-color', 'red');
+            } else {
+                flatRaisedSelect.css('border-color', '');
+            }
+
+            // Validate Direct/Reverse
+            const directReverseSelect = $('#ht-direct-or-reverse');
+            if (!directReverseSelect.val()) {
+                formIsValid = false;
+                directReverseSelect.css('border-color', 'red');
+            } else {
+                directReverseSelect.css('border-color', '');
+            }
+
+            // Validate Thickness for Silicon + Raised
+            const thicknessInput = $('#ht-thickness');
+            if (qualitySelect.val() === 'Silicon' && flatRaisedSelect.val() === 'Raised' && !thicknessInput.val()) {
+                formIsValid = false;
+                thicknessInput.css('border-color', 'red');
+            } else {
+                thicknessInput.css('border-color', '');
+            }
+
+            // Validate Number of Colors
+            const numColorsInput = $('#ht-num-colors');
+            const numColors = parseInt(numColorsInput.val());
+            if (!numColors || numColors < 1) {
+                formIsValid = false;
+                numColorsInput.css('border-color', 'red');
+            } else {
+                numColorsInput.css('border-color', '');
+            }
+
+            // Validate Color Names
+            const colorNames = [];
+            $('#color-names-group input[type="text"]').each(function() {
+                const value = $(this).val().trim();
+                if (!value) {
+                    formIsValid = false;
+                    $(this).css('border-color', 'red');
+                } else {
+                    $(this).css('border-color', '');
+                    colorNames.push(value);
+                }
+            });
+
+            // Validate Width
+            const widthInput = $('#ht-width');
+            if (!widthInput.val()) {
+                formIsValid = false;
+                widthInput.css('border-color', 'red');
+            } else {
+                widthInput.css('border-color', '');
+            }
+
+            // Validate Length
+            const lengthInput = $('#ht-length');
+            if (!lengthInput.val()) {
+                formIsValid = false;
+                lengthInput.css('border-color', 'red');
+            } else {
+                lengthInput.css('border-color', '');
+            }
+
+            // If form is not valid, show error and stop
+            if (!formIsValid) {
+                showCustomPopup('Please fill in all highlighted fields in red', true);
+                return;
+            }
+
+            // Prepare data for saving
+            const formData = {
+                customer_name: company ? company.company : '',
+                key_person_name: keyPerson ? keyPerson.name : '',
+                customer_item_code: $('#customer-item-code').val(),
+                customer_id: companyId,
+                key_person_id: keyPerson ? keyPerson.id : '',
+                quality: qualitySelect.val(),
+                flat_or_raised: flatRaisedSelect.val(),
+                direct_or_reverse: directReverseSelect.val(),
+                thickness: parseFloat(thicknessInput.val()) || 0,
+                num_colors: numColors,
+                width: parseFloat(widthInput.val()) || 0,
+                length: parseFloat(lengthInput.val()) || 0,
+                color_names: colorNames
+            };
+
+            // Save to database
+            $.ajax({
+                url: '/quotation/save',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                xhrFields: {
+                    withCredentials: true
+                },
+                success: function(response) {
+                    if (response.error) {
+                        showCustomPopup('Error: ' + response.error, true);
+                        return;
+                    }
+                    showCustomPopup('Quotation saved successfully', false);
+                    setTimeout(() => {
+                        $('#right-frame').load('/view_quotations_simple');
+                    }, 1000);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Save error details:', {
+                        status: xhr.status,
+                        statusText: xhr.statusText,
+                        responseText: xhr.responseText,
+                        error: error
+                    });
+                    let errorMsg = 'Error saving quotation';
+                    try {
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg += ': ' + xhr.responseJSON.error;
+                        } else if (xhr.responseText) {
+                            errorMsg += ': ' + xhr.responseText;
+                        } else {
+                            errorMsg += ': ' + error;
+                        }
+                    } catch(e) {
+                        errorMsg += ': ' + error;
+                    }
+                    showCustomPopup(errorMsg, true);
+                }
+            });
           });
         });
         </script>

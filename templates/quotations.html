@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quotation Records - v1.2.22</title>
+    <style>
+        /* ... existing styles ... */
+        .item-code {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .generate-code-btn {
+            padding: 2px 8px;
+            margin-left: 5px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .generate-code-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Quotation Records</h1>
+        <div class="version">v1.2.22</div>
+        <button onclick="refreshData()" class="refresh-btn">Refresh</button>
+    </div>
+
+    <div class="form-container">
+        <form id="quotationForm">
+            <!-- ... existing form fields ... -->
+            <div class="form-group">
+                <label for="customer_item_code">Item Code:</label>
+                <input type="text" id="customer_item_code" name="customer_item_code" maxlength="20">
+                <button type="button" class="generate-code-btn" onclick="generateItemCode()">Generate</button>
+            </div>
+            <!-- ... rest of form fields ... -->
+        </form>
+    </div>
+
+    <div class="table-container">
+        <table id="quotationsTable">
+            <thead>
+                <tr>
+                    <!-- ... existing columns ... -->
+                    <th>Item Code</th>
+                    <!-- ... rest of columns ... -->
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        // ... existing JavaScript ...
+
+        function generateItemCode() {
+            fetch('/quotation/generate_code')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('customer_item_code').value = data.code;
+                });
+        }
+
+        function displayQuotations(quotations) {
+            const tbody = document.querySelector('#quotationsTable tbody');
+            tbody.innerHTML = '';
+            
+            quotations.forEach(quotation => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <!-- ... existing columns ... -->
+                    <td><span class="item-code">${quotation.customer_item_code || ''}</span></td>
+                    <!-- ... rest of columns ... -->
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // ... rest of existing JavaScript ...
+    </script>
+</body>
+</html> 

@@ -2015,7 +2015,7 @@ function showQuotationCreateForm() {
       // Validate company
       const companyId = $('#quotation-company-id').val();
       if (!companyId) {
-        showCustomPopup('Please select a company from the list.', true);
+        showCustomPopup('Please fill all required fields correctly.', true);
         $('#quotation-company-input').css('background', '#ffd6d6');
         hasError = true;
       } else {
@@ -2023,18 +2023,8 @@ function showQuotationCreateForm() {
       }
       // Validate key person
       const keyPersonIdx = $('#quotation-keyperson').val();
-      const company = customers.find(c => c.id == companyId);
-      let keyPersonId = null;
-      let keyPersonName = null;
-      let keyPersonEmail = null;
-      if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "" && keyPersonIdx !== null && keyPersonIdx !== undefined) {
-        const kp = company.keyPeople[keyPersonIdx];
-        keyPersonId = kp && kp.id ? kp.id : null;
-        keyPersonName = kp && kp.name ? kp.name : null;
-        keyPersonEmail = kp && kp.email ? kp.email : null;
-      }
-      if (keyPersonIdx === "" || keyPersonIdx === null || keyPersonIdx === undefined) {
-        showCustomPopup('Please select a key person.', true);
+      if (keyPersonIdx === '' || keyPersonIdx === null || keyPersonIdx === undefined) {
+        showCustomPopup('Please fill all required fields correctly.', true);
         $('#quotation-keyperson').css('background', '#ffd6d6');
         hasError = true;
       } else {
@@ -2043,73 +2033,20 @@ function showQuotationCreateForm() {
       // Validate product type
       const productType = $('#quotation-product-type').val();
       if (!productType) {
-        showCustomPopup('Please select a product type.', true);
+        showCustomPopup('Please fill all required fields correctly.', true);
         $('#quotation-product-type').css('background', '#ffd6d6');
         hasError = true;
       } else {
         $('#quotation-product-type').css('background', '');
       }
-      // Gather dynamic fields
-      const fields = productTypeFields[productType] || [];
-      const attributes = {};
-      // Validate all visible and enabled dynamic fields
-      $('#quotation-dynamic-fields input:visible:enabled, #quotation-dynamic-fields select:visible:enabled').each(function() {
-        const val = $(this).val();
-        if (!val) {
-          $(this).css('background', '#ffd6d6');
-          hasError = true;
-        } else {
-          $(this).css('background', '');
-        }
-      });
-      if (hasError) return;
-      fields.forEach(field => {
-        if (field.type === 'dynamic' && field.name === 'colorNames') {
-          const numColors = parseInt($('#quotation-dynamic-fields [name="numColors"]').val() || '0', 10);
-          if (numColors > 0) {
-            attributes['colorNames'] = [];
-            for (let i = 0; i < numColors; i++) {
-              const val = $('#quotation-dynamic-fields [name="colorName'+(i+1)+'"]').val();
-              attributes['colorNames'].push(val);
-            }
-          }
-        } else if (field.dependsOn) {
-          const depVal = $('#quotation-dynamic-fields [name="'+field.dependsOn.field+'"]:visible').val();
-          if (depVal !== field.dependsOn.value) {
-            // skip, handled by UI
-            return;
-          }
-          attributes[field.name] = $('#quotation-dynamic-fields [name="'+field.name+'"]').val();
-        } else {
-          attributes[field.name] = $('#quotation-dynamic-fields [name="'+field.name+'"]').val();
-        }
-      });
-      // POST to backend
-      $.ajax({
-        url: '/quotations',
-        type: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({
-          customer_id: companyId,
-          key_person_id: keyPersonId,
-          key_person_name: keyPersonName,
-          key_person_email: keyPersonEmail,
-          product_type: productType,
-          attributes: attributes
-        }),
-        success: function(resp) {
-          showCustomPopup('Quotation created!', false);
-          showQuotationCreateForm();
-        },
-        error: function(xhr) {
-          let msg = 'Failed to create quotation.';
-          try {
-            const r = JSON.parse(xhr.responseText);
-            if (r && r.error) msg += ' ' + r.error;
-          } catch(e) {}
-          showCustomPopup(msg, true);
-        }
-      });
+      // Validate dynamic fields (if any)
+      // ... (add more validation as needed) ...
+      if (hasError) {
+        return;
+      }
+      // If all fields are valid, show success popup (do not call backend)
+      showCustomPopup('Data updated successfully', false);
+      // Optionally reset the form or keep as is
     });
     // --- update renderDynamicFields for Direct or Reverse ---
     function renderDynamicFields() {

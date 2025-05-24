@@ -84,11 +84,8 @@
       </div>
       <!-- Static Quotation 2 Create 2 UI (no JS, no rules, just UI) -->
       <div id="quotation2-create2-form" style="display:none; padding:32px;max-width:600px; margin-top:40px;">
-        <button type="button">Create Quotation (HT)</button>
-        <h2>Create Quotation (HT)</h2>
-        
+        <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.16</span></h2>
         {% if permission_level >= 3 %}
-        <!-- LARGE UNMISSABLE BUTTON FOR LEVEL 3 USERS ONLY -->
         <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
           <a href="/ht_database" style="text-decoration: none;">
             <button type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
@@ -98,55 +95,15 @@
           <div style="margin-top: 8px; font-size: 12px; color: #666;">Access HT Database (Level 3 users only)</div>
         </div>
         {% endif %}
-        
-        <!-- Create Quotation (HT) button for all users -->
         <div style="text-align: center; margin: 20px 0;">
-          <button type="button" style="background-color: #3498db; color: white; font-size: 16px; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+          <button type="button" id="btn-quotation2-create2-js" style="background-color: #3498db; color: white; font-size: 16px; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
             Create Quotation (HT)
           </button>
         </div>
-        
-        <form autocomplete="off">
-          <!-- Simple button visible to all users -->
-          <button type="button" style="background-color: #28a745; color: white; padding: 8px 20px; border: none; border-radius: 4px; margin-bottom: 15px;">Help</button>
-          
-          <label>Company:<br><input type="text" name="quotation-company" value=""></label><br><br>
-          <label>Key Person:<br>
-            <select name="quotation-keyperson">
-              <option value="">-- Select --</option>
-            </select>
-          </label><br><br>
-          <label>Product Type:<br>
-            <select name="quotation-product-type">
-              <option value="">-- Select --</option>
-            </select>
-          </label><br><br>
-          <label>Quality:<br>
-            <select name="quality">
-              <option value="">-- Select --</option>
-            </select>
-          </label><br><br>
-          <label>Flat or Raised:<br>
-            <select name="flatOrRaised">
-              <option value="">-- Select --</option>
-            </select>
-          </label><br><br>
-          <label>Direct or Reverse:<br>
-            <select name="directOrReverse">
-              <option value="">-- Select --</option>
-              <option value="Direct">Direct</option>
-              <option value="Reverse">Reverse</option>
-            </select>
-          </label><br><br>
-          <label>Thickness:<br><input type="text" name="thickness" value=""></label><br><br>
-          <label># of Colors:<br><input type="text" name="numColors" value=""></label><br><br>
-          <label>Width:<br><input type="text" name="width" value=""></label><br><br>
-          <label>Length:<br><input type="text" name="length" value=""></label><br><br>
-          <button type="submit">Submit</button>
-        </form>
       </div>
     </div>
   </div>
+  <div style="position:fixed;bottom:10px;right:20px;font-size:13px;color:#888;z-index:1000;">Version v1.2.16</div>
   
   <script src="/static/js/app.js"></script>
   <script src="/static/js/quotation_create.js"></script>
@@ -165,6 +122,11 @@
     document.getElementById('logout-btn').onclick = function() {
       window.location = '/logout';
     }
+    
+    // Ensure the Create Quotation (HT) button triggers the JS-driven form
+    $(document).on('click', '#btn-quotation2-create2-js', function() {
+      showQuotationCreateForm2();
+    });
   </script>
 </body>
 </html>

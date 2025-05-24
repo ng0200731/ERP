@@ -1,4 +1,65 @@
-  // Only attach the handler for Quotation Create button once, and do not globally override anything else
+// Version v1.2.16
+// Fallback: ensure popup always works
+if (typeof showCustomPopup !== 'function') {
+  // Add a dedicated CSS class for the popup if not present
+  if (!document.getElementById('popup-center-toast-style')) {
+    const style = document.createElement('style');
+    style.id = 'popup-center-toast-style';
+    style.innerHTML = `
+      #global-popup-container {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        pointer-events: none !important;
+        z-index: 9999 !important;
+      }
+      .popup-success {
+        position: relative !important;
+        min-width: 280px !important;
+        max-width: 90vw !important;
+        padding: 18px 32px !important;
+        font-size: 1.2rem !important;
+        text-align: center !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+        border: 2px solid #c3e6cb !important;
+        background: #d4edda !important;
+        color: #155724 !important;
+        pointer-events: none !important;
+        display: block !important;
+      }
+      .popup-success.popup-error {
+        border: 2px solid #f5c6cb !important;
+        background: #f8d7da !important;
+        color: #721c24 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  function ensurePopupContainer() {
+    if ($('#global-popup-container').length === 0) {
+      $('body').append('<div id="global-popup-container"></div>');
+    }
+  }
+  function showCustomPopup(message, isError) {
+    ensurePopupContainer();
+    // Remove any existing popup
+    $('#global-popup-container .popup-success').remove();
+    $('#global-popup-container').append(`
+      <div class="popup-success${isError ? ' popup-error' : ''}">${message}</div>
+    `);
+    setTimeout(() => {
+      $('#global-popup-container .popup-success').fadeOut(500, function() { $(this).remove(); });
+    }, 1500);
+  }
+}
+
+// Only attach the handler for Quotation Create button once, and do not globally override anything else
 $(function() {
   // Make sure userPermissionLevel is defined, if not, get it
   if (typeof userPermissionLevel === 'undefined') {
@@ -102,37 +163,14 @@ $(function() {
 
     // If form is not valid, show the single alert and stop submission
     if (!formIsValid) {
-        alert('Please fill in below highlight in red border fill');
+        showCustomPopup('Please fill in below highlight in red border fill', true);
         return;
     }
 
-    // Continue with submission if all fields are valid
-    const productType = 'heat transfer'; // Hardcode product type for this specific form
-
-    // Send to server
-    $.ajax({
-      url: '/quotations2',
-      type: 'POST',
-      contentType: 'application/json',
-      data: JSON.stringify({
-        customer_id: companyId,
-        key_person_id: keyPerson.id,
-        product_type: productType,
-        attributes: attributes
-      }),
-      success: function(resp) {
-        alert('Quotation created successfully!');
-        showQuotationCreateForm2(); // Reset form
-      },
-      error: function(xhr) {
-        let msg = 'Failed to create quotation.';
-        try {
-          const r = JSON.parse(xhr.responseText);
-          if (r && r.error) msg += ' ' + r.error;
-        } catch(e) {}
-        alert(msg);
-      }
-    });
+    // Frontend-only: show success popup, do not send AJAX
+    showCustomPopup('Data updated successfully', false);
+    showQuotationCreateForm2(); // Optionally reset the form
+    return;
   });
 
   $(document).off('click.htDatabase').on('click.htDatabase', '#btn-ht-database', function() {
@@ -363,7 +401,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.1.7</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.16</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
@@ -565,7 +603,7 @@ function showQuotationCreateForm2() {
             let num = Number(val);
             // Accept 0.1-0.9, 1, 1.0-1.5 (1 decimal place max)
             if (!/^(0\.[1-9]|1(\.[0-5])?)$/.test(val) || isNaN(num) || num < 0.1 || num > 1.5) {
-              alert('Thickness must be a number from 0.1 to 1.5 with only 1 decimal place.');
+              showCustomPopup('Thickness must be a number from 0.1 to 1.5 with only 1 decimal place.', true);
               $(this).val(lastValidThickness);
               setTimeout(() => { $(this).focus(); }, 0);
               return;

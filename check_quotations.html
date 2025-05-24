@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quotation Records v1.2.9</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .version {
+            font-size: 0.9rem;
+            color: #666;
+            margin-left: 10px;
+        }
+        .error {
+            color: #dc3545;
+            padding: 10px;
+            background-color: #f8d7da;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #28a745;
+            padding: 10px;
+            background-color: #d4edda;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Quotation Records <span class="version">v1.2.9</span></h1>
+        <div id="records">Loading...</div>
+    </div>
+
+    <script>
+        // Function to fetch and display records
+        function loadRecords() {
+            fetch('/api/quotations2')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const recordsDiv = document.getElementById('records');
+                    if (Array.isArray(data) && data.length > 0) {
+                        recordsDiv.innerHTML = `
+                            <div class="success">Found ${data.length} record(s)</div>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        `;
+                    } else {
+                        recordsDiv.innerHTML = `
+                            <div class="error">No records found in database</div>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('records').innerHTML = `
+                        <div class="error">Error loading records: ${error.message}</div>
+                    `;
+                });
+        }
+
+        // Load records when page loads
+        window.onload = loadRecords;
+    </script>
+</body>
+</html> 

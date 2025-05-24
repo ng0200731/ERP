@@ -162,7 +162,7 @@ def update_customer(id):
             )
     conn.commit()
     conn.close()
-    return '', 204
+    return 'Record updated successfully', 204
 
 def init_db():
     conn = get_db()

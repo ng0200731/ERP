@@ -826,7 +826,19 @@ def view_quotations():
 
 @app.route('/view_quotations_simple')
 def view_quotations_simple():
-    return render_template('view_quotations_simple.html')
+    try:
+        engine = create_engine('sqlite:///database.db')
+        df = pd.read_sql_table('quotations', engine)
+        records = df.to_dict('records')
+        # Format the last_updated datetime
+        for record in records:
+            if record['last_updated']:
+                dt = pd.to_datetime(record['last_updated'])
+                record['last_updated'] = dt.strftime('%m/%d/%Y, %I:%M:%S %p')
+        return render_template('view_quotations_simple.html', records=records)
+    except Exception as e:
+        logger.error(f"Error in view_quotations_simple: {str(e)}")
+        return render_template('view_quotations_simple.html', records=[], error=str(e))
 
 # Register blueprints
 app.register_blueprint(ht_database_bp)

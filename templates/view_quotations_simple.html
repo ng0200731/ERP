@@ -1,68 +1,135 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Simple Quotation Viewer</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
-        tr:hover {
-            background-color: #f5f5f5;
-        }
-        .header {
+        .header-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
             margin-bottom: 20px;
         }
+        
+        .title-version {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .version-tag {
+            background: #e9ecef;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            color: #495057;
+        }
+        
         .refresh-btn {
-            padding: 8px 16px;
             background: #007bff;
             color: white;
             border: none;
-            border-radius: 4px;
+            padding: 8px 20px;
+            border-radius: 5px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.2s;
         }
+        
         .refresh-btn:hover {
             background: #0056b3;
         }
-        .version {
-            color: #666;
-            font-size: 0.9em;
+        
+        .quotation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .quotation-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .quotation-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .quotation-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .table-container {
+            max-height: calc(100vh - 150px);
+            overflow-y: auto;
+            margin: 0 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        
+        /* Zebra striping */
+        .quotation-table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 1200px) {
+            .table-container {
+                margin: 0 10px;
+            }
+            
+            .quotation-table th,
+            .quotation-table td {
+                padding: 8px;
+                font-size: 0.9em;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Quotation Records <span class="version">v1.2.21</span></h1>
-            <button onclick="loadData()" class="refresh-btn">Refresh Data</button>
+    <div class="header-container">
+        <div class="title-version">
+            <h2 style="margin: 0;">Quotation Records</h2>
+            <span class="version-tag">v1.2.21</span>
         </div>
-        <div id="quotation-table"></div>
+        <button class="refresh-btn" onclick="loadData()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 3a5 5 0 0 0-5 5H1l3.5 3.5L8 8H6a2 2 0 1 1 2 2v2a4 4 0 1 0-4-4H2a6 6 0 1 1 6 6v-2a4 4 0 0 0 0-8z"/>
+            </svg>
+            Refresh Data
+        </button>
+    </div>
+    
+    <div class="table-container">
+        <table class="quotation-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Quality</th>
+                    <th>Flat/Raised</th>
+                    <th>Direct/Reverse</th>
+                    <th>Thickness</th>
+                    <th># Colors</th>
+                    <th>Length</th>
+                    <th>Width</th>
+                    <th>Price</th>
+                    <th>Last Updated</th>
+                </tr>
+            </thead>
+            <tbody id="quotation-table-body">
+            </tbody>
+        </table>
     </div>
 
     <script>
@@ -72,51 +139,36 @@
             return date.toLocaleString();
         }
 
-        function createTable(data) {
+        function createTableRows(data) {
             if (!data || data.length === 0) {
-                return '<p>No quotation records found.</p>';
+                return '<tr><td colspan="10" style="text-align: center;">No quotation records found.</td></tr>';
             }
 
-            let html = '<table>';
-            
-            // Create header
-            html += '<tr>';
-            const headers = ['ID', 'Quality', 'Flat/Raised', 'Direct/Reverse', 'Thickness', 
-                           '# Colors', 'Length', 'Width', 'Price', 'Last Updated'];
-            headers.forEach(header => {
-                html += `<th>${header}</th>`;
-            });
-            html += '</tr>';
-
-            // Create rows
-            data.forEach(row => {
-                html += '<tr>';
-                html += `<td>${row.id || ''}</td>`;
-                html += `<td>${row.quality || ''}</td>`;
-                html += `<td>${row.flat_or_raised || ''}</td>`;
-                html += `<td>${row.direct_or_reverse || ''}</td>`;
-                html += `<td>${row.thickness || ''}</td>`;
-                html += `<td>${row.num_colors || ''}</td>`;
-                html += `<td>${row.length || ''}</td>`;
-                html += `<td>${row.width || ''}</td>`;
-                html += `<td>${row.price || ''}</td>`;
-                html += `<td>${formatDate(row.last_updated)}</td>`;
-                html += '</tr>';
-            });
-
-            html += '</table>';
-            return html;
+            return data.map(row => `
+                <tr>
+                    <td>${row.id || ''}</td>
+                    <td>${row.quality || ''}</td>
+                    <td>${row.flat_or_raised || ''}</td>
+                    <td>${row.direct_or_reverse || ''}</td>
+                    <td>${row.thickness || ''}</td>
+                    <td>${row.num_colors || ''}</td>
+                    <td>${row.length || ''}</td>
+                    <td>${row.width || ''}</td>
+                    <td>${row.price || ''}</td>
+                    <td>${formatDate(row.last_updated)}</td>
+                </tr>
+            `).join('');
         }
 
         function loadData() {
             fetch('/quotation/list')
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('quotation-table').innerHTML = createTable(data);
+                    document.getElementById('quotation-table-body').innerHTML = createTableRows(data);
                 })
                 .catch(error => {
-                    document.getElementById('quotation-table').innerHTML = 
-                        `<p style="color: red;">Error loading data: ${error.message}</p>`;
+                    document.getElementById('quotation-table-body').innerHTML = 
+                        `<tr><td colspan="10" style="text-align: center; color: red;">Error loading data: ${error.message}</td></tr>`;
                 });
         }
 

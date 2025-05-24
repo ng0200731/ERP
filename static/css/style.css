@@ -153,7 +153,7 @@ body, html {
     margin-top: 50px;
   }
 
-  /* v1.2.16: Centered popup for toast */
+  /* v1.2.18: Centered popup for toast */
   #popup-center-toast {
     position: fixed !important;
     top: 50% !important;

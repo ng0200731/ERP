@@ -1,62 +1,67 @@
-// Version v1.2.16
-// Fallback: ensure popup always works
+// Version v1.2.18
+// Ensure our popup implementation is used
+window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
-  // Add a dedicated CSS class for the popup if not present
-  if (!document.getElementById('popup-center-toast-style')) {
-    const style = document.createElement('style');
-    style.id = 'popup-center-toast-style';
-    style.innerHTML = `
-      #global-popup-container {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        pointer-events: none !important;
-        z-index: 9999 !important;
-      }
-      .popup-success {
-        position: relative !important;
-        min-width: 280px !important;
-        max-width: 90vw !important;
-        padding: 18px 32px !important;
-        font-size: 1.2rem !important;
-        text-align: center !important;
-        border-radius: 10px !important;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
-        border: 2px solid #c3e6cb !important;
-        background: #d4edda !important;
-        color: #155724 !important;
-        pointer-events: none !important;
-        display: block !important;
-      }
-      .popup-success.popup-error {
-        border: 2px solid #f5c6cb !important;
-        background: #f8d7da !important;
-        color: #721c24 !important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
+  // Remove any existing popup styles
+  $('#popup-center-toast-style').remove();
+  // Add our dedicated CSS class for the popup
+  const style = document.createElement('style');
+  style.id = 'popup-center-toast-style';
+  style.innerHTML = `
+    #global-popup-container {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      pointer-events: none !important;
+      z-index: 999999 !important;
+    }
+    .popup-success {
+      position: relative !important;
+      min-width: 280px !important;
+      max-width: 90vw !important;
+      padding: 18px 32px !important;
+      font-size: 1.2rem !important;
+      text-align: center !important;
+      border-radius: 10px !important;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+      border: 2px solid #c3e6cb !important;
+      background: #d4edda !important;
+      color: #155724 !important;
+      pointer-events: none !important;
+    }
+    .popup-success.popup-error {
+      border: 2px solid #f5c6cb !important;
+      background: #f8d7da !important;
+      color: #721c24 !important;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Remove any existing popup containers
+  $('#global-popup-container').remove();
+  
   function ensurePopupContainer() {
     if ($('#global-popup-container').length === 0) {
       $('body').append('<div id="global-popup-container"></div>');
     }
   }
-  function showCustomPopup(message, isError) {
+
+  window.showCustomPopup = function(message, isError) {
     ensurePopupContainer();
     // Remove any existing popup
-    $('#global-popup-container .popup-success').remove();
-    $('#global-popup-container').append(`
+    $('.popup-success').remove();
+    $('#global-popup-container').html(`
       <div class="popup-success${isError ? ' popup-error' : ''}">${message}</div>
     `);
     setTimeout(() => {
-      $('#global-popup-container .popup-success').fadeOut(500, function() { $(this).remove(); });
+      $('.popup-success').fadeOut(500, function() { $(this).remove(); });
     }, 1500);
-  }
+  };
 }
 
 // Only attach the handler for Quotation Create button once, and do not globally override anything else
@@ -401,7 +406,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.16</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.18</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->

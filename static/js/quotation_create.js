@@ -1,4 +1,4 @@
-// Only attach the handler for Quotation Create button once, and do not globally override anything else
+  // Only attach the handler for Quotation Create button once, and do not globally override anything else
 $(function() {
   // Make sure userPermissionLevel is defined, if not, get it
   if (typeof userPermissionLevel === 'undefined') {
@@ -206,6 +206,129 @@ function showQuotationCreateForm() {
     renderDynamicFieldsBlank(productTypeFields);
   });
   renderDynamicFieldsBlank(productTypeFields); // Initial blank render
+
+  // --- Customer Selection Logic ---
+
+  let currentFocus = -1;
+
+  // Function to update suggestion list
+  function updateSuggestions(val = '') {
+    val = val.toLowerCase();
+    let matches = val ? 
+      customers.filter(c => c.company.toLowerCase().includes(val)) :
+      customers;
+    
+    const $suggestionList = $('#company-suggestions ul'); // Use #company-suggestions
+    if (matches.length) {
+      const html = matches.map(c => 
+        `<li data-id="${c.id}" style="padding: 8px 12px; cursor: pointer; list-style: none; border-bottom: 1px solid #eee;">${c.company}</li>`
+      ).join('');
+      $suggestionList.html(html).show();
+      currentFocus = -1; // Reset focus when updating list
+    } else {
+      $suggestionList.hide();
+    }
+  }
+
+  // Function to select company
+  function selectCompany(id) {
+    const company = customers.find(c => c.id == id);
+    if (company) {
+      $('#quotation-company-input').val(company.company); // Use #quotation-company-input
+      $('#quotation-company-id').val(company.id); // Use #quotation-company-id
+      $('#company-suggestions ul').hide(); // Use #company-suggestions
+      // Mark as selected
+      $('#quotation-company-input').attr('data-selected', 'true');
+
+      // Populate key people
+      let kpOpts = '<option value="">-- Select Key Person --</option>';
+      if (Array.isArray(company.keyPeople)) {
+        kpOpts += company.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+      }
+      $('#quotation-keyperson').html(kpOpts); // Use #quotation-keyperson
+    }
+  }
+
+  // Show companies only when typing or when field is empty
+  $('#quotation-company-input').on('focus click', function(e) { // Use #quotation-company-input
+    // Don't show list if company is already selected
+    if ($(this).attr('data-selected') === 'true') {
+      return;
+    }
+    updateSuggestions();
+  });
+
+  // Filter companies as user types
+  $('#quotation-company-input').on('input', function() { // Use #quotation-company-input
+    const val = $(this).val();
+    // Remove selected state when user starts typing
+    $(this).attr('data-selected', 'false');
+    updateSuggestions(val);
+  });
+
+  // Handle keyboard navigation
+  $('#quotation-company-input').on('keydown', function(e) { // Use #quotation-company-input
+    const $suggestions = $('#company-suggestions ul'); // Use #company-suggestions
+    const $items = $suggestions.find('li');
+    
+    if (!$items.length) return;
+
+    // Down arrow
+    if (e.keyCode === 40) {
+      currentFocus++;
+      if (currentFocus >= $items.length) currentFocus = 0;
+      $items.removeClass('active').css('background-color', '');
+      $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
+      // Scroll into view if needed
+      const activeItem = $items[currentFocus];
+      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+    }
+    // Up arrow
+    else if (e.keyCode === 38) {
+      currentFocus--;
+      if (currentFocus < 0) currentFocus = $items.length - 1;
+      $items.removeClass('active').css('background-color', '');
+      $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
+      // Scroll into view if needed
+      const activeItem = $items[currentFocus];
+      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+    }
+    // Enter
+    else if (e.keyCode === 13 && currentFocus > -1) {
+      e.preventDefault(); // Prevent form submission
+      const id = $items.eq(currentFocus).data('id');
+      selectCompany(id);
+    }
+    // Escape
+    else if (e.keyCode === 27) {
+      $suggestions.hide();
+      currentFocus = -1;
+    }
+  });
+
+  // Handle company selection by click
+  $('#company-suggestions').on('click', 'li', function() { // Use #company-suggestions
+    const id = $(this).data('id');
+    selectCompany(id);
+  });
+
+  // Handle mouse hover on suggestions
+  $('#company-suggestions').on('mouseover', 'li', function() { // Use #company-suggestions
+    const $items = $('#company-suggestions ul li'); // Use #company-suggestions
+    $items.removeClass('active').css('background-color', '');
+    $(this).addClass('active').css('background-color', '#f0f0f0');
+    currentFocus = $items.index(this);
+  });
+
+  // Hide suggestions when clicking outside
+  $(document).on('click', function(e) {
+    if (!$(e.target).closest('#quotation-company-input, #company-suggestions').length) { // Use #quotation-company-input, #company-suggestions
+      $('#company-suggestions ul').hide(); // Use #company-suggestions
+      currentFocus = -1;
+    }
+  });
+
+  // --- End Customer Selection Logic ---
 }
 
 function renderDynamicFieldsBlank(productTypeFields) {
@@ -505,21 +628,40 @@ function showQuotationCreateForm2() {
             }
           });
 
-          // Dummy Fill Button Handler
+          // Dummy Fill Button Handler - Moved inside showQuotationCreateForm2 where selectCompany is defined
           $('#dummy-fill-btn').on('click', function() {
             // Reset all fields first
+            $('#quotation2-company-input').val('');
+            $('#quotation2-company-id').val('');
+            $('#quotation2-keyperson').html('<option value="">-- Select Key Person --</option>').prop('disabled', false);
             $('#ht-quality').val('').trigger('change');
             $('#ht-num-colors').val('').trigger('blur');
             $('#ht-width').val('');
             $('#ht-length').val('');
             $('#color-names-group').empty();
             
-            // Generate random data
+            // Generate random data for all fields
             const qualities = ['PU', 'Silicon'];
             const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Purple', 'Orange', 'Pink', 'Brown'];
             const numColors = Math.floor(Math.random() * 3) + 1; // Random 1-3 colors
             const width = Math.floor(Math.random() * 200) + 50; // Random 50-250
             const length = Math.floor(Math.random() * 300) + 100; // Random 100-400
+
+            // Select a random company and key person if customers data is available
+            if (typeof customers !== 'undefined' && customers.length > 0) {
+              const randomCompany = customers[Math.floor(Math.random() * customers.length)];
+              // Use the existing selectCompany function
+              selectCompany(randomCompany.id);
+
+              // Select a random key person from the populated dropdown
+              setTimeout(() => {
+                const keyPersonOptions = $('#quotation2-keyperson option').not('[value=""]');
+                if (keyPersonOptions.length > 0) {
+                  const randomIndex = Math.floor(Math.random() * keyPersonOptions.length);
+                  keyPersonOptions.eq(randomIndex).prop('selected', true);
+                }
+              }, 150); // Small delay to allow key persons to populate
+            }
             
             // Small delay to ensure reset is complete
             setTimeout(() => {
@@ -535,7 +677,7 @@ function showQuotationCreateForm2() {
                 // Shuffle colors array
                 const shuffledColors = [...colors].sort(() => 0.5 - Math.random());
                 for(let i = 1; i <= numColors; i++) {
-                  $('#color-names-group input[name="colorName' + i + '"]').val(shuffledColors[i-1]);
+                   $('#color-names-group input[name="colorName' + i + '"]').val(shuffledColors[i-1]);
                 }
               }, 100);
               

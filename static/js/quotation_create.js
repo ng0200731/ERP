@@ -192,11 +192,10 @@ $(function() {
         data: JSON.stringify(quotationData),
         success: function(response) {
             showCustomPopup('Quotation saved successfully', false);
-            // Get the saved data in JSON format
-            $.get('/quotation/list', function(data) {
-                console.log('Saved quotation data:', data);
-            });
-            showQuotationCreateForm2(); // Reset the form
+            // Load view page in right frame after showing success message
+            setTimeout(() => {
+                $('#right-frame').load('/view_quotations_simple');
+            }, 1000);
         },
         error: function(xhr, status, error) {
             showCustomPopup('Error saving quotation: ' + error, true);

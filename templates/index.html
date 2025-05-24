@@ -7,7 +7,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script>
     // Define permission level in global scope
-    var userPermissionLevel = {{ permission_level }};
+    var userPermissionLevel = "{{ permission_level }}";
   </script>
 </head>
 <body>
@@ -34,6 +34,7 @@
       <button id="btn-quotation2">Quotation 2</button>
       <div id="quotation2-nested" style="display:none; margin-left: 10px;">
         <button id="btn-quotation2-create2">Create (HT)</button>
+        <button id="btn-view-quotations">View Records</button>
       </div>
       <div style="position:absolute;bottom:40px;left:30px;width:160px;text-align:center;">
         <button id="logout-btn" style="padding:10px 32px; background:#eee; border-radius:6px; border:1px solid #ccc; font-size:18px;">Logout</button>
@@ -126,6 +127,13 @@
     // Ensure the Create Quotation (HT) button triggers the JS-driven form
     $(document).on('click', '#btn-quotation2-create2-js', function() {
       showQuotationCreateForm2();
+    });
+
+    // Add handler for View Records button
+    $(document).ready(function() {
+      $('#btn-view-quotations').click(function() {
+        $('#right-frame').load('/view_quotations_simple');
+      });
     });
   </script>
 </body>

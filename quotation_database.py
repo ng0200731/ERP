@@ -5,6 +5,9 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 quotation_bp = Blueprint('quotation', __name__)
 
@@ -30,7 +33,22 @@ class Quotation(Base):
     last_updated = Column(DateTime, default=datetime.utcnow)
 
 def get_db():
-    return create_engine('sqlite:///database.db')
+    try:
+        engine = create_engine('sqlite:///database.db')
+        Base.metadata.create_all(engine)  # Create tables if they don't exist
+        logger.info('Database initialized and tables created successfully')
+        return engine
+    except Exception as e:
+        logger.error(f'Error initializing database: {e}')
+        raise
+
+# Initialize database on module load
+try:
+    engine = get_db()
+    Base.metadata.create_all(engine)
+    logger.info('Database initialized successfully')
+except Exception as e:
+    logger.error(f'Error initializing database: {e}')
 
 @quotation_bp.route('/quotation')
 @login_required

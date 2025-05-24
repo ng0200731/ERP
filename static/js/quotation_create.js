@@ -1,4 +1,4 @@
-// Version v1.2.18
+// Version v1.2.21
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -172,10 +172,36 @@ $(function() {
         return;
     }
 
-    // Frontend-only: show success popup, do not send AJAX
-    showCustomPopup('Data updated successfully', false);
-    showQuotationCreateForm2(); // Optionally reset the form
-    return;
+    // Prepare data for saving
+    const quotationData = {
+        quality: attributes.quality || '',
+        flat_or_raised: attributes.flatOrRaised || '',
+        direct_or_reverse: attributes.directOrReverse || '',
+        thickness: parseFloat(attributes.thickness) || 0,
+        num_colors: parseInt(attributes.numColors) || 0,
+        length: parseFloat(attributes.length) || 0,
+        width: parseFloat(attributes.width) || 0,
+        price: parseFloat(attributes.price) || 0
+    };
+
+    // Save to SQLite via API
+    $.ajax({
+        url: '/quotation/save',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(quotationData),
+        success: function(response) {
+            showCustomPopup('Quotation saved successfully', false);
+            // Get the saved data in JSON format
+            $.get('/quotation/list', function(data) {
+                console.log('Saved quotation data:', data);
+            });
+            showQuotationCreateForm2(); // Reset the form
+        },
+        error: function(xhr, status, error) {
+            showCustomPopup('Error saving quotation: ' + error, true);
+        }
+    });
   });
 
   $(document).off('click.htDatabase').on('click.htDatabase', '#btn-ht-database', function() {
@@ -406,7 +432,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.18</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.21</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->

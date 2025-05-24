@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Quotation Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .refresh-btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .refresh-btn:hover {
+            background: #0056b3;
+        }
+        .version {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Quotation Records <span class="version">v1.2.21</span></h1>
+            <button onclick="loadData()" class="refresh-btn">Refresh Data</button>
+        </div>
+        <div id="quotation-table"></div>
+    </div>
+
+    <script>
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+
+        function createTable(data) {
+            if (!data || data.length === 0) {
+                return '<p>No quotation records found.</p>';
+            }
+
+            let html = '<table>';
+            
+            // Create header
+            html += '<tr>';
+            const headers = ['ID', 'Quality', 'Flat/Raised', 'Direct/Reverse', 'Thickness', 
+                           '# Colors', 'Length', 'Width', 'Price', 'Last Updated'];
+            headers.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += '</tr>';
+
+            // Create rows
+            data.forEach(row => {
+                html += '<tr>';
+                html += `<td>${row.id || ''}</td>`;
+                html += `<td>${row.quality || ''}</td>`;
+                html += `<td>${row.flat_or_raised || ''}</td>`;
+                html += `<td>${row.direct_or_reverse || ''}</td>`;
+                html += `<td>${row.thickness || ''}</td>`;
+                html += `<td>${row.num_colors || ''}</td>`;
+                html += `<td>${row.length || ''}</td>`;
+                html += `<td>${row.width || ''}</td>`;
+                html += `<td>${row.price || ''}</td>`;
+                html += `<td>${formatDate(row.last_updated)}</td>`;
+                html += '</tr>';
+            });
+
+            html += '</table>';
+            return html;
+        }
+
+        function loadData() {
+            fetch('/quotation/list')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('quotation-table').innerHTML = createTable(data);
+                })
+                .catch(error => {
+                    document.getElementById('quotation-table').innerHTML = 
+                        `<p style="color: red;">Error loading data: ${error.message}</p>`;
+                });
+        }
+
+        // Load data when page loads
+        loadData();
+    </script>
+</body>
+</html> 

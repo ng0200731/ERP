@@ -8,7 +8,11 @@ from flask_mail import Mail, Message
 import os
 import logging
 from ht_database import ht_database_bp
-from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
+from quotation_database import quotation_bp, Base, Quotation, get_db
+from sqlalchemy import create_engine
+import pandas as pd
+from sqlalchemy.ext.declarative import declarative_base
 
 # Set up logging
 logging.basicConfig(
@@ -769,6 +773,65 @@ def clear_session():
     # Return the page that will clear client-side cookies
     return render_template('clear_session.html')
 
+@app.route('/quotation/save', methods=['POST'])
+def save_quotation():
+    try:
+        data = request.json
+        engine = create_engine('sqlite:///database.db')
+        Base.metadata.create_all(engine)  # Create tables if they don't exist
+        
+        # Create a new Quotation object
+        quotation = Quotation(
+            quality=data['quality'],
+            flat_or_raised=data['flat_or_raised'],
+            direct_or_reverse=data['direct_or_reverse'],
+            thickness=float(data['thickness']),
+            num_colors=int(data['num_colors']),
+            length=float(data['length']),
+            width=float(data['width']),
+            price=float(data.get('price', 0)),
+            last_updated=datetime.utcnow()
+        )
+        
+        # Create a session and add the quotation
+        from sqlalchemy.orm import sessionmaker
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        session.add(quotation)
+        session.commit()
+        session.close()
+        
+        return jsonify({'message': 'Quotation saved successfully'}), 200
+    except Exception as e:
+        logger.error(f"Error saving quotation: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/quotation/list', methods=['GET'])
+def list_quotations():
+    try:
+        engine = create_engine('sqlite:///database.db')
+        df = pd.read_sql_table('quotations', engine)
+        return jsonify(df.to_dict('records'))
+    except Exception as e:
+        logger.error(f"Error listing quotations: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/view_quotations')
+@login_required
+def view_quotations():
+    # Get the user's permission level from session
+    permission_level = session.get('permission_level', 1)
+    user_email = session.get('user', None)
+    return render_template('view_quotations.html', permission_level=permission_level, user_email=user_email)
+
+@app.route('/view_quotations_simple')
+def view_quotations_simple():
+    return render_template('view_quotations_simple.html')
+
+# Register blueprints
+app.register_blueprint(ht_database_bp)
+app.register_blueprint(quotation_bp)
+
 # Call all initializers
 if __name__ == '__main__':
     print('INSIDE MAIN BLOCK')
@@ -778,7 +841,7 @@ if __name__ == '__main__':
         init_option_db()
         init_user_db()
         set_admin_level()
-        app.register_blueprint(ht_database_bp)
+        # Remove duplicate blueprint registrations
         app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
         app.config['SESSION_COOKIE_SECURE'] = False  # Only True if using HTTPS
         app.run(host='0.0.0.0', port=5000, debug=True)

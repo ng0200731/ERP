@@ -37,11 +37,11 @@ class Quotation(Base):
     quality = Column(String(50))
     flat_or_raised = Column(String(20))
     direct_or_reverse = Column(String(20))
-    thickness = Column(Float)
-    num_colors = Column(Integer)
-    length = Column(Float)
-    width = Column(Float)
-    price = Column(Float, nullable=True)  # Make price nullable since it's not provided in the form
+    thickness = Column(Float, nullable=False, default=0.0)
+    num_colors = Column(Integer, nullable=False, default=0)
+    length = Column(Float, nullable=False, default=0.0)
+    width = Column(Float, nullable=False, default=0.0)
+    price = Column(Float, nullable=False, default=0.0)  # Changed to not nullable with default 0
     created_at = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -63,10 +63,14 @@ def add_dummy_data():
         Session = sessionmaker(bind=engine)
         session = Session()
         
-        # Clear existing data
-        session.query(Quotation).delete()
+        # Check if table is empty
+        existing_count = session.query(Quotation).count()
+        if existing_count > 0:
+            session.close()
+            print(f"Found {existing_count} existing records, skipping dummy data")
+            return
         
-        # Add dummy records
+        # Add dummy records only if table is empty
         dummy_data = [
             {
                 'customer_name': 'ABC Company',

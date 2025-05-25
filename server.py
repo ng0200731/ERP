@@ -2,7 +2,7 @@ print('STARTING SERVER.PY')
 from flask import Flask, request, jsonify, send_from_directory, render_template, session, redirect, url_for
 from flask_cors import CORS
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 from flask_mail import Mail, Message
 import os
@@ -784,27 +784,58 @@ def save_quotation():
         # Get user email from session if available, otherwise use a default
         user_email = session.get('user', 'unknown@example.com') if 'user' in session else 'unknown@example.com'
         
-        # Create a new Quotation object
+        # Helper function to safely convert numeric values
+        def safe_float(value, default=0.0):
+            try:
+                if value is None or value == '' or value == '-':
+                    return default
+                return float(value)
+            except (ValueError, TypeError):
+                return default
+
+        def safe_int(value, default=0):
+            try:
+                if value is None or value == '' or value == '-':
+                    return default
+                return int(value)
+            except (ValueError, TypeError):
+                return default
+        
+        # Create a session
+        Session = sessionmaker(bind=engine)
+        db_session = Session()
+        
+        # Check for duplicate within last 5 seconds
+        five_seconds_ago = datetime.utcnow() - timedelta(seconds=5)
+        duplicate = db_session.query(Quotation).filter(
+            Quotation.customer_name == data.get('customer_name', ''),
+            Quotation.key_person_name == data.get('key_person_name', ''),
+            Quotation.customer_item_code == data.get('customer_item_code', ''),
+            Quotation.created_at >= five_seconds_ago
+        ).first()
+        
+        if duplicate:
+            db_session.close()
+            return jsonify({'error': 'Duplicate record detected. Please wait a few seconds before submitting again.'}), 400
+        
+        # Create a new Quotation object with safe value conversion
         quotation = Quotation(
-            customer_name=data['customer_name'],
-            key_person_name=data['key_person_name'],
-            customer_item_code=data['customer_item_code'],
+            customer_name=data.get('customer_name', ''),
+            key_person_name=data.get('key_person_name', ''),
+            customer_item_code=data.get('customer_item_code', ''),
             creator_email=user_email,
-            quality=data['quality'],
-            flat_or_raised=data['flat_or_raised'],
-            direct_or_reverse=data['direct_or_reverse'],
-            thickness=float(data['thickness']),
-            num_colors=int(data['num_colors']),
-            length=float(data['length']),
-            width=float(data['width']),
-            price=float(data['price']) if 'price' in data else None,  # Make price optional
+            quality=data.get('quality', ''),
+            flat_or_raised=data.get('flat_or_raised', ''),
+            direct_or_reverse=data.get('direct_or_reverse', ''),
+            thickness=safe_float(data.get('thickness')),
+            num_colors=safe_int(data.get('num_colors')),
+            length=safe_float(data.get('length')),
+            width=safe_float(data.get('width')),
+            price=safe_float(data.get('price')),
             created_at=datetime.utcnow(),
             last_updated=datetime.utcnow()
         )
         
-        # Create a session and add the quotation
-        Session = sessionmaker(bind=engine)
-        db_session = Session()
         db_session.add(quotation)
         db_session.commit()
         db_session.close()
@@ -812,6 +843,8 @@ def save_quotation():
         return jsonify({'message': 'Quotation saved successfully'}), 200
     except Exception as e:
         logger.error(f"Error saving quotation: {str(e)}")
+        if 'db_session' in locals():
+            db_session.close()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/quotation/list', methods=['GET'])
@@ -821,8 +854,8 @@ def list_quotations():
         Session = sessionmaker(bind=engine)
         session = Session()
         
-        # Query all quotations
-        quotations = session.query(Quotation).all()
+        # Query all quotations ordered by last_updated in descending order
+        quotations = session.query(Quotation).order_by(Quotation.last_updated.desc()).all()
         
         # Convert to dictionary format
         records = []

@@ -115,7 +115,7 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.2.59</span>
+            <span class="version-tag">v1.2.68</span>
         </div>
         <button class="refresh-btn" onclick="loadData()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -142,6 +142,7 @@
                     <th>Length</th>
                     <th>Width</th>
                     <th>Price</th>
+                    <th>Artwork</th>
                     <th>Created</th>
                     <th>Last Updated</th>
                 </tr>
@@ -192,6 +193,7 @@
                     <td>${row.length || ''}</td>
                     <td>${row.width || ''}</td>
                     <td>${formatPrice(row.price)}</td>
+                    <td>${row.artwork_image ? `<img src="/${row.artwork_image.replace(/^uploads\//, 'uploads/')}" style="max-width:80px;max-height:60px;object-fit:contain;border:1px solid #ccc;border-radius:4px;" loading="lazy">` : ''}</td>
                     <td class="timestamp">${formatDate(row.created_at)}</td>
                     <td class="timestamp">${formatDate(row.last_updated)}</td>
                 </tr>

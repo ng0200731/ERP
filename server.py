@@ -777,7 +777,22 @@ def clear_session():
 @app.route('/quotation/save', methods=['POST'])
 def save_quotation():
     try:
-        data = request.json
+        data = request.form.to_dict() if request.form else request.json
+        jpg_file = request.files.get('artwork_image') if 'artwork_image' in request.files else None
+        artwork_image_path = None
+        if jpg_file and jpg_file.filename:
+            # Only accept .jpg/.jpeg
+            if not jpg_file.filename.lower().endswith(('.jpg', '.jpeg')):
+                return jsonify({'error': 'Only JPG files are allowed'}), 400
+            # Save file
+            uploads_dir = os.path.join('uploads', 'artwork_images')
+            os.makedirs(uploads_dir, exist_ok=True)
+            timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+            safe_name = f"{timestamp}_{jpg_file.filename.replace(' ', '_')}"
+            file_path = os.path.join(uploads_dir, safe_name)
+            jpg_file.save(file_path)
+            artwork_image_path = file_path
+        
         engine = create_engine('sqlite:///database.db')
         Base.metadata.create_all(engine)
         
@@ -808,61 +823,32 @@ def save_quotation():
         try:
             # Begin transaction
             db_session.begin()
-            
-            # Check for existing quotation with same customer and key person
-            existing_quotation = db_session.query(Quotation).filter(
-                Quotation.customer_name == data.get('customer_name', ''),
-                Quotation.key_person_name == data.get('key_person_name', '')
-            ).with_for_update().first()  # Lock the row if it exists
-            
             current_time = datetime.utcnow()
-            
-            if existing_quotation:
-                # Update existing quotation
-                existing_quotation.customer_item_code = data.get('customer_item_code', '')
-                existing_quotation.quality = data.get('quality', '')
-                existing_quotation.flat_or_raised = data.get('flat_or_raised', '')
-                existing_quotation.direct_or_reverse = data.get('direct_or_reverse', '')
-                existing_quotation.thickness = safe_float(data.get('thickness'))
-                existing_quotation.num_colors = safe_int(data.get('num_colors'))
-                existing_quotation.length = safe_float(data.get('length'))
-                existing_quotation.width = safe_float(data.get('width'))
-                existing_quotation.price = safe_float(data.get('price'))
-                existing_quotation.last_updated = current_time
-                quotation = existing_quotation
-            else:
-                # Create a new Quotation object
-                quotation = Quotation(
-                    customer_name=data.get('customer_name', ''),
-                    key_person_name=data.get('key_person_name', ''),
-                    customer_item_code=data.get('customer_item_code', ''),
-                    creator_email=user_email,
-                    quality=data.get('quality', ''),
-                    flat_or_raised=data.get('flat_or_raised', ''),
-                    direct_or_reverse=data.get('direct_or_reverse', ''),
-                    thickness=safe_float(data.get('thickness')),
-                    num_colors=safe_int(data.get('num_colors')),
-                    length=safe_float(data.get('length')),
-                    width=safe_float(data.get('width')),
-                    price=safe_float(data.get('price')),
-                    created_at=current_time,
-                    last_updated=current_time
-                )
-                db_session.add(quotation)
-            
-            # Commit the transaction
+            # Always create a new Quotation object (no duplicate check)
+            quotation = Quotation(
+                customer_name=data.get('customer_name', ''),
+                key_person_name=data.get('key_person_name', ''),
+                customer_item_code=data.get('customer_item_code', ''),
+                creator_email=user_email,
+                quality=data.get('quality', ''),
+                flat_or_raised=data.get('flat_or_raised', ''),
+                direct_or_reverse=data.get('direct_or_reverse', ''),
+                thickness=safe_float(data.get('thickness')),
+                num_colors=safe_int(data.get('num_colors')),
+                length=safe_float(data.get('length')),
+                width=safe_float(data.get('width')),
+                price=safe_float(data.get('price')),
+                created_at=current_time,
+                last_updated=current_time,
+                artwork_image=artwork_image_path
+            )
+            db_session.add(quotation)
             db_session.commit()
-            
-            return jsonify({
-                'message': 'Quotation saved successfully',
-                'action': 'updated' if existing_quotation else 'created'
-            }), 200
-            
+            return jsonify({'message': 'Quotation saved successfully', 'action': 'created'}), 200
         except Exception as e:
             db_session.rollback()
             logger.error(f"Database error while saving quotation: {str(e)}")
-            return jsonify({'error': 'A quotation with these details already exists'}), 409
-            
+            return jsonify({'error': str(e)}), 409
         finally:
             db_session.close()
             
@@ -898,7 +884,8 @@ def list_quotations():
                 'width': float(q.width) if q.width else None,
                 'price': float(q.price) if q.price else None,
                 'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S') if q.created_at else None,
-                'last_updated': q.last_updated.strftime('%Y-%m-%d %H:%M:%S') if q.last_updated else None
+                'last_updated': q.last_updated.strftime('%Y-%m-%d %H:%M:%S') if q.last_updated else None,
+                'artwork_image': q.artwork_image if q.artwork_image else None
             }
             records.append(record)
         

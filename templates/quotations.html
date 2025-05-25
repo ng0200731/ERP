@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Quotation Records - v1.2.59</title>
+    <title>Quotation Records - v1.2.68</title>
     <style>
         /* ... existing styles ... */
         .item-code {
@@ -27,7 +27,7 @@
 <body>
     <div class="header">
         <h1>Quotation Records</h1>
-        <div class="version">v1.2.59</div>
+        <div class="version">v1.2.68</div>
         <button onclick="refreshData()" class="refresh-btn">Refresh</button>
     </div>
 
@@ -50,6 +50,7 @@
                     <!-- ... existing columns ... -->
                     <th>Item Code</th>
                     <!-- ... rest of columns ... -->
+                    <th>Artwork</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -77,6 +78,7 @@
                     <!-- ... existing columns ... -->
                     <td><span class="item-code">${quotation.customer_item_code || ''}</span></td>
                     <!-- ... rest of columns ... -->
+                    <td>${quotation.artwork_image ? `<img src="/${quotation.artwork_image.replace(/^uploads\//, 'uploads/')}" style="max-width:80px;max-height:60px;object-fit:contain;border:1px solid #ccc;border-radius:4px;" loading="lazy">` : ''}</td>
                 `;
                 tbody.appendChild(row);
             });

@@ -44,11 +44,7 @@ class Quotation(Base):
     price = Column(Float, nullable=False, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Add unique constraint for customer_name and key_person_name only
-    __table_args__ = (
-        UniqueConstraint('customer_name', 'key_person_name', name='uix_quotation_customer'),
-    )
+    artwork_image = Column(String(255))
 
 def get_db():
     try:
@@ -179,14 +175,14 @@ def clean_duplicate_quotations():
         return False
 
 def recreate_quotations_table():
-    """Drop and recreate the quotations table with the new schema"""
+    """Drop and recreate the quotations table with the new schema (no unique constraint)"""
     try:
         engine = get_db()
         # Drop existing table
         Base.metadata.drop_all(engine, tables=[Quotation.__table__])
-        # Create table with new schema
+        # Create table with new schema (no unique constraint)
         Base.metadata.create_all(engine, tables=[Quotation.__table__])
-        print("Successfully recreated quotations table with new schema")
+        print("Successfully recreated quotations table with new schema (no unique constraint)")
         return True
     except Exception as e:
         print(f"Error recreating table: {e}")

@@ -1,4 +1,4 @@
-// Version v1.2.64
+// Version v1.2.68
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -245,9 +245,7 @@ $(function() {
         error: function(xhr, status, error) {
             let errorMsg = 'Error saving quotation';
             try {
-                if (xhr.status === 409) {
-                    errorMsg = 'A quotation with these details already exists';
-                } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                if (xhr.responseJSON && xhr.responseJSON.error) {
                     errorMsg += ': ' + xhr.responseJSON.error;
                 } else if (xhr.responseText) {
                     errorMsg += ': ' + xhr.responseText;
@@ -510,7 +508,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.64</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.68</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `

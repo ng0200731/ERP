@@ -780,17 +780,25 @@ def save_quotation():
         data = request.form.to_dict() if request.form else request.json
         jpg_file = request.files.get('artwork_image') if 'artwork_image' in request.files else None
         artwork_image_path = None
+        print('[DEBUG] /quotation/save called')
+        if jpg_file:
+            print(f'[DEBUG] Received file: {jpg_file.filename}')
+        else:
+            print('[DEBUG] No file received in request.files')
         if jpg_file and jpg_file.filename:
             # Only accept .jpg/.jpeg
             if not jpg_file.filename.lower().endswith(('.jpg', '.jpeg')):
+                print('[DEBUG] File is not a JPG')
                 return jsonify({'error': 'Only JPG files are allowed'}), 400
             # Save file
             uploads_dir = os.path.join('uploads', 'artwork_images')
             os.makedirs(uploads_dir, exist_ok=True)
+            print(f'[DEBUG] Ensured folder exists: {uploads_dir}')
             timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
             safe_name = f"{timestamp}_{jpg_file.filename.replace(' ', '_')}"
             file_path = os.path.join(uploads_dir, safe_name)
             jpg_file.save(file_path)
+            print(f'[DEBUG] Saved file to: {file_path}')
             artwork_image_path = file_path
         
         engine = create_engine('sqlite:///database.db')

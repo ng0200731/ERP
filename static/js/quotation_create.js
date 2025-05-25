@@ -1,4 +1,4 @@
-// Version v1.2.68
+// Version v1.2.72
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -102,7 +102,6 @@ $(function() {
     e.preventDefault();
     if (window.isSubmittingQuotation2) return;
     window.isSubmittingQuotation2 = true;
-    // Disable the submit button immediately and change its style for visual feedback
     var $submitBtn = $(this).find('button[type="submit"]');
     $submitBtn.prop('disabled', true)
       .css({
@@ -192,81 +191,84 @@ $(function() {
         return;
     }
 
-    // Prepare data for saving
-    const formData = {
-        customer_name: company ? company.company : '',
-        key_person_name: keyPerson ? keyPerson.name : '',
-        customer_item_code: $('#customer-item-code').val(),
-        customer_id: company ? company.id : '',
-        key_person_id: keyPerson ? keyPerson.id : '',
-        quality: $('#ht-quality').val(),
-        flat_or_raised: $('#ht-flat-or-raised').val(),
-        direct_or_reverse: $('#ht-direct-or-reverse').val(),
-        thickness: parseFloat($('#ht-thickness').val()) || 0,
-        num_colors: parseInt($('#ht-num-colors').val()) || 0,
-        width: parseFloat($('#ht-width').val()) || 0,
-        length: parseFloat($('#ht-length').val()) || 0,
-        color_names: colorNames
-    };
-
+    // Prepare FormData for file upload
+    var formData = new FormData(this);
+    // Always get the file from the file input
+    var fileInput = document.getElementById('q2-jpg-input');
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      formData.append('artwork_image', fileInput.files[0]);
+    }
+    // Add other fields manually if needed
+    formData.append('customer_name', company ? company.company : '');
+    formData.append('key_person_name', keyPerson ? keyPerson.name : '');
+    formData.append('customer_item_code', $('#customer-item-code').val());
+    formData.append('customer_id', company ? company.id : '');
+    formData.append('key_person_id', keyPerson ? keyPerson.id : '');
+    formData.append('quality', $('#ht-quality').val());
+    formData.append('flat_or_raised', $('#ht-flat-or-raised').val());
+    formData.append('direct_or_reverse', $('#ht-direct-or-reverse').val());
+    formData.append('thickness', parseFloat($('#ht-thickness').val()) || 0);
+    formData.append('num_colors', parseInt($('#ht-num-colors').val()) || 0);
+    formData.append('width', parseFloat($('#ht-width').val()) || 0);
+    formData.append('length', parseFloat($('#ht-length').val()) || 0);
+    // Add color names as JSON string
+    formData.append('color_names', JSON.stringify(colorNames));
     // Get CSRF token from meta tag
     const csrfToken = $('meta[name="csrf-token"]').attr('content');
-
-    // Save to database with CSRF token
     $.ajax({
-        url: '/quotation/save',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(formData),
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-Token': csrfToken
-        },
-        xhrFields: {
-            withCredentials: true
-        },
-        success: function(response) {
-            if (response.error) {
-                showCustomPopup('Error: ' + response.error, true);
-                $submitBtn.prop('disabled', false)
-                  .css({
-                    'background': '',
-                    'color': '',
-                    'border': ''
-                  });
-            } else {
-                showCustomPopup('Quotation saved successfully', false);
-                // Load the quotation records view in the same frame after a short delay
-                setTimeout(() => {
-                    $('#right-frame').load('/view_quotations_simple');
-                }, 1000);
-            }
-        },
-        error: function(xhr, status, error) {
-            let errorMsg = 'Error saving quotation';
-            try {
-                if (xhr.responseJSON && xhr.responseJSON.error) {
-                    errorMsg += ': ' + xhr.responseJSON.error;
-                } else if (xhr.responseText) {
-                    errorMsg += ': ' + xhr.responseText;
-                } else {
-                    errorMsg += ': ' + error;
-                }
-            } catch(e) {
-                errorMsg += ': ' + error;
-            }
-            showCustomPopup(errorMsg, true);
-            console.error('Save error:', xhr, status, error);
-            $submitBtn.prop('disabled', false)
-              .css({
-                'background': '',
-                'color': '',
-                'border': ''
-              });
-        },
-        complete: function() {
-            window.isSubmittingQuotation2 = false;
+      url: '/quotation/save',
+      method: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-Token': csrfToken
+      },
+      xhrFields: {
+        withCredentials: true
+      },
+      success: function(response) {
+        if (response.error) {
+          showCustomPopup('Error: ' + response.error, true);
+          $submitBtn.prop('disabled', false)
+            .css({
+              'background': '',
+              'color': '',
+              'border': ''
+            });
+        } else {
+          showCustomPopup('Quotation saved successfully', false);
+          setTimeout(() => {
+            $('#right-frame').load('/view_quotations_simple');
+          }, 1000);
         }
+      },
+      error: function(xhr, status, error) {
+        let errorMsg = 'Error saving quotation';
+        try {
+          if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorMsg += ': ' + xhr.responseJSON.error;
+          } else if (xhr.responseText) {
+            errorMsg += ': ' + xhr.responseText;
+          } else {
+            errorMsg += ': ' + error;
+          }
+        } catch(e) {
+          errorMsg += ': ' + error;
+        }
+        showCustomPopup(errorMsg, true);
+        console.error('Save error:', xhr, status, error);
+        $submitBtn.prop('disabled', false)
+          .css({
+            'background': '',
+            'color': '',
+            'border': ''
+          });
+      },
+      complete: function() {
+        window.isSubmittingQuotation2 = false;
+      }
     });
   });
 
@@ -508,7 +510,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.68</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.72</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -734,21 +736,27 @@ function showQuotationCreateForm2() {
         e.preventDefault();
         dropArea.style.background = '#fafbfc';
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          handleJpgFile(e.dataTransfer.files[0]);
+          handleJpgFile(e.dataTransfer.files[0], true);
         }
       });
       fileInput.addEventListener('change', e => {
         if (fileInput.files && fileInput.files[0]) {
-          handleJpgFile(fileInput.files[0]);
+          handleJpgFile(fileInput.files[0], false);
         }
       });
-      function handleJpgFile(file) {
+      function handleJpgFile(file, fromDrop) {
         if (!file.type.match('image/jpeg')) {
           previewDiv.innerHTML = '<span style="color:red;">Only JPG files are allowed.</span>';
           jpgFile = null;
           return;
         }
         jpgFile = file;
+        // If from drag-and-drop, set the file input's files property
+        if (fromDrop && fileInput) {
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          fileInput.files = dataTransfer.files;
+        }
         const reader = new FileReader();
         reader.onload = function(e) {
           previewDiv.innerHTML = `<img src="${e.target.result}" style="max-width:180px;max-height:120px;border:1px solid #ccc;border-radius:6px;" />`;

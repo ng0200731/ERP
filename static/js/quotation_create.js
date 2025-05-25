@@ -1,4 +1,4 @@
-// Version v1.2.59
+// Version v1.2.64
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -285,6 +285,16 @@ $(function() {
       document.body.appendChild(script);
     });
   });
+
+  // Attach Item Code Generate button handler
+  $('#generate-item-code-btn').off('click').on('click', function(e) {
+    e.preventDefault();
+    fetch('/quotation/generate_code')
+      .then(response => response.json())
+      .then(data => {
+        $('#customer-item-code').val(data.code);
+      });
+  });
 });
 
 function showQuotationCreateForm() {
@@ -499,114 +509,99 @@ function showQuotationCreateForm2() {
       const userLevel = response.level || 0;
       
       $('#right-frame').html(`
-        <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.59</span></h2>
-          
-          ${userLevel >= 3 ? `
-          <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
-          <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
-            <button id="btn-ht-database" type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-              DATABASE
-            </button>
-            <div style="margin-top: 8px; font-size: 12px; color: #666;">Access HT Database (Level 3 users only)</div>
-          </div>
-          ` : ''}
-          
-          <style>\
-            #quotation2-create2-form input[type="number"],\
-            #quotation2-create2-form input[type="text"],\
-            #quotation2-create2-form select {\
-              width: 100% !important;\
-              box-sizing: border-box;\
-              padding: 8px;\
-              border-radius: 4px;\
-              border: 1.5px solid #b3c6ff;\
-              margin-bottom: 8px;\
-            }\
-            #quotation2-create2-form label {\
-              margin-bottom: 4px;\
-              display: block;\
-            }\
-          </style>
-          
-          <form id="quotation2-create2-form" autocomplete="off">
-            <!-- Customer Details Section -->
-            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-              <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
-              <label>Company:<br>
-                <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
-                <div id="company2-suggestions" style="position: relative;">
-                  <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
+        <div style="padding:32px;max-width:900px; min-height:100vh;">
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.64</span></h2>
+          <div style="display:flex; gap:32px; align-items:flex-start;">
+            <div style="flex:2; min-width:340px;">
+              ${userLevel >= 3 ? `
+              <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
+              <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
+                <button id="btn-ht-database" type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                  DATABASE
+                </button>
+                <div style="margin-top: 8px; font-size: 12px; color: #666;">Access HT Database (Level 3 users only)</div>
+              </div>
+              ` : ''}
+              <form id="quotation2-create2-form" autocomplete="off">
+                <!-- Customer Details Section -->
+                <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+                  <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
+                  <label>Company:<br>
+                    <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
+                    <div id="company2-suggestions" style="position: relative;">
+                      <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
+                    </div>
+                    <input type="hidden" id="quotation2-company-id">
+                  </label><br><br>
+                  <label>Key Person:<br>
+                    <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
+                      <option value="">-- Select Key Person --</option>
+                    </select>
+                  </label>
                 </div>
-                <input type="hidden" id="quotation2-company-id">
-              </label><br><br>
-              <label>Key Person:<br>
-                <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
-                  <option value="">-- Select Key Person --</option>
-                </select>
-              </label>
-            </div>
-
-            <!-- Item Information Section -->
-            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
-              <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
-              <!-- Dummy Button -->
-              <button type="button" id="dummy-fill-btn" style="position: fixed; top: 20px; right: 20px; padding: 8px 20px; background-color: #ccc; color: #000; border: none; border-radius: 4px; cursor: pointer; z-index: 1000;">Dummy Fill</button>
-              <div id="quotation2-dynamic-fields">
-                <label>Item Code:<br>
-                  <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <input type="text" id="customer-item-code" name="customer_item_code" style="flex: 1; padding: 8px;" readonly>
-                    <button type="button" onclick="generateItemCode()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate</button>
+                <!-- Item Information Section -->
+                <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
+                  <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
+                  <!-- Dummy Button -->
+                  <button type="button" id="dummy-fill-btn" style="position: fixed; top: 20px; right: 20px; padding: 8px 20px; background-color: #ccc; color: #000; border: none; border-radius: 4px; cursor: pointer; z-index: 1000;">Dummy Fill</button>
+                  <div id="quotation2-dynamic-fields">
+                    <label>Item Code:<br>
+                      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <input type="text" id="customer-item-code" name="customer_item_code" style="flex: 1; padding: 8px;" readonly>
+                      </div>
+                    </label>
+                    <label>Quality:<br>
+                      <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
+                        <option value="">-- Select --</option>
+                        <option value="PU">PU</option>
+                        <option value="Silicon">Silicon</option>
+                      </select>
+                    </label><br><br>
+                    <label>Flat or Raised:<br>
+                      <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
+                        <option value="">-- Select --</option>
+                        <option value="Flat">Flat</option>
+                        <option value="Raised">Raised</option>
+                      </select>
+                    </label><br><br>
+                    <label>Direct or Reverse:<br>
+                      <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
+                        <option value="">-- Select --</option>
+                        <option value="Direct">Direct</option>
+                        <option value="Reverse">Reverse</option>
+                      </select>
+                    </label><br><br>
+                    <label>Thickness 0.1-1.5:<br>
+                      <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
+                    </label><br><br>
+                    <label># of Colors:<br>
+                      <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
+                    </label>
+                    <div id="color-names-group" style="margin-top: 10px;"></div>
+                    <label>Width:<br>
+                      <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; margin-top: 16px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
+                    </label><br><br>
+                    <label>Length:<br>
+                      <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
+                    </label>
                   </div>
-                </label>
-                <label>Quality:<br>
-                  <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
-                    <option value="">-- Select --</option>
-                    <option value="PU">PU</option>
-                    <option value="Silicon">Silicon</option>
-                  </select>
-                </label><br><br>
-                <label>Flat or Raised:<br>
-                  <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
-                    <option value="">-- Select --</option>
-                    <option value="Flat">Flat</option>
-                    <option value="Raised">Raised</option>
-                  </select>
-                </label><br><br>
-                <label>Direct or Reverse:<br>
-                  <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
-                    <option value="">-- Select --</option>
-                    <option value="Direct">Direct</option>
-                    <option value="Reverse">Reverse</option>
-                  </select>
-                </label><br><br>
-                <label>Thickness 0.1-1.5:<br>
-                  <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
-                </label><br><br>
-                <label># of Colors:<br>
-                  <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
-                </label>
-                <div id="color-names-group" style="margin-top: 10px;"></div>
-                <label>Width:<br>
-                  <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; margin-top: 16px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
-                </label><br><br>
-                <label>Length:<br>
-                  <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
-                </label>
+                </div>
+                <br>
+                <!-- Submit button at the bottom -->
+                <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
+              </form>
+            </div>
+            <div style="flex:1; min-width:220px; max-width:320px; margin-top:0;">
+              <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
+                <label style="font-weight:bold;">Upload JPG Artwork:</label>
+                <div id="q2-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
+                  <span id="q2-drop-label">Drag & drop JPG here or click to select</span>
+                  <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
+                  <div id="q2-jpg-preview" style="margin-top:12px;"></div>
+                </div>
               </div>
             </div>
-            <div style="margin-bottom: 18px;">
-              <label style="font-weight:bold;">Upload JPG Artwork:</label>
-              <div id="q2-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
-                <span id="q2-drop-label">Drag & drop JPG here or click to select</span>
-                <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
-                <div id="q2-jpg-preview" style="margin-top:12px;"></div>
-              </div>
-            </div>
-            <br>
-            <!-- Submit button at the bottom -->
-            <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
-          </form>
+          </div>
         </div>
       `);
 
@@ -764,6 +759,71 @@ function showQuotationCreateForm2() {
       }
       // Store jpgFile for later use (e.g., form submission)
       window.q2_jpgFile = jpgFile;
+
+      // Dummy Fill Button Handler
+      $('#dummy-fill-btn').off('click').on('click', function() {
+        // Random dummy data
+        const qualities = ['PU', 'Silicon'];
+        const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Purple', 'Orange', 'Pink', 'Brown'];
+        const numColors = Math.floor(Math.random() * 3) + 1; // 1-3 colors
+        const width = Math.floor(Math.random() * 200) + 50; // 50-250
+        const length = Math.floor(Math.random() * 300) + 100; // 100-400
+        // Select a random company and key person if customers data is available
+        if (typeof customers !== 'undefined' && customers.length > 0) {
+          const randomCompany = customers[Math.floor(Math.random() * customers.length)];
+          // Set company
+          $('#quotation2-company-input').val(randomCompany.company);
+          $('#quotation2-company-id').val(randomCompany.id);
+          $('#quotation2-company-input').attr('data-selected', 'true');
+          // Populate key people
+          let kpOpts = '<option value="">-- Select Key Person --</option>';
+          if (Array.isArray(randomCompany.keyPeople)) {
+            kpOpts += randomCompany.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+          }
+          $('#quotation2-keyperson').html(kpOpts);
+          // Select a random key person
+          if (Array.isArray(randomCompany.keyPeople) && randomCompany.keyPeople.length > 0) {
+            const randomIdx = Math.floor(Math.random() * randomCompany.keyPeople.length);
+            $('#quotation2-keyperson').val(randomIdx);
+          }
+        }
+        // Fill Item Code (fetch from backend)
+        fetch('/quotation/generate_code')
+          .then(response => response.json())
+          .then(data => {
+            $('#customer-item-code').val(data.code);
+          });
+        // Fill Quality
+        const randomQuality = qualities[Math.floor(Math.random() * qualities.length)];
+        $('#ht-quality').val(randomQuality).trigger('change');
+        // Fill Flat/Raised
+        setTimeout(function() {
+          const flatOrRaised = ['Flat', 'Raised'][Math.floor(Math.random() * 2)];
+          $('#ht-flat-or-raised').val(flatOrRaised).trigger('change');
+          // Fill Direct/Reverse
+          setTimeout(function() {
+            const directOrReverse = ['Direct', 'Reverse'][Math.floor(Math.random() * 2)];
+            $('#ht-direct-or-reverse').val(directOrReverse).trigger('change');
+            // Fill Thickness if enabled
+            if (!$('#ht-thickness').prop('disabled')) {
+              const thickness = (Math.random() * 1.4 + 0.1).toFixed(1); // 0.1-1.5
+              $('#ht-thickness').val(thickness);
+            }
+          }, 100);
+        }, 100);
+        // Fill Number of Colors
+        $('#ht-num-colors').val(numColors).trigger('input');
+        // Fill Color Names
+        setTimeout(function() {
+          const shuffledColors = [...colors].sort(() => 0.5 - Math.random());
+          $('#color-names-group input[type="text"]').each(function(i) {
+            $(this).val(shuffledColors[i % shuffledColors.length]);
+          });
+        }, 200);
+        // Fill Width and Length
+        $('#ht-width').val(width);
+        $('#ht-length').val(length);
+      });
     });
   });
 }

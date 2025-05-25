@@ -1,4 +1,4 @@
-// Version v1.2.72
+// Version v1.2.75
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -510,7 +510,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.72</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.75</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -593,9 +593,9 @@ function showQuotationCreateForm2() {
             </div>
             <div style="flex:1; min-width:220px; max-width:320px; margin-top:0;">
               <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
-                <label style="font-weight:bold;">Upload JPG Artwork:</label>
+                <label style="font-weight:bold;">Upload JPG/PNG Artwork:<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop, click, or <b>Ctrl+V</b> to paste JPG/PNG or screenshot)</span></label>
                 <div id="q2-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
-                  <span id="q2-drop-label">Drag & drop JPG here or click to select</span>
+                  <span id="q2-drop-label">Drag & drop JPG/PNG here or click to select</span>
                   <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
                   <div id="q2-jpg-preview" style="margin-top:12px;"></div>
                 </div>
@@ -724,7 +724,7 @@ function showQuotationCreateForm2() {
         }
       });
 
-      // Drag and drop logic for JPG
+      // Drag and drop logic for JPG/PNG
       const dropArea = document.getElementById('q2-drop-area');
       const fileInput = document.getElementById('q2-jpg-input');
       const previewDiv = document.getElementById('q2-jpg-preview');
@@ -736,38 +736,122 @@ function showQuotationCreateForm2() {
         e.preventDefault();
         dropArea.style.background = '#fafbfc';
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          handleJpgFile(e.dataTransfer.files[0], true);
+          handleImageFile(e.dataTransfer.files[0], true);
         }
       });
       fileInput.addEventListener('change', e => {
         if (fileInput.files && fileInput.files[0]) {
-          handleJpgFile(fileInput.files[0], false);
+          handleImageFile(fileInput.files[0], false);
         }
       });
-      function handleJpgFile(file, fromDrop) {
-        if (!file.type.match('image/jpeg')) {
-          previewDiv.innerHTML = '<span style="color:red;">Only JPG files are allowed.</span>';
+      // --- Add paste (Ctrl+V) support for JPG/PNG image ---
+      const rightFrame = document.getElementById('right-frame');
+      function handlePasteEvent(e) {
+        if (document.getElementById('q2-drop-area')) {
+          if (e.clipboardData && e.clipboardData.items) {
+            for (let i = 0; i < e.clipboardData.items.length; i++) {
+              const item = e.clipboardData.items[i];
+              if (item.kind === 'file' && (item.type === 'image/jpeg' || item.type === 'image/png')) {
+                const file = item.getAsFile();
+                handleImageFile(file, true);
+                e.preventDefault();
+                break;
+              }
+            }
+          }
+        }
+      }
+      rightFrame.addEventListener('paste', handlePasteEvent);
+      $(rightFrame).one('DOMNodeRemoved', function() {
+        rightFrame.removeEventListener('paste', handlePasteEvent);
+      });
+      // --- End paste support ---
+      async function handleImageFile(file, fromDrop) {
+        if (!(file.type === 'image/jpeg' || file.type === 'image/png')) {
+          previewDiv.innerHTML = '<span style="color:red;">Only JPG or PNG files are allowed.</span>';
           jpgFile = null;
           return;
         }
+        // If PNG, convert to JPG using canvas
+        if (file.type === 'image/png') {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(function(blob) {
+              if (!blob) {
+                previewDiv.innerHTML = '<span style="color:red;">Failed to convert PNG to JPG.</span>';
+                jpgFile = null;
+                return;
+              }
+              const jpg = new File([blob], 'artwork.jpg', { type: 'image/jpeg' });
+              setJpgFile(jpg, fromDrop, canvas.toDataURL('image/jpeg'));
+            }, 'image/jpeg', 0.92);
+          };
+          img.onerror = function() {
+            previewDiv.innerHTML = '<span style="color:red;">Failed to load PNG image.</span>';
+            jpgFile = null;
+          };
+          img.src = URL.createObjectURL(file);
+        } else {
+          // JPG: preview and set
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            setJpgFile(file, fromDrop, e.target.result);
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+      function setJpgFile(file, fromDrop, dataUrl) {
         jpgFile = file;
-        // If from drag-and-drop, set the file input's files property
-        if (fromDrop && fileInput) {
+        if ((fromDrop || fileInput) && fileInput) {
           const dataTransfer = new DataTransfer();
           dataTransfer.items.add(file);
           fileInput.files = dataTransfer.files;
         }
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          previewDiv.innerHTML = `<img src="${e.target.result}" style="max-width:180px;max-height:120px;border:1px solid #ccc;border-radius:6px;" />`;
-        };
-        reader.readAsDataURL(file);
+        previewDiv.innerHTML = `<img src="${dataUrl}" style="max-width:180px;max-height:120px;border:1px solid #ccc;border-radius:6px;" />`;
       }
-      // Store jpgFile for later use (e.g., form submission)
       window.q2_jpgFile = jpgFile;
 
+      // --- Dynamic Color Names logic for # of Colors ---
+      function renderColorNames(num, prevVals) {
+        let html = '';
+        for (let i = 0; i < num; i++) {
+          const cname = prevVals['colorName'+(i+1)] || '';
+          html += `<input type="text" name="colorName${i+1}" placeholder="Color ${i+1}" value="${cname}"><br>`;
+        }
+        return html;
+      }
+      function getPrevColorNames() {
+        const prev = {};
+        $('#color-names-group input[type="text"]').each(function(i) {
+          prev['colorName'+(i+1)] = $(this).val();
+        });
+        return prev;
+      }
+      // Render color name fields on # of Colors change
+      $('#quotation2-dynamic-fields').on('input', '#ht-num-colors', function() {
+        const prevVals = getPrevColorNames();
+        let num = parseInt($(this).val(), 10) || 0;
+        if (num < 1) num = 1;
+        let html = renderColorNames(num, prevVals);
+        $('#color-names-group').html(html);
+      });
+      // Initial render (preserve on reload)
+      setTimeout(function() {
+        const prevVals = getPrevColorNames();
+        let num = parseInt($('#ht-num-colors').val(), 10) || 1;
+        if (num < 1) num = 1;
+        $('#color-names-group').html(renderColorNames(num, prevVals));
+      }, 0);
       // Dummy Fill Button Handler
       $('#dummy-fill-btn').off('click').on('click', function() {
+        // Reset all color name fields to blank
+        $('#ht-num-colors').val(1);
+        $('#color-names-group').html(renderColorNames(1, {}));
         // Random dummy data
         const qualities = ['PU', 'Silicon'];
         const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Purple', 'Orange', 'Pink', 'Brown'];
@@ -819,8 +903,8 @@ function showQuotationCreateForm2() {
         }, 100);
         // Fill Number of Colors
         $('#ht-num-colors').val(numColors).trigger('input');
-        // Fill Color Names
         setTimeout(function() {
+          // Fill Color Names (after input boxes are rendered)
           const shuffledColors = [...colors].sort(() => 0.5 - Math.random());
           $('#color-names-group input[type="text"]').each(function(i) {
             $(this).val(shuffledColors[i % shuffledColors.length]);

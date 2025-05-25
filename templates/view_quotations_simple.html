@@ -115,6 +115,15 @@
         .sticky-itemcode { left: 450px; z-index: 104; max-width: 160px; min-width: 140px; overflow: hidden; white-space: nowrap; background: #fff !important; }
         .sticky-artwork { left: 610px; z-index: 105; max-width: 140px; min-width: 120px; overflow: hidden; background: #fff !important; }
         .sticky-status { left: 750px; z-index: 106; max-width: 100px; min-width: 80px; overflow: hidden; white-space: nowrap; background: #fff !important; box-shadow: 2px 0 6px -2px #bbb; }
+
+        .quotation-table th {
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            background: #fff !important;
+            border-bottom: 2px solid #dee2e6;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -135,12 +144,12 @@
         <table class="quotation-table">
             <thead>
                 <tr>
-                    <th class="sticky sticky-id">ID</th>
-                    <th class="sticky sticky-customer">Customer</th>
-                    <th class="sticky sticky-keyperson">Key Person</th>
-                    <th class="sticky sticky-itemcode">Item Code</th>
-                    <th class="sticky sticky-artwork">Artwork</th>
-                    <th class="sticky sticky-status">Status</th>
+                    <th class="sticky sticky-id" style="left:0;top:0;z-index:201;background:#fff;">ID</th>
+                    <th class="sticky sticky-customer" style="left:70px;top:0;z-index:202;background:#fff;">Customer</th>
+                    <th class="sticky sticky-keyperson" style="left:250px;top:0;z-index:203;background:#fff;">Key Person</th>
+                    <th class="sticky sticky-itemcode" style="left:450px;top:0;z-index:204;background:#fff;">Item Code</th>
+                    <th class="sticky sticky-artwork" style="left:610px;top:0;z-index:205;background:#fff;">Artwork</th>
+                    <th class="sticky sticky-status" style="left:750px;top:0;z-index:206;background:#fff;box-shadow:2px 0 6px -2px #bbb;">Status</th>
                     <th>Creator</th>
                     <th>Quality</th>
                     <th>Flat/Raised</th>

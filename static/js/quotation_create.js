@@ -1,4 +1,4 @@
-// Version v1.2.76
+// Version v1.2.82
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -177,6 +177,23 @@ $(function() {
     if (attributes.quality === 'Silicon' && attributes.flat_or_raised === 'Raised' && !attributes.thickness) {
         formIsValid = false;
         $('#ht-thickness').css('border-color', 'red');
+    }
+
+    // Ensure artwork image is present (HT form only)
+    var fileInput = document.getElementById('q2-jpg-input');
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+      showCustomPopup('Please upload an artwork image (JPG/PNG/screenshot) before submitting.', true);
+      document.getElementById('q2-drop-area').style.borderColor = 'red';
+      $submitBtn.prop('disabled', false)
+        .css({
+          'background': '',
+          'color': '',
+          'border': ''
+        });
+      window.isSubmittingQuotation2 = false;
+      return;
+    } else {
+      document.getElementById('q2-drop-area').style.borderColor = '#aaa';
     }
 
     // If form is not valid, show the single alert and stop submission

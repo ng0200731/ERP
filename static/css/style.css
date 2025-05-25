@@ -200,4 +200,11 @@ body, html {
   #quotation-nested button:hover,
   #quotation2-nested button:hover {
     background: #1c638b;
+  }
+
+  button[disabled], input[type="submit"][disabled] {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    background: #ccc !important;
+    color: #888 !important;
   } 

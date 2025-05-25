@@ -1,4 +1,4 @@
-// Version v1.2.41
+// Version v1.2.58
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -99,16 +99,17 @@ $(function() {
   let isSubmitting = false;  // Add submission lock flag
 
   $(document).off('submit.quotation2form').on('submit.quotation2form', '#quotation2-create2-form', function(e) {
-    e.preventDefault();  // Prevent default form submission
-    
-    // Check if already submitting
-    if (isSubmitting) {
-        console.log('Form is already being submitted');
-        return false;
-    }
-    
-    // Set submission lock
-    isSubmitting = true;
+    e.preventDefault();
+    if (window.isSubmittingQuotation2) return;
+    window.isSubmittingQuotation2 = true;
+    // Disable the submit button immediately and change its style for visual feedback
+    var $submitBtn = $(this).find('button[type="submit"]');
+    $submitBtn.prop('disabled', true)
+      .css({
+        'background': '#ccc',
+        'color': '#888',
+        'border': '1.5px solid #bbb'
+      });
     
     let formIsValid = true;
 
@@ -182,7 +183,12 @@ $(function() {
     // If form is not valid, show the single alert and stop submission
     if (!formIsValid) {
         showCustomPopup('Please fill in below highlight in red border fill', true);
-        isSubmitting = false;  // Reset submission lock
+        $submitBtn.prop('disabled', false)
+          .css({
+            'background': '',
+            'color': '',
+            'border': ''
+          });
         return;
     }
 
@@ -222,6 +228,12 @@ $(function() {
         success: function(response) {
             if (response.error) {
                 showCustomPopup('Error: ' + response.error, true);
+                $submitBtn.prop('disabled', false)
+                  .css({
+                    'background': '',
+                    'color': '',
+                    'border': ''
+                  });
             } else {
                 showCustomPopup('Quotation saved successfully', false);
                 // Load the quotation records view in the same frame after a short delay
@@ -247,9 +259,15 @@ $(function() {
             }
             showCustomPopup(errorMsg, true);
             console.error('Save error:', xhr, status, error);
+            $submitBtn.prop('disabled', false)
+              .css({
+                'background': '',
+                'color': '',
+                'border': ''
+              });
         },
         complete: function() {
-            isSubmitting = false;  // Reset submission lock in both success and error cases
+            window.isSubmittingQuotation2 = false;
         }
     });
   });

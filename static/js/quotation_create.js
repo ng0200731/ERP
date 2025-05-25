@@ -1,4 +1,4 @@
-// Version v1.2.58
+// Version v1.2.59
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -500,7 +500,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.41</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.59</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
@@ -595,428 +595,19 @@ function showQuotationCreateForm2() {
                 </label>
               </div>
             </div>
+            <div style="margin-bottom: 18px;">
+              <label style="font-weight:bold;">Upload JPG Artwork:</label>
+              <div id="q2-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
+                <span id="q2-drop-label">Drag & drop JPG here or click to select</span>
+                <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
+                <div id="q2-jpg-preview" style="margin-top:12px;"></div>
+              </div>
+            </div>
             <br>
             <!-- Submit button at the bottom -->
             <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
           </form>
         </div>
-        <script>
-        $(function() {
-          function updateHTForm(triggeredBy) {
-            var quality = $('#ht-quality').val();
-            var flatOrRaised = $('#ht-flat-or-raised').val();
-            var directOrReverse = $('#ht-direct-or-reverse');
-            var thickness = $('#ht-thickness');
-
-            // Handle Quality (L1) changes - Reset everything to default select
-            if (triggeredBy === 'quality') {
-              // First, clear all options and reset to default select
-              directOrReverse.empty();
-              directOrReverse.append('<option value="">-- Select --</option>');
-              
-              // Reset all fields to default select state
-              $('#ht-flat-or-raised').val('').prop('disabled', true);
-              directOrReverse.val('').prop('disabled', true);
-              thickness.val('').prop('disabled', true);
-
-              if (quality === 'PU') {
-                // PU selected - Set defaults
-                $('#ht-flat-or-raised').val('Flat').prop('disabled', true);
-                directOrReverse.append('<option value="Direct">Direct</option>');
-                directOrReverse.val('Direct').prop('disabled', true);
-                thickness.prop('disabled', true);
-              } else if (quality === 'Silicon') {
-                // Silicon selected - Enable L2 only
-                $('#ht-flat-or-raised').prop('disabled', false);
-                // Add Direct option but don't select it
-                directOrReverse.append('<option value="Direct">Direct</option>');
-                directOrReverse.prop('disabled', true);
-                thickness.prop('disabled', true);
-              }
-            }
-
-            // Handle Flat/Raised (L2) changes
-            if (triggeredBy === 'flatOrRaised') {
-              // Reset L3 and L4 to default select
-              directOrReverse.empty();
-              directOrReverse.append('<option value="">-- Select --</option>');
-              directOrReverse.val('').prop('disabled', true);
-              thickness.val('').prop('disabled', true);
-
-              if (flatOrRaised === 'Flat') {
-                // Flat selected
-                directOrReverse.append('<option value="Direct">Direct</option>');
-                directOrReverse.val('Direct').prop('disabled', true);
-                thickness.prop('disabled', true);
-              } else if (flatOrRaised === 'Raised') {
-                // Raised selected
-                directOrReverse.append('<option value="Direct">Direct</option>');
-                directOrReverse.append('<option value="Reverse">Reverse</option>');
-                directOrReverse.val('').prop('disabled', false);
-                thickness.prop('disabled', false);
-              }
-            }
-
-            // L3 changes have no effect on other fields
-            if (triggeredBy === 'directOrReverse') {
-              // No changes needed for other fields
-            }
-          }
-
-          // Attach event handlers
-          $('#ht-quality').on('change', function() { 
-            updateHTForm('quality'); 
-          });
-          
-          $('#ht-flat-or-raised').on('change', function() { 
-            updateHTForm('flatOrRaised'); 
-          });
-          
-          $('#ht-direct-or-reverse').on('change', function() { 
-            updateHTForm('directOrReverse'); 
-          });
-
-          // Initial form state
-          updateHTForm('quality');
-
-          let lastValidThickness = '';
-          // Prevent non-numeric input in thickness field
-          $('#ht-thickness').on('keydown', function(e) {
-            if (["e", "E", "+", "-"].includes(e.key)) {
-              e.preventDefault();
-            }
-          });
-          // Enforce 1 decimal place and range for thickness in real time
-          $('#ht-thickness').on('input', function() {
-            let val = $(this).val();
-            // Remove all but first decimal point
-            if (val.split('.').length > 2) {
-              val = val.replace(/\.+$/, '');
-              $(this).val(val);
-            }
-            // Only allow 1 decimal place
-            if (/^\d+\.\d{2,}$/.test(val)) {
-              // Do not auto-correct, just leave as is for warning on blur
-            }
-          });
-          // Clamp to range and fix decimals on blur, warn user if invalid
-          $('#ht-thickness').on('focus', function() {
-            lastValidThickness = $(this).val();
-          });
-          $('#ht-thickness').on('blur', function() {
-            let val = $(this).val();
-            if (val === '') return;
-            let num = Number(val);
-            // Accept 0.1-0.9, 1, 1.0-1.5 (1 decimal place max)
-            if (!/^(0\.[1-9]|1(\.[0-5])?)$/.test(val) || isNaN(num) || num < 0.1 || num > 1.5) {
-              showCustomPopup('Thickness must be a number from 0.1 to 1.5 with only 1 decimal place.', true);
-              $(this).val(lastValidThickness);
-              setTimeout(() => { $(this).focus(); }, 0);
-              return;
-            }
-            // Always format to 1 decimal place
-            $(this).val(num.toFixed(1));
-            lastValidThickness = $(this).val();
-          });
-
-          // Prevent non-numeric input in # of colors field
-          $('#ht-num-colors').on('keydown', function(e) {
-            if (["e", "E", "+", "-", "."].includes(e.key)) {
-              e.preventDefault();
-            }
-          });
-
-          // Dynamic color name fields logic
-          let lastNumColors = 0;
-          let colorValues = [];
-          // Only update color fields on blur, not on input
-          $('#ht-num-colors').off('input');
-          $('#ht-num-colors').on('blur', function() {
-            let val = $(this).val();
-            let num = parseInt(val, 10);
-            // Save current color values
-            colorValues = [];
-            $('#color-names-group input[type="text"]').each(function() {
-              colorValues.push($(this).val());
-            });
-            if (isNaN(num) || num < 1) {
-              $('#color-names-group').empty();
-              lastNumColors = 0;
-              colorValues = [];
-              return;
-            }
-            if (num < lastNumColors) {
-              if (!confirm('Reducing the number of colors will remove the last color name field(s). Continue?')) {
-                $(this).val(lastNumColors);
-                return;
-              }
-              // Remove the last value(s)
-              colorValues = colorValues.slice(0, num);
-            }
-            lastNumColors = num;
-            // Build color name fields, keeping previous values
-            let html = '<div style="border: 2px solid #b3c6ff; border-radius: 8px; padding: 16px; background: #f8faff; margin-top: 8px;">';
-            html += '<div style="font-weight: bold; margin-bottom: 8px;">Color Names</div>';
-            for (let i = 1; i <= num; i++) {
-              let val = colorValues[i-1] !== undefined ? colorValues[i-1] : '';
-              html += '<div style="margin-left: 24px; margin-bottom: 8px;"><input type="text" name="colorName' + i + '" placeholder="Color ' + i + '" style="width: 90%; padding: 6px; border-radius: 4px; border: 1px solid #ccc;" value="' + val.replace(/"/g, '&quot;') + '"></div>';
-            }
-            html += '</div>';
-            $('#color-names-group').html(html);
-          });
-
-          // Prevent non-numeric input in width and length fields
-          $('#ht-width, #ht-length').on('keydown', function(e) {
-            if (["e", "E", "+", "-"].includes(e.key)) {
-              e.preventDefault();
-            }
-          });
-
-          // Dummy Fill Button Handler - Moved inside showQuotationCreateForm2 where selectCompany is defined
-          $('#dummy-fill-btn').on('click', function() {
-            // Reset all fields first
-            $('#quotation2-company-input').val('');
-            $('#quotation2-company-id').val('');
-            $('#quotation2-keyperson').html('<option value="">-- Select Key Person --</option>').prop('disabled', false);
-            $('#ht-quality').val('').trigger('change');
-            $('#ht-num-colors').val('').trigger('blur');
-            $('#ht-width').val('');
-            $('#ht-length').val('');
-            $('#color-names-group').empty();
-            
-            // Generate random data for all fields
-            const qualities = ['PU', 'Silicon'];
-            const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Purple', 'Orange', 'Pink', 'Brown'];
-            const numColors = Math.floor(Math.random() * 3) + 1; // Random 1-3 colors
-            const width = Math.floor(Math.random() * 200) + 50; // Random 50-250
-            const length = Math.floor(Math.random() * 300) + 100; // Random 100-400
-
-            // Select a random company and key person if customers data is available
-            if (typeof customers !== 'undefined' && customers.length > 0) {
-              const randomCompany = customers[Math.floor(Math.random() * customers.length)];
-              // Use the existing selectCompany function
-              selectCompany(randomCompany.id);
-
-              // Select a random key person from the populated dropdown
-              setTimeout(() => {
-                const keyPersonOptions = $('#quotation2-keyperson option').not('[value=""]');
-                if (keyPersonOptions.length > 0) {
-                  const randomIndex = Math.floor(Math.random() * keyPersonOptions.length);
-                  keyPersonOptions.eq(randomIndex).prop('selected', true);
-                }
-              }, 150); // Small delay to allow key persons to populate
-            }
-            
-            // Small delay to ensure reset is complete
-            setTimeout(() => {
-              // Fill Quality
-              const randomQuality = qualities[Math.floor(Math.random() * qualities.length)];
-              $('#ht-quality').val(randomQuality).trigger('change');
-              
-              // Fill Number of Colors
-              $('#ht-num-colors').val(numColors).trigger('blur');
-              
-              // Fill Color Names
-              setTimeout(() => {
-                // Shuffle colors array
-                const shuffledColors = [...colors].sort(() => 0.5 - Math.random());
-                for(let i = 1; i <= numColors; i++) {
-                   $('#color-names-group input[name="colorName' + i + '"]').val(shuffledColors[i-1]);
-                }
-              }, 100);
-              
-              // Fill Width and Length
-              $('#ht-width').val(width);
-              $('#ht-length').val(length);
-            }, 100);
-          });
-
-          // Add the generateItemCode function
-          window.generateItemCode = function() {
-            fetch('/quotation/generate_code')
-              .then(response => response.json())
-              .then(data => {
-                document.getElementById('customer-item-code').value = data.code;
-              });
-          };
-
-          // Generate an initial code when form loads
-          generateItemCode();
-
-          // Form submission handler
-          $('#quotation2-create2-form').off('submit').on('submit', function(e) {
-            e.preventDefault();
-            
-            let formIsValid = true;
-
-            // Validate Company
-            const companyInput = $('#quotation2-company-input');
-            const companyId = $('#quotation2-company-id').val();
-            if (!companyId) {
-                formIsValid = false;
-                companyInput.css('border-color', 'red');
-            } else {
-                companyInput.css('border-color', '');
-            }
-
-            // Validate Key Person
-            const keyPersonSelect = $('#quotation2-keyperson');
-            const keyPersonIdx = keyPersonSelect.val();
-            if (!keyPersonIdx) {
-                formIsValid = false;
-                keyPersonSelect.css('border-color', 'red');
-            } else {
-                keyPersonSelect.css('border-color', '');
-            }
-
-            // Get company and key person data
-            const company = customers.find(c => c.id == companyId);
-            const keyPerson = company && company.keyPeople[keyPersonIdx];
-
-            // Validate Quality
-            const qualitySelect = $('#ht-quality');
-            if (!qualitySelect.val()) {
-                formIsValid = false;
-                qualitySelect.css('border-color', 'red');
-            } else {
-                qualitySelect.css('border-color', '');
-            }
-
-            // Validate Flat/Raised
-            const flatRaisedSelect = $('#ht-flat-or-raised');
-            if (!flatRaisedSelect.val()) {
-                formIsValid = false;
-                flatRaisedSelect.css('border-color', 'red');
-            } else {
-                flatRaisedSelect.css('border-color', '');
-            }
-
-            // Validate Direct/Reverse
-            const directReverseSelect = $('#ht-direct-or-reverse');
-            if (!directReverseSelect.val()) {
-                formIsValid = false;
-                directReverseSelect.css('border-color', 'red');
-            } else {
-                directReverseSelect.css('border-color', '');
-            }
-
-            // Validate Thickness for Silicon + Raised
-            const thicknessInput = $('#ht-thickness');
-            if (qualitySelect.val() === 'Silicon' && flatRaisedSelect.val() === 'Raised' && !thicknessInput.val()) {
-                formIsValid = false;
-                thicknessInput.css('border-color', 'red');
-            } else {
-                thicknessInput.css('border-color', '');
-            }
-
-            // Validate Number of Colors
-            const numColorsInput = $('#ht-num-colors');
-            const numColors = parseInt(numColorsInput.val());
-            if (!numColors || numColors < 1) {
-                formIsValid = false;
-                numColorsInput.css('border-color', 'red');
-            } else {
-                numColorsInput.css('border-color', '');
-            }
-
-            // Validate Color Names
-            const colorNames = [];
-            $('#color-names-group input[type="text"]').each(function() {
-                const value = $(this).val().trim();
-                if (!value) {
-                    formIsValid = false;
-                    $(this).css('border-color', 'red');
-                } else {
-                    $(this).css('border-color', '');
-                    colorNames.push(value);
-                }
-            });
-
-            // Validate Width
-            const widthInput = $('#ht-width');
-            if (!widthInput.val()) {
-                formIsValid = false;
-                widthInput.css('border-color', 'red');
-            } else {
-                widthInput.css('border-color', '');
-            }
-
-            // Validate Length
-            const lengthInput = $('#ht-length');
-            if (!lengthInput.val()) {
-                formIsValid = false;
-                lengthInput.css('border-color', 'red');
-            } else {
-                lengthInput.css('border-color', '');
-            }
-
-            // If form is not valid, show error and stop
-            if (!formIsValid) {
-                showCustomPopup('Please fill in all highlighted fields in red', true);
-                return;
-            }
-
-            // Prepare data for saving
-            const formData = {
-                customer_name: company ? company.company : '',
-                key_person_name: keyPerson ? keyPerson.name : '',
-                customer_item_code: $('#customer-item-code').val(),
-                customer_id: companyId,
-                key_person_id: keyPerson ? keyPerson.id : '',
-                quality: qualitySelect.val(),
-                flat_or_raised: flatRaisedSelect.val(),
-                direct_or_reverse: directReverseSelect.val(),
-                thickness: parseFloat(thicknessInput.val()) || 0,
-                num_colors: numColors,
-                width: parseFloat(widthInput.val()) || 0,
-                length: parseFloat(lengthInput.val()) || 0,
-                color_names: colorNames
-            };
-
-            // Save to database
-            $.ajax({
-                url: '/quotation/save',
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(formData),
-                xhrFields: {
-                    withCredentials: true
-                },
-                success: function(response) {
-                    if (response.error) {
-                        showCustomPopup('Error: ' + response.error, true);
-                        return;
-                    }
-                    showCustomPopup('Quotation saved successfully', false);
-                    setTimeout(() => {
-                        $('#right-frame').load('/view_quotations_simple');
-                    }, 1000);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Save error details:', {
-                        status: xhr.status,
-                        statusText: xhr.statusText,
-                        responseText: xhr.responseText,
-                        error: error
-                    });
-                    let errorMsg = 'Error saving quotation';
-                    try {
-                        if (xhr.responseJSON && xhr.responseJSON.error) {
-                            errorMsg += ': ' + xhr.responseJSON.error;
-                        } else if (xhr.responseText) {
-                            errorMsg += ': ' + xhr.responseText;
-                        } else {
-                            errorMsg += ': ' + error;
-                        }
-                    } catch(e) {
-                        errorMsg += ': ' + error;
-                    }
-                    showCustomPopup(errorMsg, true);
-                }
-            });
-          });
-        });
-        </script>
       `);
 
       let currentFocus = -1;
@@ -1137,6 +728,42 @@ function showQuotationCreateForm2() {
           currentFocus = -1;
         }
       });
+
+      // Drag and drop logic for JPG
+      const dropArea = document.getElementById('q2-drop-area');
+      const fileInput = document.getElementById('q2-jpg-input');
+      const previewDiv = document.getElementById('q2-jpg-preview');
+      let jpgFile = null;
+      dropArea.addEventListener('click', () => fileInput.click());
+      dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.style.background = '#e3e7ea'; });
+      dropArea.addEventListener('dragleave', e => { e.preventDefault(); dropArea.style.background = '#fafbfc'; });
+      dropArea.addEventListener('drop', e => {
+        e.preventDefault();
+        dropArea.style.background = '#fafbfc';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleJpgFile(e.dataTransfer.files[0]);
+        }
+      });
+      fileInput.addEventListener('change', e => {
+        if (fileInput.files && fileInput.files[0]) {
+          handleJpgFile(fileInput.files[0]);
+        }
+      });
+      function handleJpgFile(file) {
+        if (!file.type.match('image/jpeg')) {
+          previewDiv.innerHTML = '<span style="color:red;">Only JPG files are allowed.</span>';
+          jpgFile = null;
+          return;
+        }
+        jpgFile = file;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          previewDiv.innerHTML = `<img src="${e.target.result}" style="max-width:180px;max-height:120px;border:1px solid #ccc;border-radius:6px;" />`;
+        };
+        reader.readAsDataURL(file);
+      }
+      // Store jpgFile for later use (e.g., form submission)
+      window.q2_jpgFile = jpgFile;
     });
   });
 }

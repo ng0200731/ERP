@@ -8,6 +8,30 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="/static/js/app.js"></script>
   <script src="/static/js/quotation_create.js"></script>
+  <style>
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    .left-frame {
+      width: 220px;
+      background: #f4f8fb;
+      padding: 18px 0 0 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      z-index: 100;
+      box-shadow: 2px 0 8px -2px #ddd;
+    }
+    .right-frame {
+      flex: 1;
+      margin-left: 220px;
+      padding: 0;
+      min-height: 100vh;
+      background: #fff;
+    }
+  </style>
   <script>
     // Define permission level in global scope
     var userPermissionLevel = "{{ permission_level }}";

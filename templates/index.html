@@ -6,11 +6,15 @@
   <title>Customer Management App</title>
   <link rel="stylesheet" href="/static/css/style.css">
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script src="/static/js/quotation_create.js"></script>
   <script>
     // Define permission level in global scope
     var userPermissionLevel = "{{ permission_level }}";
     // Define global version
-    var appVersion = "v1.2.29";
+    var appVersion = "v1.2.42";
+    // Global variables
+    var customers = [];
   </script>
 </head>
 <body>
@@ -25,7 +29,7 @@
       <button id="btn-customer">Customer</button>
       <div id="customer-nested" style="display:none; margin-left: 10px;">
         <button id="btn-create">Create</button>
-        <button id="btn-ay">Modify</button>
+        <button id="btn-modify">Modify</button>
       </div>
       <button id="btn-quotation">Quotation</button>
       <div id="quotation-nested" style="display:none; margin-left: 10px;">
@@ -47,7 +51,7 @@
       <!-- Dynamic content goes here -->
       <div id="welcome">Please select an option from the left.</div>
       <!-- Static Quotation Create UI (no JS, no rules, just UI) -->
-      <div id="quotation-create-form" style="padding:32px;max-width:600px; margin-top:40px;">
+      <div id="quotation-create-form" style="display:none; padding:32px;max-width:600px; margin-top:40px;">
         <h2>Create Quotation</h2>
         <form autocomplete="off">
           <label>Company:<br><input type="text" name="quotation-company" value=""></label><br><br>
@@ -105,10 +109,8 @@
       </div>
     </div>
   </div>
-  <div style="position:fixed;bottom:10px;right:20px;font-size:13px;color:#888;z-index:1000;">Version v1.2.30</div>
+  <div style="position:fixed;bottom:10px;right:20px;font-size:13px;color:#888;z-index:1000;">Version v1.2.42</div>
   
-  <script src="/static/js/app.js"></script>
-  <script src="/static/js/quotation_create.js"></script>
   <script>
     // Show Admin button only for level 3 users
     if (userPermissionLevel >= 3) {
@@ -124,9 +126,14 @@
     document.getElementById('logout-btn').onclick = function() {
       window.location = '/logout';
     }
+
+    // Toggle Quotation 2 menu
+    $('#btn-quotation2').on('click', function() {
+      $('#quotation2-nested').toggle();
+    });
     
-    // Ensure the Create Quotation (HT) button triggers the JS-driven form
-    $(document).on('click', '#btn-quotation2-create2-js', function() {
+    // Handle Quotation 2 Create (HT) button click
+    $('#btn-quotation2-create2').on('click', function() {
       showQuotationCreateForm2();
     });
 

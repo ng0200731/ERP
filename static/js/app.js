@@ -192,6 +192,17 @@ $(function() {
   $('#btn-quotation-create').on('click', function() {
     showQuotationCreateForm();
   });
+
+  // Quotation 2 menu logic
+  $('#btn-quotation2').click(function() {
+    $('#quotation2-nested').toggle();
+  });
+  $('#btn-quotation2-create2').click(function() {
+    showQuotationCreateForm2();
+  });
+  $('#btn-view-quotations').click(function() {
+    $('#right-frame').load('/view_quotations_simple');
+  });
 });
   
   // --- Create Customer Flow ---

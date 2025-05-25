@@ -45,9 +45,9 @@ class Quotation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Add unique constraint for customer_name, key_person_name, and customer_item_code
+    # Add unique constraint for customer_name and key_person_name only
     __table_args__ = (
-        UniqueConstraint('customer_name', 'key_person_name', 'customer_item_code', name='uix_quotation_customer'),
+        UniqueConstraint('customer_name', 'key_person_name', name='uix_quotation_customer'),
     )
 
 def get_db():
@@ -138,7 +138,7 @@ def add_dummy_data():
         print(f"Error adding dummy data: {e}")
 
 def clean_duplicate_quotations():
-    """Clean up duplicate quotations keeping only one record from each set of duplicates"""
+    """Clean up duplicate quotations keeping only the most recently updated record from each set of duplicates"""
     try:
         engine = get_db()
         from sqlalchemy.orm import sessionmaker
@@ -146,32 +146,21 @@ def clean_duplicate_quotations():
         session = Session()
         
         # Find all quotations
-        all_quotations = session.query(Quotation).order_by(Quotation.id).all()
-        seen_records = set()
+        all_quotations = session.query(Quotation).order_by(Quotation.last_updated.desc()).all()
+        seen_keys = set()
         duplicates_to_delete = []
         
         for quotation in all_quotations:
-            # Create a tuple of identifying fields
-            record_key = (
+            # Create a tuple of key fields that should be unique (only customer and key person)
+            key = (
                 quotation.customer_name,
-                quotation.key_person_name,
-                quotation.customer_item_code,
-                quotation.quality,
-                quotation.flat_or_raised,
-                quotation.direct_or_reverse,
-                quotation.thickness,
-                quotation.num_colors,
-                quotation.length,
-                quotation.width,
-                quotation.price,
-                str(quotation.created_at),  # Convert datetime to string for comparison
-                str(quotation.last_updated)
+                quotation.key_person_name
             )
             
-            if record_key in seen_records:
+            if key in seen_keys:
                 duplicates_to_delete.append(quotation.id)
             else:
-                seen_records.add(record_key)
+                seen_keys.add(key)
         
         # Delete duplicates if any found
         if duplicates_to_delete:
@@ -189,15 +178,26 @@ def clean_duplicate_quotations():
             session.close()
         return False
 
-# Initialize database and add dummy data on module load
+def recreate_quotations_table():
+    """Drop and recreate the quotations table with the new schema"""
+    try:
+        engine = get_db()
+        # Drop existing table
+        Base.metadata.drop_all(engine, tables=[Quotation.__table__])
+        # Create table with new schema
+        Base.metadata.create_all(engine, tables=[Quotation.__table__])
+        print("Successfully recreated quotations table with new schema")
+        return True
+    except Exception as e:
+        print(f"Error recreating table: {e}")
+        return False
+
+# Initialize database connection
 try:
     engine = get_db()
-    Base.metadata.create_all(engine)
-    add_dummy_data()  # Add dummy data
-    clean_duplicate_quotations()  # Clean up any duplicates
-    logger.info('Database initialized successfully with dummy data')
+    logger.info('Database connection initialized successfully')
 except Exception as e:
-    logger.error(f'Error initializing database: {e}')
+    logger.error(f'Error initializing database connection: {e}')
 
 @quotation_bp.route('/quotation')
 @login_required

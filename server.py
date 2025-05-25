@@ -779,7 +779,7 @@ def save_quotation():
     try:
         data = request.json
         engine = create_engine('sqlite:///database.db')
-        Base.metadata.create_all(engine)  # Create tables if they don't exist
+        Base.metadata.create_all(engine)
         
         # Get user email from session if available, otherwise use a default
         user_email = session.get('user', 'unknown@example.com') if 'user' in session else 'unknown@example.com'
@@ -805,33 +805,69 @@ def save_quotation():
         Session = sessionmaker(bind=engine)
         db_session = Session()
         
-        # Create a new Quotation object with safe value conversion
-        quotation = Quotation(
-            customer_name=data.get('customer_name', ''),
-            key_person_name=data.get('key_person_name', ''),
-            customer_item_code=data.get('customer_item_code', ''),
-            creator_email=user_email,
-            quality=data.get('quality', ''),
-            flat_or_raised=data.get('flat_or_raised', ''),
-            direct_or_reverse=data.get('direct_or_reverse', ''),
-            thickness=safe_float(data.get('thickness')),
-            num_colors=safe_int(data.get('num_colors')),
-            length=safe_float(data.get('length')),
-            width=safe_float(data.get('width')),
-            price=safe_float(data.get('price')),
-            created_at=datetime.utcnow(),
-            last_updated=datetime.utcnow()
-        )
-        
-        db_session.add(quotation)
-        db_session.commit()
-        db_session.close()
-        
-        return jsonify({'message': 'Quotation saved successfully'}), 200
+        try:
+            # Begin transaction
+            db_session.begin()
+            
+            # Check for existing quotation with same customer and key person
+            existing_quotation = db_session.query(Quotation).filter(
+                Quotation.customer_name == data.get('customer_name', ''),
+                Quotation.key_person_name == data.get('key_person_name', '')
+            ).with_for_update().first()  # Lock the row if it exists
+            
+            current_time = datetime.utcnow()
+            
+            if existing_quotation:
+                # Update existing quotation
+                existing_quotation.customer_item_code = data.get('customer_item_code', '')
+                existing_quotation.quality = data.get('quality', '')
+                existing_quotation.flat_or_raised = data.get('flat_or_raised', '')
+                existing_quotation.direct_or_reverse = data.get('direct_or_reverse', '')
+                existing_quotation.thickness = safe_float(data.get('thickness'))
+                existing_quotation.num_colors = safe_int(data.get('num_colors'))
+                existing_quotation.length = safe_float(data.get('length'))
+                existing_quotation.width = safe_float(data.get('width'))
+                existing_quotation.price = safe_float(data.get('price'))
+                existing_quotation.last_updated = current_time
+                quotation = existing_quotation
+            else:
+                # Create a new Quotation object
+                quotation = Quotation(
+                    customer_name=data.get('customer_name', ''),
+                    key_person_name=data.get('key_person_name', ''),
+                    customer_item_code=data.get('customer_item_code', ''),
+                    creator_email=user_email,
+                    quality=data.get('quality', ''),
+                    flat_or_raised=data.get('flat_or_raised', ''),
+                    direct_or_reverse=data.get('direct_or_reverse', ''),
+                    thickness=safe_float(data.get('thickness')),
+                    num_colors=safe_int(data.get('num_colors')),
+                    length=safe_float(data.get('length')),
+                    width=safe_float(data.get('width')),
+                    price=safe_float(data.get('price')),
+                    created_at=current_time,
+                    last_updated=current_time
+                )
+                db_session.add(quotation)
+            
+            # Commit the transaction
+            db_session.commit()
+            
+            return jsonify({
+                'message': 'Quotation saved successfully',
+                'action': 'updated' if existing_quotation else 'created'
+            }), 200
+            
+        except Exception as e:
+            db_session.rollback()
+            logger.error(f"Database error while saving quotation: {str(e)}")
+            return jsonify({'error': 'A quotation with these details already exists'}), 409
+            
+        finally:
+            db_session.close()
+            
     except Exception as e:
         logger.error(f"Error saving quotation: {str(e)}")
-        if 'db_session' in locals():
-            db_session.close()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/quotation/list', methods=['GET'])

@@ -1,4 +1,4 @@
-// Version v1.2.31
+// Version v1.2.41
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -103,8 +103,8 @@ $(function() {
     
     // Check if already submitting
     if (isSubmitting) {
-      console.log('Form is already being submitted');
-      return false;
+        console.log('Form is already being submitted');
+        return false;
     }
     
     // Set submission lock
@@ -116,10 +116,10 @@ $(function() {
     const companyInput = $('#quotation2-company-input');
     const companyId = $('#quotation2-company-id').val();
     if (!companyId) {
-      formIsValid = false;
-      companyInput.css('border-color', 'red');
+        formIsValid = false;
+        companyInput.css('border-color', 'red');
     } else {
-      companyInput.css('border-color', ''); // Reset border
+        companyInput.css('border-color', ''); // Reset border
     }
 
     // Validate Key Person
@@ -128,14 +128,14 @@ $(function() {
     const company = customers.find(c => c.id == companyId);
     let keyPerson = null;
     if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "" && keyPersonIdx >= 0 && keyPersonIdx < company.keyPeople.length) {
-      keyPerson = company.keyPeople[keyPersonIdx];
+        keyPerson = company.keyPeople[keyPersonIdx];
     }
 
     if (!keyPerson || !keyPerson.id) {
-      formIsValid = false;
-      keyPersonSelect.css('border-color', 'red');
+        formIsValid = false;
+        keyPersonSelect.css('border-color', 'red');
     } else {
-      keyPersonSelect.css('border-color', ''); // Reset border
+        keyPersonSelect.css('border-color', ''); // Reset border
     }
 
     // Validate dynamic fields and gather attributes
@@ -220,22 +220,22 @@ $(function() {
             withCredentials: true
         },
         success: function(response) {
-            isSubmitting = false;  // Reset submission lock
             if (response.error) {
                 showCustomPopup('Error: ' + response.error, true);
-                return;
+            } else {
+                showCustomPopup('Quotation saved successfully', false);
+                // Load the quotation records view in the same frame after a short delay
+                setTimeout(() => {
+                    $('#right-frame').load('/view_quotations_simple');
+                }, 1000);
             }
-            showCustomPopup('Quotation saved successfully', false);
-            // Load the quotation records view in the same frame after a short delay
-            setTimeout(() => {
-                $('#right-frame').load('/view_quotations_simple');
-            }, 1000);
         },
         error: function(xhr, status, error) {
-            isSubmitting = false;  // Reset submission lock
             let errorMsg = 'Error saving quotation';
             try {
-                if (xhr.responseJSON && xhr.responseJSON.error) {
+                if (xhr.status === 409) {
+                    errorMsg = 'A quotation with these details already exists';
+                } else if (xhr.responseJSON && xhr.responseJSON.error) {
                     errorMsg += ': ' + xhr.responseJSON.error;
                 } else if (xhr.responseText) {
                     errorMsg += ': ' + xhr.responseText;
@@ -247,6 +247,9 @@ $(function() {
             }
             showCustomPopup(errorMsg, true);
             console.error('Save error:', xhr, status, error);
+        },
+        complete: function() {
+            isSubmitting = false;  // Reset submission lock in both success and error cases
         }
     });
   });
@@ -479,7 +482,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.30</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.41</span></h2>
           
           ${userLevel >= 3 ? `
           <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->

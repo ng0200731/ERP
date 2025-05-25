@@ -45,6 +45,7 @@ class Quotation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     artwork_image = Column(String(255))
+    status = Column(String(50), nullable=True, default='-')  # Quotation status
 
 def get_db():
     try:

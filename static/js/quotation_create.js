@@ -1,4 +1,4 @@
-// Version v1.2.75
+// Version v1.2.76
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -510,7 +510,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.75</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.76</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -832,6 +832,8 @@ function showQuotationCreateForm2() {
         });
         return prev;
       }
+      // Set default # of Colors to 1 on form load
+      $('#ht-num-colors').val(1);
       // Render color name fields on # of Colors change
       $('#quotation2-dynamic-fields').on('input', '#ht-num-colors', function() {
         const prevVals = getPrevColorNames();
@@ -842,14 +844,14 @@ function showQuotationCreateForm2() {
       });
       // Initial render (preserve on reload)
       setTimeout(function() {
+        $('#ht-num-colors').val(1); // Always default to 1
         const prevVals = getPrevColorNames();
-        let num = parseInt($('#ht-num-colors').val(), 10) || 1;
-        if (num < 1) num = 1;
+        let num = 1;
         $('#color-names-group').html(renderColorNames(num, prevVals));
       }, 0);
       // Dummy Fill Button Handler
       $('#dummy-fill-btn').off('click').on('click', function() {
-        // Reset all color name fields to blank
+        // Reset all color name fields to blank and # of Colors to 1
         $('#ht-num-colors').val(1);
         $('#color-names-group').html(renderColorNames(1, {}));
         // Random dummy data

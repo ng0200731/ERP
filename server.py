@@ -927,6 +927,10 @@ def view_quotations_simple():
         logger.error(f"Error in view_quotations_simple: {str(e)}")
         return render_template('view_quotations_simple.html', records=[], error=str(e))
 
+@app.route('/uploads/artwork_images/<filename>')
+def uploaded_artwork_image(filename):
+    return send_from_directory('uploads/artwork_images', filename)
+
 # Register blueprints
 app.register_blueprint(ht_database_bp)
 app.register_blueprint(quotation_bp)

@@ -96,8 +96,19 @@ $(function() {
   });
 
   // Handle form submission using event delegation
+  let isSubmitting = false;  // Add submission lock flag
+
   $(document).off('submit.quotation2form').on('submit.quotation2form', '#quotation2-create2-form', function(e) {
-    e.preventDefault();
+    e.preventDefault();  // Prevent default form submission
+    
+    // Check if already submitting
+    if (isSubmitting) {
+      console.log('Form is already being submitted');
+      return false;
+    }
+    
+    // Set submission lock
+    isSubmitting = true;
     
     let formIsValid = true;
 
@@ -171,6 +182,7 @@ $(function() {
     // If form is not valid, show the single alert and stop submission
     if (!formIsValid) {
         showCustomPopup('Please fill in below highlight in red border fill', true);
+        isSubmitting = false;  // Reset submission lock
         return;
     }
 
@@ -208,6 +220,7 @@ $(function() {
             withCredentials: true
         },
         success: function(response) {
+            isSubmitting = false;  // Reset submission lock
             if (response.error) {
                 showCustomPopup('Error: ' + response.error, true);
                 return;
@@ -219,6 +232,7 @@ $(function() {
             }, 1000);
         },
         error: function(xhr, status, error) {
+            isSubmitting = false;  // Reset submission lock
             let errorMsg = 'Error saving quotation';
             try {
                 if (xhr.responseJSON && xhr.responseJSON.error) {
@@ -232,7 +246,7 @@ $(function() {
                 errorMsg += ': ' + error;
             }
             showCustomPopup(errorMsg, true);
-            console.error('Save error:', xhr, status, error); // Add debug logging
+            console.error('Save error:', xhr, status, error);
         }
     });
   });

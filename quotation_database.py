@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
 import pandas as pd
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import os
@@ -30,9 +30,9 @@ class Quotation(Base):
     __tablename__ = 'quotations'
     
     id = Column(Integer, primary_key=True)
-    customer_name = Column(String(100))
-    key_person_name = Column(String(100))
-    customer_item_code = Column(String(20), nullable=True)  # New field, nullable to handle existing records
+    customer_name = Column(String(100), nullable=False)
+    key_person_name = Column(String(100), nullable=False)
+    customer_item_code = Column(String(20), nullable=False)
     creator_email = Column(String(100))
     quality = Column(String(50))
     flat_or_raised = Column(String(20))
@@ -41,9 +41,14 @@ class Quotation(Base):
     num_colors = Column(Integer, nullable=False, default=0)
     length = Column(Float, nullable=False, default=0.0)
     width = Column(Float, nullable=False, default=0.0)
-    price = Column(Float, nullable=False, default=0.0)  # Changed to not nullable with default 0
+    price = Column(Float, nullable=False, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Add unique constraint for customer_name, key_person_name, and customer_item_code
+    __table_args__ = (
+        UniqueConstraint('customer_name', 'key_person_name', 'customer_item_code', name='uix_quotation_customer'),
+    )
 
 def get_db():
     try:
@@ -132,11 +137,64 @@ def add_dummy_data():
     except Exception as e:
         print(f"Error adding dummy data: {e}")
 
+def clean_duplicate_quotations():
+    """Clean up duplicate quotations keeping only one record from each set of duplicates"""
+    try:
+        engine = get_db()
+        from sqlalchemy.orm import sessionmaker
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Find all quotations
+        all_quotations = session.query(Quotation).order_by(Quotation.id).all()
+        seen_records = set()
+        duplicates_to_delete = []
+        
+        for quotation in all_quotations:
+            # Create a tuple of identifying fields
+            record_key = (
+                quotation.customer_name,
+                quotation.key_person_name,
+                quotation.customer_item_code,
+                quotation.quality,
+                quotation.flat_or_raised,
+                quotation.direct_or_reverse,
+                quotation.thickness,
+                quotation.num_colors,
+                quotation.length,
+                quotation.width,
+                quotation.price,
+                str(quotation.created_at),  # Convert datetime to string for comparison
+                str(quotation.last_updated)
+            )
+            
+            if record_key in seen_records:
+                duplicates_to_delete.append(quotation.id)
+            else:
+                seen_records.add(record_key)
+        
+        # Delete duplicates if any found
+        if duplicates_to_delete:
+            delete_count = session.query(Quotation).filter(Quotation.id.in_(duplicates_to_delete)).delete(synchronize_session=False)
+            session.commit()
+            print(f"Cleaned up {delete_count} duplicate records")
+        else:
+            print("No duplicates found")
+            
+        session.close()
+        return True
+    except Exception as e:
+        print(f"Error cleaning duplicates: {e}")
+        if 'session' in locals():
+            session.close()
+        return False
+
 # Initialize database and add dummy data on module load
 try:
     engine = get_db()
     Base.metadata.create_all(engine)
     add_dummy_data()  # Add dummy data
+    clean_duplicate_quotations()  # Clean up any duplicates
     logger.info('Database initialized successfully with dummy data')
 except Exception as e:
     logger.error(f'Error initializing database: {e}')

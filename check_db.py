@@ -2,6 +2,7 @@ import sqlite3
 import os
 import json
 import sys
+from datetime import datetime
 
 def get_db():
     # Get absolute path to the database file
@@ -134,10 +135,75 @@ def check_tables():
             conn.close()
             print("\nDatabase connection closed")
 
+def check_quotations():
+    try:
+        # Connect to the database
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Get all records ordered by ID
+        cursor.execute("""
+            SELECT id, customer_name, key_person_name, customer_item_code, 
+                   quality, flat_or_raised, direct_or_reverse, thickness,
+                   num_colors, length, width, price, created_at, last_updated
+            FROM quotations 
+            ORDER BY id DESC
+        """)
+        
+        records = cursor.fetchall()
+        print("\nFound", len(records), "total records")
+        print("\nLatest 10 records:")
+        print("-" * 100)
+        
+        # Print the latest 10 records
+        for row in records[:10]:
+            print(f"ID: {row['id']}")
+            print(f"Customer: {row['customer_name']}")
+            print(f"Key Person: {row['key_person_name']}")
+            print(f"Item Code: {row['customer_item_code']}")
+            print(f"Quality: {row['quality']}")
+            print(f"Created: {row['created_at']}")
+            print(f"Last Updated: {row['last_updated']}")
+            print("-" * 100)
+            
+        # Check for duplicates
+        cursor.execute("""
+            SELECT customer_name, key_person_name, customer_item_code, 
+                   quality, flat_or_raised, direct_or_reverse, thickness,
+                   num_colors, length, width, price, created_at, last_updated,
+                   COUNT(*) as count,
+                   GROUP_CONCAT(id) as ids
+            FROM quotations
+            GROUP BY customer_name, key_person_name, customer_item_code, 
+                     quality, flat_or_raised, direct_or_reverse, thickness,
+                     num_colors, length, width, price, created_at, last_updated
+            HAVING COUNT(*) > 1
+        """)
+        
+        duplicates = cursor.fetchall()
+        if duplicates:
+            print("\nFound duplicate records:")
+            for dup in duplicates:
+                print(f"\nDuplicate set with IDs: {dup['ids']}")
+                print(f"Customer: {dup['customer_name']}")
+                print(f"Key Person: {dup['key_person_name']}")
+                print(f"Item Code: {dup['customer_item_code']}")
+                print(f"Created: {dup['created_at']}")
+                print(f"Appears {dup['count']} times")
+        else:
+            print("\nNo duplicate records found in database")
+            
+        conn.close()
+        
+    except Exception as e:
+        print(f"Error checking database: {e}")
+
 if __name__ == "__main__":
     try:
         check_tables()
         print("\nDatabase check completed")
+        check_quotations()
     except Exception as e:
         print(f"\nFailed to check database: {str(e)}")
         sys.exit(1) 

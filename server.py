@@ -805,19 +805,6 @@ def save_quotation():
         Session = sessionmaker(bind=engine)
         db_session = Session()
         
-        # Check for duplicate within last 5 seconds
-        five_seconds_ago = datetime.utcnow() - timedelta(seconds=5)
-        duplicate = db_session.query(Quotation).filter(
-            Quotation.customer_name == data.get('customer_name', ''),
-            Quotation.key_person_name == data.get('key_person_name', ''),
-            Quotation.customer_item_code == data.get('customer_item_code', ''),
-            Quotation.created_at >= five_seconds_ago
-        ).first()
-        
-        if duplicate:
-            db_session.close()
-            return jsonify({'error': 'Duplicate record detected. Please wait a few seconds before submitting again.'}), 400
-        
         # Create a new Quotation object with safe value conversion
         quotation = Quotation(
             customer_name=data.get('customer_name', ''),

@@ -1,4 +1,4 @@
-# Version v1.2.68
+# Version v1.2.80
 import sqlite3
 
 DB_PATH = 'database.db'

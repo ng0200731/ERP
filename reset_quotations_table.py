@@ -1,4 +1,4 @@
-# Version v1.2.68
+# Version v1.2.80
 from quotation_database import Base, Quotation, get_db
 import sqlite3
 

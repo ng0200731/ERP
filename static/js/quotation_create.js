@@ -527,7 +527,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.76</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.82</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -622,6 +622,91 @@ function showQuotationCreateForm2() {
           </div>
         </div>
       `);
+
+      // Initialize HT form fields
+      const $quality = $('#ht-quality');
+      const $flatOrRaised = $('#ht-flat-or-raised');
+      const $directOrReverse = $('#ht-direct-or-reverse');
+      const $thickness = $('#ht-thickness');
+
+      // Function to reset fields to default state
+      function resetFields() {
+        $quality.val('').prop('disabled', false);
+        $flatOrRaised.val('').prop('disabled', true);
+        $directOrReverse.val('').prop('disabled', true);
+        $thickness.val('').prop('disabled', true);
+      }
+
+      // Initial reset
+      resetFields();
+
+      // L1 (Quality) change handler
+      $quality.on('change', function() {
+        const selectedQuality = $(this).val();
+        // Reset lower levels
+        $flatOrRaised.val('').prop('disabled', true);
+        $directOrReverse.val('').prop('disabled', true);
+        $thickness.val('').prop('disabled', true);
+
+        if (selectedQuality === 'PU') {
+          // For PU: Force Flat and Direct
+          $flatOrRaised.val('Flat').prop('disabled', true);
+          $directOrReverse.val('Direct').prop('disabled', true);
+        } else if (selectedQuality === 'Silicon') {
+          // For Silicon: Enable Flat or Raised selection
+          $flatOrRaised.val('').prop('disabled', false);
+          $directOrReverse.val('').prop('disabled', true);
+          $thickness.val('').prop('disabled', true);
+        }
+      });
+
+      // L2 (Flat or Raised) change handler
+      $flatOrRaised.on('change', function() {
+        const selectedFlatOrRaised = $(this).val();
+        const selectedQuality = $quality.val();
+        // Reset lower levels
+        $directOrReverse.val('').prop('disabled', true);
+        $thickness.val('').prop('disabled', true);
+
+        if (selectedQuality === 'Silicon') {
+          if (selectedFlatOrRaised === 'Flat') {
+            // For Flat: Force Direct, disable L3, disable L4
+            $directOrReverse.val('Direct').prop('disabled', true);
+            $thickness.val('').prop('disabled', true);
+          } else if (selectedFlatOrRaised === 'Raised') {
+            // For Raised: Enable Direct or Reverse, enable L4
+            $directOrReverse.val('').prop('disabled', false);
+            $thickness.val('').prop('disabled', false);
+          }
+        } else if (selectedQuality === 'PU') {
+          // For PU: already handled in L1
+          $directOrReverse.val('Direct').prop('disabled', true);
+          $thickness.val('').prop('disabled', true);
+        }
+      });
+
+      // L3 (Direct or Reverse) change handler
+      $directOrReverse.on('change', function() {
+        const selectedDirectOrReverse = $(this).val();
+        const selectedFlatOrRaised = $flatOrRaised.val();
+        const selectedQuality = $quality.val();
+        // Reset L4
+        $thickness.val('').prop('disabled', true);
+        // Enable thickness only for Silicon + Raised combination
+        if (selectedQuality === 'Silicon' && selectedFlatOrRaised === 'Raised') {
+          $thickness.prop('disabled', false);
+        }
+      });
+
+      // L4 (Thickness) validation
+      $thickness.on('input', function() {
+        const value = parseFloat($(this).val());
+        if (value < 0.1 || value > 1.5) {
+          $(this).css('border-color', 'red');
+        } else {
+          $(this).css('border-color', '');
+        }
+      });
 
       let currentFocus = -1;
 
@@ -903,23 +988,35 @@ function showQuotationCreateForm2() {
           .then(data => {
             $('#customer-item-code').val(data.code);
           });
-        // Fill Quality
+        // --- L1, L2, L3, L4 logic ---
+        // 1. L1: Quality
         const randomQuality = qualities[Math.floor(Math.random() * qualities.length)];
         $('#ht-quality').val(randomQuality).trigger('change');
-        // Fill Flat/Raised
         setTimeout(function() {
-          const flatOrRaised = ['Flat', 'Raised'][Math.floor(Math.random() * 2)];
-          $('#ht-flat-or-raised').val(flatOrRaised).trigger('change');
-          // Fill Direct/Reverse
-          setTimeout(function() {
-            const directOrReverse = ['Direct', 'Reverse'][Math.floor(Math.random() * 2)];
-            $('#ht-direct-or-reverse').val(directOrReverse).trigger('change');
-            // Fill Thickness if enabled
-            if (!$('#ht-thickness').prop('disabled')) {
-              const thickness = (Math.random() * 1.4 + 0.1).toFixed(1); // 0.1-1.5
-              $('#ht-thickness').val(thickness);
-            }
-          }, 100);
+          // 2. L2: Flat or Raised
+          if (randomQuality === 'PU') {
+            $('#ht-flat-or-raised').val('Flat').trigger('change');
+            // L3: Direct (disabled), L4: disabled
+            $('#ht-direct-or-reverse').val('Direct').prop('disabled', true);
+            $('#ht-thickness').val('').prop('disabled', true);
+          } else if (randomQuality === 'Silicon') {
+            const flatOrRaised = ['Flat', 'Raised'][Math.floor(Math.random() * 2)];
+            $('#ht-flat-or-raised').val(flatOrRaised).trigger('change');
+            setTimeout(function() {
+              if (flatOrRaised === 'Flat') {
+                // L3: Direct (disabled), L4: disabled
+                $('#ht-direct-or-reverse').val('Direct').prop('disabled', true);
+                $('#ht-thickness').val('').prop('disabled', true);
+              } else if (flatOrRaised === 'Raised') {
+                // L3: Direct or Reverse (enabled)
+                const directOrReverse = ['Direct', 'Reverse'][Math.floor(Math.random() * 2)];
+                $('#ht-direct-or-reverse').val(directOrReverse).prop('disabled', false).trigger('change');
+                // L4: Enabled (0.1-1.5)
+                const thickness = (Math.random() * 1.4 + 0.1).toFixed(1); // 0.1-1.5
+                $('#ht-thickness').val(thickness).prop('disabled', false);
+              }
+            }, 100);
+          }
         }, 100);
         // Fill Number of Colors
         $('#ht-num-colors').val(numColors).trigger('input');

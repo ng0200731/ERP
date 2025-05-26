@@ -1,4 +1,4 @@
-// Version v1.2.82
+// Version v1.2.81
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -527,7 +527,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.76</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.81</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -622,6 +622,91 @@ function showQuotationCreateForm2() {
           </div>
         </div>
       `);
+
+      // Initialize HT form fields
+      const $quality = $('#ht-quality');
+      const $flatOrRaised = $('#ht-flat-or-raised');
+      const $directOrReverse = $('#ht-direct-or-reverse');
+      const $thickness = $('#ht-thickness');
+
+      // Function to reset fields to default state
+      function resetFields() {
+        $quality.val('').prop('disabled', false);
+        $flatOrRaised.val('').prop('disabled', true);
+        $directOrReverse.val('').prop('disabled', true);
+        $thickness.val('').prop('disabled', true);
+      }
+
+      // Initial reset
+      resetFields();
+
+      // L1 (Quality) change handler
+      $quality.on('change', function() {
+        const selectedQuality = $(this).val();
+        // Reset lower levels
+        $flatOrRaised.val('').prop('disabled', true);
+        $directOrReverse.val('').prop('disabled', true);
+        $thickness.val('').prop('disabled', true);
+
+        if (selectedQuality === 'PU') {
+          // For PU: Force Flat and Direct
+          $flatOrRaised.val('Flat').prop('disabled', true);
+          $directOrReverse.val('Direct').prop('disabled', true);
+        } else if (selectedQuality === 'Silicon') {
+          // For Silicon: Enable Flat or Raised selection
+          $flatOrRaised.val('').prop('disabled', false);
+          $directOrReverse.val('').prop('disabled', true);
+          $thickness.val('').prop('disabled', true);
+        }
+      });
+
+      // L2 (Flat or Raised) change handler
+      $flatOrRaised.on('change', function() {
+        const selectedFlatOrRaised = $(this).val();
+        const selectedQuality = $quality.val();
+        // Reset lower levels
+        $directOrReverse.val('').prop('disabled', true);
+        $thickness.val('').prop('disabled', true);
+
+        if (selectedQuality === 'Silicon') {
+          if (selectedFlatOrRaised === 'Flat') {
+            // For Flat: Force Direct, disable L3, disable L4
+            $directOrReverse.val('Direct').prop('disabled', true);
+            $thickness.val('').prop('disabled', true);
+          } else if (selectedFlatOrRaised === 'Raised') {
+            // For Raised: Enable Direct or Reverse, enable L4
+            $directOrReverse.val('').prop('disabled', false);
+            $thickness.val('').prop('disabled', false);
+          }
+        } else if (selectedQuality === 'PU') {
+          // For PU: already handled in L1
+          $directOrReverse.val('Direct').prop('disabled', true);
+          $thickness.val('').prop('disabled', true);
+        }
+      });
+
+      // L3 (Direct or Reverse) change handler
+      $directOrReverse.on('change', function() {
+        const selectedDirectOrReverse = $(this).val();
+        const selectedFlatOrRaised = $flatOrRaised.val();
+        const selectedQuality = $quality.val();
+        // Reset L4
+        $thickness.val('').prop('disabled', true);
+        // Enable thickness only for Silicon + Raised combination
+        if (selectedQuality === 'Silicon' && selectedFlatOrRaised === 'Raised') {
+          $thickness.prop('disabled', false);
+        }
+      });
+
+      // L4 (Thickness) validation
+      $thickness.on('input', function() {
+        const value = parseFloat($(this).val());
+        if (value < 0.1 || value > 1.5) {
+          $(this).css('border-color', 'red');
+        } else {
+          $(this).css('border-color', '');
+        }
+      });
 
       let currentFocus = -1;
 

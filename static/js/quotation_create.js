@@ -1,4 +1,4 @@
-// Version v1.2.81
+// Version v1.2.82
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -527,7 +527,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.81</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.82</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -988,23 +988,35 @@ function showQuotationCreateForm2() {
           .then(data => {
             $('#customer-item-code').val(data.code);
           });
-        // Fill Quality
+        // --- L1, L2, L3, L4 logic ---
+        // 1. L1: Quality
         const randomQuality = qualities[Math.floor(Math.random() * qualities.length)];
         $('#ht-quality').val(randomQuality).trigger('change');
-        // Fill Flat/Raised
         setTimeout(function() {
-          const flatOrRaised = ['Flat', 'Raised'][Math.floor(Math.random() * 2)];
-          $('#ht-flat-or-raised').val(flatOrRaised).trigger('change');
-          // Fill Direct/Reverse
-          setTimeout(function() {
-            const directOrReverse = ['Direct', 'Reverse'][Math.floor(Math.random() * 2)];
-            $('#ht-direct-or-reverse').val(directOrReverse).trigger('change');
-            // Fill Thickness if enabled
-            if (!$('#ht-thickness').prop('disabled')) {
-              const thickness = (Math.random() * 1.4 + 0.1).toFixed(1); // 0.1-1.5
-              $('#ht-thickness').val(thickness);
-            }
-          }, 100);
+          // 2. L2: Flat or Raised
+          if (randomQuality === 'PU') {
+            $('#ht-flat-or-raised').val('Flat').trigger('change');
+            // L3: Direct (disabled), L4: disabled
+            $('#ht-direct-or-reverse').val('Direct').prop('disabled', true);
+            $('#ht-thickness').val('').prop('disabled', true);
+          } else if (randomQuality === 'Silicon') {
+            const flatOrRaised = ['Flat', 'Raised'][Math.floor(Math.random() * 2)];
+            $('#ht-flat-or-raised').val(flatOrRaised).trigger('change');
+            setTimeout(function() {
+              if (flatOrRaised === 'Flat') {
+                // L3: Direct (disabled), L4: disabled
+                $('#ht-direct-or-reverse').val('Direct').prop('disabled', true);
+                $('#ht-thickness').val('').prop('disabled', true);
+              } else if (flatOrRaised === 'Raised') {
+                // L3: Direct or Reverse (enabled)
+                const directOrReverse = ['Direct', 'Reverse'][Math.floor(Math.random() * 2)];
+                $('#ht-direct-or-reverse').val(directOrReverse).prop('disabled', false).trigger('change');
+                // L4: Enabled (0.1-1.5)
+                const thickness = (Math.random() * 1.4 + 0.1).toFixed(1); // 0.1-1.5
+                $('#ht-thickness').val(thickness).prop('disabled', false);
+              }
+            }, 100);
+          }
         }, 100);
         // Fill Number of Colors
         $('#ht-num-colors').val(numColors).trigger('input');

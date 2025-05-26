@@ -1,3 +1,69 @@
+// Version v1.2.82
+// Ensure our popup implementation is used
+window.showCustomPopup = undefined; // Clear any existing implementation
+if (typeof showCustomPopup !== 'function') {
+  // Remove any existing popup styles
+  $('#popup-center-toast-style').remove();
+  // Add our dedicated CSS class for the popup
+  const style = document.createElement('style');
+  style.id = 'popup-center-toast-style';
+  style.innerHTML = `
+    #global-popup-container {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      pointer-events: none !important;
+      z-index: 999999 !important;
+    }
+    .popup-success {
+      position: relative !important;
+      min-width: 280px !important;
+      max-width: 90vw !important;
+      padding: 18px 32px !important;
+      font-size: 1.2rem !important;
+      text-align: center !important;
+      border-radius: 10px !important;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+      border: 2px solid #c3e6cb !important;
+      background: #d4edda !important;
+      color: #155724 !important;
+      pointer-events: none !important;
+    }
+    .popup-success.popup-error {
+      border: 2px solid #f5c6cb !important;
+      background: #f8d7da !important;
+      color: #721c24 !important;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Remove any existing popup containers
+  $('#global-popup-container').remove();
+  
+  function ensurePopupContainer() {
+    if ($('#global-popup-container').length === 0) {
+      $('body').append('<div id="global-popup-container"></div>');
+    }
+  }
+
+  window.showCustomPopup = function(message, isError) {
+    ensurePopupContainer();
+    // Remove any existing popup
+    $('.popup-success').remove();
+    $('#global-popup-container').html(`
+      <div class="popup-success${isError ? ' popup-error' : ''}">${message}</div>
+    `);
+    setTimeout(() => {
+      $('.popup-success').fadeOut(500, function() { $(this).remove(); });
+    }, 1500);
+  };
+}
+
 // Only attach the handler for Quotation Create button once, and do not globally override anything else
 $(function() {
   // Make sure userPermissionLevel is defined, if not, get it
@@ -30,8 +96,19 @@ $(function() {
   });
 
   // Handle form submission using event delegation
+  let isSubmitting = false;  // Add submission lock flag
+
   $(document).off('submit.quotation2form').on('submit.quotation2form', '#quotation2-create2-form', function(e) {
     e.preventDefault();
+    if (window.isSubmittingQuotation2) return;
+    window.isSubmittingQuotation2 = true;
+    var $submitBtn = $(this).find('button[type="submit"]');
+    $submitBtn.prop('disabled', true)
+      .css({
+        'background': '#ccc',
+        'color': '#888',
+        'border': '1.5px solid #bbb'
+      });
     
     let formIsValid = true;
 
@@ -39,10 +116,10 @@ $(function() {
     const companyInput = $('#quotation2-company-input');
     const companyId = $('#quotation2-company-id').val();
     if (!companyId) {
-      formIsValid = false;
-      companyInput.css('border-color', 'red');
+        formIsValid = false;
+        companyInput.css('border-color', 'red');
     } else {
-      companyInput.css('border-color', ''); // Reset border
+        companyInput.css('border-color', ''); // Reset border
     }
 
     // Validate Key Person
@@ -51,19 +128,19 @@ $(function() {
     const company = customers.find(c => c.id == companyId);
     let keyPerson = null;
     if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "" && keyPersonIdx >= 0 && keyPersonIdx < company.keyPeople.length) {
-      keyPerson = company.keyPeople[keyPersonIdx];
+        keyPerson = company.keyPeople[keyPersonIdx];
     }
 
     if (!keyPerson || !keyPerson.id) {
-      formIsValid = false;
-      keyPersonSelect.css('border-color', 'red');
+        formIsValid = false;
+        keyPersonSelect.css('border-color', 'red');
     } else {
-      keyPersonSelect.css('border-color', ''); // Reset border
+        keyPersonSelect.css('border-color', ''); // Reset border
     }
 
     // Validate dynamic fields and gather attributes
     const attributes = {};
-
+    
     $('#quotation2-dynamic-fields').find('input:visible:enabled, select:visible:enabled').each(function() {
       const name = $(this).attr('name');
       const value = $(this).val();
@@ -72,65 +149,142 @@ $(function() {
          formIsValid = false;
          $(this).css('border-color', 'red');
       } else if (name) {
-          attributes[name] = value;
+          // Convert field names to match the backend expectations
+          let attributeName = name;
+          if (name === 'flatOrRaised') attributeName = 'flat_or_raised';
+          if (name === 'directOrReverse') attributeName = 'direct_or_reverse';
+          if (name === 'numColors') attributeName = 'num_colors';
+          attributes[attributeName] = value;
           $(this).css('border-color', '');
       }
     });
 
     // Check dynamic color name fields specifically as they are added dynamically
+    const colorNames = [];
     $('#color-names-group input[type="text"]').each(function() {
-        const name = $(this).attr('name');
         const value = $(this).val();
-        if (name && !value) {
+        if (!value) {
             formIsValid = false;
             $(this).css('border-color', 'red');
-        } else if (name) {
-             // These are part of colorNames attribute, handled below
-             $(this).css('border-color', '');
+        } else {
+            colorNames.push(value);
+            $(this).css('border-color', '');
         }
     });
+    attributes['color_names'] = colorNames;
 
-    // Special handling for colorNames dynamic field value collection
-    const numColorsInput = $('#ht-num-colors');
-    const numColors = parseInt(numColorsInput.val(), 10);
-    if (!isNaN(numColors) && numColors > 0) {
-        attributes['colorNames'] = [];
-        $('#color-names-group input[type="text"]').each(function() {
-            attributes['colorNames'].push($(this).val());
+    // Additional validation for Silicon + Raised combination
+    if (attributes.quality === 'Silicon' && attributes.flat_or_raised === 'Raised' && !attributes.thickness) {
+        formIsValid = false;
+        $('#ht-thickness').css('border-color', 'red');
+    }
+
+    // Ensure artwork image is present (HT form only)
+    var fileInput = document.getElementById('q2-jpg-input');
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+      showCustomPopup('Please upload an artwork image (JPG/PNG/screenshot) before submitting.', true);
+      document.getElementById('q2-drop-area').style.borderColor = 'red';
+      $submitBtn.prop('disabled', false)
+        .css({
+          'background': '',
+          'color': '',
+          'border': ''
         });
+      window.isSubmittingQuotation2 = false;
+      return;
+    } else {
+      document.getElementById('q2-drop-area').style.borderColor = '#aaa';
     }
 
     // If form is not valid, show the single alert and stop submission
     if (!formIsValid) {
-        alert('Please fill in below highlight in red border fill');
+        showCustomPopup('Please fill in below highlight in red border fill', true);
+        $submitBtn.prop('disabled', false)
+          .css({
+            'background': '',
+            'color': '',
+            'border': ''
+          });
         return;
     }
 
-    // Continue with submission if all fields are valid
-    const productType = 'heat transfer'; // Hardcode product type for this specific form
-
-    // Send to server
+    // Prepare FormData for file upload
+    var formData = new FormData(this);
+    // Always get the file from the file input
+    var fileInput = document.getElementById('q2-jpg-input');
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      formData.append('artwork_image', fileInput.files[0]);
+    }
+    // Add other fields manually if needed
+    formData.append('customer_name', company ? company.company : '');
+    formData.append('key_person_name', keyPerson ? keyPerson.name : '');
+    formData.append('customer_item_code', $('#customer-item-code').val());
+    formData.append('customer_id', company ? company.id : '');
+    formData.append('key_person_id', keyPerson ? keyPerson.id : '');
+    formData.append('quality', $('#ht-quality').val());
+    formData.append('flat_or_raised', $('#ht-flat-or-raised').val());
+    formData.append('direct_or_reverse', $('#ht-direct-or-reverse').val());
+    formData.append('thickness', parseFloat($('#ht-thickness').val()) || 0);
+    formData.append('num_colors', parseInt($('#ht-num-colors').val()) || 0);
+    formData.append('width', parseFloat($('#ht-width').val()) || 0);
+    formData.append('length', parseFloat($('#ht-length').val()) || 0);
+    // Add color names as JSON string
+    formData.append('color_names', JSON.stringify(colorNames));
+    // Get CSRF token from meta tag
+    const csrfToken = $('meta[name="csrf-token"]').attr('content');
     $.ajax({
-      url: '/quotations2',
-      type: 'POST',
-      contentType: 'application/json',
-      data: JSON.stringify({
-        customer_id: companyId,
-        key_person_id: keyPerson.id,
-        product_type: productType,
-        attributes: attributes
-      }),
-      success: function(resp) {
-        alert('Quotation created successfully!');
-        showQuotationCreateForm2(); // Reset form
+      url: '/quotation/save',
+      method: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-Token': csrfToken
       },
-      error: function(xhr) {
-        let msg = 'Failed to create quotation.';
+      xhrFields: {
+        withCredentials: true
+      },
+      success: function(response) {
+        if (response.error) {
+          showCustomPopup('Error: ' + response.error, true);
+          $submitBtn.prop('disabled', false)
+            .css({
+              'background': '',
+              'color': '',
+              'border': ''
+            });
+        } else {
+          showCustomPopup('Quotation saved successfully', false);
+          setTimeout(() => {
+            $('#right-frame').load('/view_quotations_simple');
+          }, 1000);
+        }
+      },
+      error: function(xhr, status, error) {
+        let errorMsg = 'Error saving quotation';
         try {
-          const r = JSON.parse(xhr.responseText);
-          if (r && r.error) msg += ' ' + r.error;
-        } catch(e) {}
-        alert(msg);
+          if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorMsg += ': ' + xhr.responseJSON.error;
+          } else if (xhr.responseText) {
+            errorMsg += ': ' + xhr.responseText;
+          } else {
+            errorMsg += ': ' + error;
+          }
+        } catch(e) {
+          errorMsg += ': ' + error;
+        }
+        showCustomPopup(errorMsg, true);
+        console.error('Save error:', xhr, status, error);
+        $submitBtn.prop('disabled', false)
+          .css({
+            'background': '',
+            'color': '',
+            'border': ''
+          });
+      },
+      complete: function() {
+        window.isSubmittingQuotation2 = false;
       }
     });
   });
@@ -147,6 +301,16 @@ $(function() {
       };
       document.body.appendChild(script);
     });
+  });
+
+  // Attach Item Code Generate button handler
+  $('#generate-item-code-btn').off('click').on('click', function(e) {
+    e.preventDefault();
+    fetch('/quotation/generate_code')
+      .then(response => response.json())
+      .then(data => {
+        $('#customer-item-code').val(data.code);
+      });
   });
 });
 
@@ -206,6 +370,129 @@ function showQuotationCreateForm() {
     renderDynamicFieldsBlank(productTypeFields);
   });
   renderDynamicFieldsBlank(productTypeFields); // Initial blank render
+
+  // --- Customer Selection Logic ---
+
+  let currentFocus = -1;
+
+  // Function to update suggestion list
+  function updateSuggestions(val = '') {
+    val = val.toLowerCase();
+    let matches = val ? 
+      customers.filter(c => c.company.toLowerCase().includes(val)) :
+      customers;
+    
+    const $suggestionList = $('#company-suggestions ul'); // Use #company-suggestions
+    if (matches.length) {
+      const html = matches.map(c => 
+        `<li data-id="${c.id}" style="padding: 8px 12px; cursor: pointer; list-style: none; border-bottom: 1px solid #eee;">${c.company}</li>`
+      ).join('');
+      $suggestionList.html(html).show();
+      currentFocus = -1; // Reset focus when updating list
+    } else {
+      $suggestionList.hide();
+    }
+  }
+
+  // Function to select company
+  function selectCompany(id) {
+    const company = customers.find(c => c.id == id);
+    if (company) {
+      $('#quotation-company-input').val(company.company); // Use #quotation-company-input
+      $('#quotation-company-id').val(company.id); // Use #quotation-company-id
+      $('#company-suggestions ul').hide(); // Use #company-suggestions
+      // Mark as selected
+      $('#quotation-company-input').attr('data-selected', 'true');
+
+      // Populate key people
+      let kpOpts = '<option value="">-- Select Key Person --</option>';
+      if (Array.isArray(company.keyPeople)) {
+        kpOpts += company.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+      }
+      $('#quotation-keyperson').html(kpOpts); // Use #quotation-keyperson
+    }
+  }
+
+  // Show companies only when typing or when field is empty
+  $('#quotation-company-input').on('focus click', function(e) { // Use #quotation-company-input
+    // Don't show list if company is already selected
+    if ($(this).attr('data-selected') === 'true') {
+      return;
+    }
+    updateSuggestions();
+  });
+
+  // Filter companies as user types
+  $('#quotation-company-input').on('input', function() { // Use #quotation-company-input
+    const val = $(this).val();
+    // Remove selected state when user starts typing
+    $(this).attr('data-selected', 'false');
+    updateSuggestions(val);
+  });
+
+  // Handle keyboard navigation
+  $('#quotation-company-input').on('keydown', function(e) { // Use #quotation-company-input
+    const $suggestions = $('#company-suggestions ul'); // Use #company-suggestions
+    const $items = $suggestions.find('li');
+    
+    if (!$items.length) return;
+
+    // Down arrow
+    if (e.keyCode === 40) {
+      currentFocus++;
+      if (currentFocus >= $items.length) currentFocus = 0;
+      $items.removeClass('active').css('background-color', '');
+      $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
+      // Scroll into view if needed
+      const activeItem = $items[currentFocus];
+      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+    }
+    // Up arrow
+    else if (e.keyCode === 38) {
+      currentFocus--;
+      if (currentFocus < 0) currentFocus = $items.length - 1;
+      $items.removeClass('active').css('background-color', '');
+      $items.eq(currentFocus).addClass('active').css('background-color', '#f0f0f0');
+      // Scroll into view if needed
+      const activeItem = $items[currentFocus];
+      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+    }
+    // Enter
+    else if (e.keyCode === 13 && currentFocus > -1) {
+      e.preventDefault(); // Prevent form submission
+      const id = $items.eq(currentFocus).data('id');
+      selectCompany(id);
+    }
+    // Escape
+    else if (e.keyCode === 27) {
+      $suggestions.hide();
+      currentFocus = -1;
+    }
+  });
+
+  // Handle company selection by click
+  $('#company-suggestions').on('click', 'li', function() { // Use #company-suggestions
+    const id = $(this).data('id');
+    selectCompany(id);
+  });
+
+  // Handle mouse hover on suggestions
+  $('#company-suggestions').on('mouseover', 'li', function() { // Use #company-suggestions
+    const $items = $('#company-suggestions ul li'); // Use #company-suggestions
+    $items.removeClass('active').css('background-color', '');
+    $(this).addClass('active').css('background-color', '#f0f0f0');
+    currentFocus = $items.index(this);
+  });
+
+  // Hide suggestions when clicking outside
+  $(document).on('click', function(e) {
+    if (!$(e.target).closest('#quotation-company-input, #company-suggestions').length) { // Use #quotation-company-input, #company-suggestions
+      $('#company-suggestions ul').hide(); // Use #company-suggestions
+      currentFocus = -1;
+    }
+  });
+
+  // --- End Customer Selection Logic ---
 }
 
 function renderDynamicFieldsBlank(productTypeFields) {
@@ -239,271 +526,101 @@ function showQuotationCreateForm2() {
       const userLevel = response.level || 0;
       
       $('#right-frame').html(`
-        <div style="padding:32px;max-width:600px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.1.7</span></h2>
-          
-          ${userLevel >= 3 ? `
-          <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
-          <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
-            <button id="btn-ht-database" type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-              DATABASE
-            </button>
-          </div>
-          ` : ''}
-          
-          <style>\
-            #quotation2-create2-form input[type="number"],\
-            #quotation2-create2-form input[type="text"],\
-            #quotation2-create2-form select {\
-              width: 100% !important;\
-              box-sizing: border-box;\
-              padding: 8px;\
-              border-radius: 4px;\
-              border: 1.5px solid #b3c6ff;\
-              margin-bottom: 8px;\
-            }\
-            #quotation2-create2-form label {\
-              margin-bottom: 4px;\
-              display: block;\
-            }\
-          </style>
-          
-          <form id="quotation2-create2-form" autocomplete="off">
-            <!-- Customer Details Section -->
-            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-              <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
-              <label>Company:<br>
-                <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
-                <div id="company2-suggestions" style="position: relative;">
-                  <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
+        <div style="padding:32px;max-width:900px; min-height:100vh;">
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.76</span></h2>
+          <div style="display:flex; gap:32px; align-items:flex-start;">
+            <div style="flex:2; min-width:340px;">
+              ${userLevel >= 3 ? `
+              <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
+              <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
+                <button id="btn-ht-database" type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                  DATABASE
+                </button>
+                <div style="margin-top: 8px; font-size: 12px; color: #666;">Access HT Database (Level 3 users only)</div>
+              </div>
+              ` : ''}
+              <form id="quotation2-create2-form" autocomplete="off">
+                <!-- Customer Details Section -->
+                <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+                  <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
+                  <label>Company:<br>
+                    <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
+                    <div id="company2-suggestions" style="position: relative;">
+                      <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
+                    </div>
+                    <input type="hidden" id="quotation2-company-id">
+                  </label><br><br>
+                  <label>Key Person:<br>
+                    <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
+                      <option value="">-- Select Key Person --</option>
+                    </select>
+                  </label>
                 </div>
-                <input type="hidden" id="quotation2-company-id">
-              </label><br><br>
-              <label>Key Person:<br>
-                <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
-                  <option value="">-- Select Key Person --</option>
-                </select>
-              </label>
+                <!-- Item Information Section -->
+                <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
+                  <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
+                  <!-- Dummy Button -->
+                  <button type="button" id="dummy-fill-btn" style="position: fixed; top: 20px; right: 20px; padding: 8px 20px; background-color: #ccc; color: #000; border: none; border-radius: 4px; cursor: pointer; z-index: 1000;">Dummy Fill</button>
+                  <div id="quotation2-dynamic-fields">
+                    <label>Item Code:<br>
+                      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <input type="text" id="customer-item-code" name="customer_item_code" style="flex: 1; padding: 8px;">
+                        <button type="button" id="generate-item-code-btn" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate</button>
+                      </div>
+                    </label>
+                    <label>Quality:<br>
+                      <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
+                        <option value="">-- Select --</option>
+                        <option value="PU">PU</option>
+                        <option value="Silicon">Silicon</option>
+                      </select>
+                    </label><br><br>
+                    <label>Flat or Raised:<br>
+                      <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
+                        <option value="">-- Select --</option>
+                        <option value="Flat">Flat</option>
+                        <option value="Raised">Raised</option>
+                      </select>
+                    </label><br><br>
+                    <label>Direct or Reverse:<br>
+                      <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
+                        <option value="">-- Select --</option>
+                        <option value="Direct">Direct</option>
+                        <option value="Reverse">Reverse</option>
+                      </select>
+                    </label><br><br>
+                    <label>Thickness 0.1-1.5:<br>
+                      <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
+                    </label><br><br>
+                    <label># of Colors:<br>
+                      <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
+                    </label>
+                    <div id="color-names-group" style="margin-top: 10px;"></div>
+                    <label>Width:<br>
+                      <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; margin-top: 16px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
+                    </label><br><br>
+                    <label>Length:<br>
+                      <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
+                    </label>
+                  </div>
+                </div>
+                <br>
+                <!-- Submit button at the bottom -->
+                <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
+              </form>
             </div>
-
-            <!-- Item Information Section -->
-            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
-              <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
-              <div id="quotation2-dynamic-fields">
-                <label>Quality:<br>
-                  <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
-                    <option value="">-- Select --</option>
-                    <option value="PU">PU</option>
-                    <option value="Silicon">Silicon</option>
-                  </select>
-                </label><br><br>
-                <label>Flat or Raised:<br>
-                  <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
-                    <option value="">-- Select --</option>
-                    <option value="Flat">Flat</option>
-                    <option value="Raised">Raised</option>
-                  </select>
-                </label><br><br>
-                <label>Direct or Reverse:<br>
-                  <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
-                    <option value="">-- Select --</option>
-                    <option value="Direct">Direct</option>
-                    <option value="Reverse">Reverse</option>
-                  </select>
-                </label><br><br>
-                <label>Thickness 0.1-1.5:<br>
-                  <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
-                </label><br><br>
-                <label># of Colors:<br>
-                  <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
-                </label>
-                <div id="color-names-group" style="margin-top: 10px;"></div>
-                <label>Width:<br>
-                  <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; margin-top: 16px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
-                </label><br><br>
-                <label>Length:<br>
-                  <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
-                </label>
+            <div style="flex:1; min-width:220px; max-width:320px; margin-top:0;">
+              <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
+                <label style="font-weight:bold;">Upload JPG/PNG Artwork:<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop, click, or <b>Ctrl+V</b> to paste JPG/PNG or screenshot)</span></label>
+                <div id="q2-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
+                  <span id="q2-drop-label">Drag & drop JPG/PNG here or click to select</span>
+                  <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
+                  <div id="q2-jpg-preview" style="margin-top:12px;"></div>
+                </div>
               </div>
             </div>
-            <br>
-            <!-- Submit button at the bottom -->
-            <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
-          </form>
+          </div>
         </div>
-        <script>
-        $(function() {
-          function updateHTForm(triggeredBy) {
-            var quality = $('#ht-quality').val();
-            var flatOrRaised = $('#ht-flat-or-raised').val();
-            var directOrReverse = $('#ht-direct-or-reverse');
-            var thickness = $('#ht-thickness');
-
-            // Handle Quality (L1) changes - Reset everything to default select
-            if (triggeredBy === 'quality') {
-              // First, clear all options and reset to default select
-              directOrReverse.empty();
-              directOrReverse.append('<option value="">-- Select --</option>');
-              
-              // Reset all fields to default select state
-              $('#ht-flat-or-raised').val('').prop('disabled', true);
-              directOrReverse.val('').prop('disabled', true);
-              thickness.val('').prop('disabled', true);
-
-              if (quality === 'PU') {
-                // PU selected - Set defaults
-                $('#ht-flat-or-raised').val('Flat').prop('disabled', true);
-                directOrReverse.append('<option value="Direct">Direct</option>');
-                directOrReverse.val('Direct').prop('disabled', true);
-                thickness.prop('disabled', true);
-              } else if (quality === 'Silicon') {
-                // Silicon selected - Enable L2 only
-                $('#ht-flat-or-raised').prop('disabled', false);
-                // Add Direct option but don't select it
-                directOrReverse.append('<option value="Direct">Direct</option>');
-                directOrReverse.prop('disabled', true);
-                thickness.prop('disabled', true);
-              }
-            }
-
-            // Handle Flat/Raised (L2) changes
-            if (triggeredBy === 'flatOrRaised') {
-              // Reset L3 and L4 to default select
-              directOrReverse.empty();
-              directOrReverse.append('<option value="">-- Select --</option>');
-              directOrReverse.val('').prop('disabled', true);
-              thickness.val('').prop('disabled', true);
-
-              if (flatOrRaised === 'Flat') {
-                // Flat selected
-                directOrReverse.append('<option value="Direct">Direct</option>');
-                directOrReverse.val('Direct').prop('disabled', true);
-                thickness.prop('disabled', true);
-              } else if (flatOrRaised === 'Raised') {
-                // Raised selected
-                directOrReverse.append('<option value="Direct">Direct</option>');
-                directOrReverse.append('<option value="Reverse">Reverse</option>');
-                directOrReverse.val('').prop('disabled', false);
-                thickness.prop('disabled', false);
-              }
-            }
-
-            // L3 changes have no effect on other fields
-            if (triggeredBy === 'directOrReverse') {
-              // No changes needed for other fields
-            }
-          }
-
-          // Attach event handlers
-          $('#ht-quality').on('change', function() { 
-            updateHTForm('quality'); 
-          });
-          
-          $('#ht-flat-or-raised').on('change', function() { 
-            updateHTForm('flatOrRaised'); 
-          });
-          
-          $('#ht-direct-or-reverse').on('change', function() { 
-            updateHTForm('directOrReverse'); 
-          });
-
-          // Initial form state
-          updateHTForm('quality');
-
-          let lastValidThickness = '';
-          // Prevent non-numeric input in thickness field
-          $('#ht-thickness').on('keydown', function(e) {
-            if (["e", "E", "+", "-"].includes(e.key)) {
-              e.preventDefault();
-            }
-          });
-          // Enforce 1 decimal place and range for thickness in real time
-          $('#ht-thickness').on('input', function() {
-            let val = $(this).val();
-            // Remove all but first decimal point
-            if (val.split('.').length > 2) {
-              val = val.replace(/\.+$/, '');
-              $(this).val(val);
-            }
-            // Only allow 1 decimal place
-            if (/^\d+\.\d{2,}$/.test(val)) {
-              // Do not auto-correct, just leave as is for warning on blur
-            }
-          });
-          // Clamp to range and fix decimals on blur, warn user if invalid
-          $('#ht-thickness').on('focus', function() {
-            lastValidThickness = $(this).val();
-          });
-          $('#ht-thickness').on('blur', function() {
-            let val = $(this).val();
-            if (val === '') return;
-            let num = Number(val);
-            // Accept 0.1-0.9, 1, 1.0-1.5 (1 decimal place max)
-            if (!/^(0\.[1-9]|1(\.[0-5])?)$/.test(val) || isNaN(num) || num < 0.1 || num > 1.5) {
-              alert('Thickness must be a number from 0.1 to 1.5 with only 1 decimal place.');
-              $(this).val(lastValidThickness);
-              setTimeout(() => { $(this).focus(); }, 0);
-              return;
-            }
-            // Always format to 1 decimal place
-            $(this).val(num.toFixed(1));
-            lastValidThickness = $(this).val();
-          });
-
-          // Prevent non-numeric input in # of colors field
-          $('#ht-num-colors').on('keydown', function(e) {
-            if (["e", "E", "+", "-", "."].includes(e.key)) {
-              e.preventDefault();
-            }
-          });
-
-          // Dynamic color name fields logic
-          let lastNumColors = 0;
-          let colorValues = [];
-          // Only update color fields on blur, not on input
-          $('#ht-num-colors').off('input');
-          $('#ht-num-colors').on('blur', function() {
-            let val = $(this).val();
-            let num = parseInt(val, 10);
-            // Save current color values
-            colorValues = [];
-            $('#color-names-group input[type="text"]').each(function() {
-              colorValues.push($(this).val());
-            });
-            if (isNaN(num) || num < 1) {
-              $('#color-names-group').empty();
-              lastNumColors = 0;
-              colorValues = [];
-              return;
-            }
-            if (num < lastNumColors) {
-              if (!confirm('Reducing the number of colors will remove the last color name field(s). Continue?')) {
-                $(this).val(lastNumColors);
-                return;
-              }
-              // Remove the last value(s)
-              colorValues = colorValues.slice(0, num);
-            }
-            lastNumColors = num;
-            // Build color name fields, keeping previous values
-            let html = '<div style="border: 2px solid #b3c6ff; border-radius: 8px; padding: 16px; background: #f8faff; margin-top: 8px;">';
-            html += '<div style="font-weight: bold; margin-bottom: 8px;">Color Names</div>';
-            for (let i = 1; i <= num; i++) {
-              let val = colorValues[i-1] !== undefined ? colorValues[i-1] : '';
-              html += '<div style="margin-left: 24px; margin-bottom: 8px;"><input type="text" name="colorName' + i + '" placeholder="Color ' + i + '" style="width: 90%; padding: 6px; border-radius: 4px; border: 1px solid #ccc;" value="' + val.replace(/"/g, '&quot;') + '"></div>';
-            }
-            html += '</div>';
-            $('#color-names-group').html(html);
-          });
-
-          // Prevent non-numeric input in width and length fields
-          $('#ht-width, #ht-length').on('keydown', function(e) {
-            if (["e", "E", "+", "-"].includes(e.key)) {
-              e.preventDefault();
-            }
-          });
-        });
-        </script>
       `);
 
       let currentFocus = -1;
@@ -623,6 +740,199 @@ function showQuotationCreateForm2() {
           $('#company2-suggestions ul').hide();
           currentFocus = -1;
         }
+      });
+
+      // Drag and drop logic for JPG/PNG
+      const dropArea = document.getElementById('q2-drop-area');
+      const fileInput = document.getElementById('q2-jpg-input');
+      const previewDiv = document.getElementById('q2-jpg-preview');
+      let jpgFile = null;
+      dropArea.addEventListener('click', () => fileInput.click());
+      dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.style.background = '#e3e7ea'; });
+      dropArea.addEventListener('dragleave', e => { e.preventDefault(); dropArea.style.background = '#fafbfc'; });
+      dropArea.addEventListener('drop', e => {
+        e.preventDefault();
+        dropArea.style.background = '#fafbfc';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleImageFile(e.dataTransfer.files[0], true);
+        }
+      });
+      fileInput.addEventListener('change', e => {
+        if (fileInput.files && fileInput.files[0]) {
+          handleImageFile(fileInput.files[0], false);
+        }
+      });
+      // --- Add paste (Ctrl+V) support for JPG/PNG image ---
+      const rightFrame = document.getElementById('right-frame');
+      function handlePasteEvent(e) {
+        if (document.getElementById('q2-drop-area')) {
+          if (e.clipboardData && e.clipboardData.items) {
+            for (let i = 0; i < e.clipboardData.items.length; i++) {
+              const item = e.clipboardData.items[i];
+              if (item.kind === 'file' && (item.type === 'image/jpeg' || item.type === 'image/png')) {
+                const file = item.getAsFile();
+                handleImageFile(file, true);
+                e.preventDefault();
+                break;
+              }
+            }
+          }
+        }
+      }
+      rightFrame.addEventListener('paste', handlePasteEvent);
+      $(rightFrame).one('DOMNodeRemoved', function() {
+        rightFrame.removeEventListener('paste', handlePasteEvent);
+      });
+      // --- End paste support ---
+      async function handleImageFile(file, fromDrop) {
+        if (!(file.type === 'image/jpeg' || file.type === 'image/png')) {
+          previewDiv.innerHTML = '<span style="color:red;">Only JPG or PNG files are allowed.</span>';
+          jpgFile = null;
+          return;
+        }
+        // If PNG, convert to JPG using canvas
+        if (file.type === 'image/png') {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(function(blob) {
+              if (!blob) {
+                previewDiv.innerHTML = '<span style="color:red;">Failed to convert PNG to JPG.</span>';
+                jpgFile = null;
+                return;
+              }
+              const jpg = new File([blob], 'artwork.jpg', { type: 'image/jpeg' });
+              setJpgFile(jpg, fromDrop, canvas.toDataURL('image/jpeg'));
+            }, 'image/jpeg', 0.92);
+          };
+          img.onerror = function() {
+            previewDiv.innerHTML = '<span style="color:red;">Failed to load PNG image.</span>';
+            jpgFile = null;
+          };
+          img.src = URL.createObjectURL(file);
+        } else {
+          // JPG: preview and set
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            setJpgFile(file, fromDrop, e.target.result);
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+      function setJpgFile(file, fromDrop, dataUrl) {
+        jpgFile = file;
+        if ((fromDrop || fileInput) && fileInput) {
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          fileInput.files = dataTransfer.files;
+        }
+        previewDiv.innerHTML = `<img src="${dataUrl}" style="max-width:180px;max-height:120px;border:1px solid #ccc;border-radius:6px;" />`;
+      }
+      window.q2_jpgFile = jpgFile;
+
+      // --- Dynamic Color Names logic for # of Colors ---
+      function renderColorNames(num, prevVals) {
+        let html = '';
+        for (let i = 0; i < num; i++) {
+          const cname = prevVals['colorName'+(i+1)] || '';
+          html += `<input type="text" name="colorName${i+1}" placeholder="Color ${i+1}" value="${cname}"><br>`;
+        }
+        return html;
+      }
+      function getPrevColorNames() {
+        const prev = {};
+        $('#color-names-group input[type="text"]').each(function(i) {
+          prev['colorName'+(i+1)] = $(this).val();
+        });
+        return prev;
+      }
+      // Set default # of Colors to 1 on form load
+      $('#ht-num-colors').val(1);
+      // Render color name fields on # of Colors change
+      $('#quotation2-dynamic-fields').on('input', '#ht-num-colors', function() {
+        const prevVals = getPrevColorNames();
+        let num = parseInt($(this).val(), 10) || 0;
+        if (num < 1) num = 1;
+        let html = renderColorNames(num, prevVals);
+        $('#color-names-group').html(html);
+      });
+      // Initial render (preserve on reload)
+      setTimeout(function() {
+        $('#ht-num-colors').val(1); // Always default to 1
+        const prevVals = getPrevColorNames();
+        let num = 1;
+        $('#color-names-group').html(renderColorNames(num, prevVals));
+      }, 0);
+      // Dummy Fill Button Handler
+      $('#dummy-fill-btn').off('click').on('click', function() {
+        // Reset all color name fields to blank and # of Colors to 1
+        $('#ht-num-colors').val(1);
+        $('#color-names-group').html(renderColorNames(1, {}));
+        // Random dummy data
+        const qualities = ['PU', 'Silicon'];
+        const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Purple', 'Orange', 'Pink', 'Brown'];
+        const numColors = Math.floor(Math.random() * 3) + 1; // 1-3 colors
+        const width = Math.floor(Math.random() * 200) + 50; // 50-250
+        const length = Math.floor(Math.random() * 300) + 100; // 100-400
+        // Select a random company and key person if customers data is available
+        if (typeof customers !== 'undefined' && customers.length > 0) {
+          const randomCompany = customers[Math.floor(Math.random() * customers.length)];
+          // Set company
+          $('#quotation2-company-input').val(randomCompany.company);
+          $('#quotation2-company-id').val(randomCompany.id);
+          $('#quotation2-company-input').attr('data-selected', 'true');
+          // Populate key people
+          let kpOpts = '<option value="">-- Select Key Person --</option>';
+          if (Array.isArray(randomCompany.keyPeople)) {
+            kpOpts += randomCompany.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+          }
+          $('#quotation2-keyperson').html(kpOpts);
+          // Select a random key person
+          if (Array.isArray(randomCompany.keyPeople) && randomCompany.keyPeople.length > 0) {
+            const randomIdx = Math.floor(Math.random() * randomCompany.keyPeople.length);
+            $('#quotation2-keyperson').val(randomIdx);
+          }
+        }
+        // Fill Item Code (fetch from backend)
+        fetch('/quotation/generate_code')
+          .then(response => response.json())
+          .then(data => {
+            $('#customer-item-code').val(data.code);
+          });
+        // Fill Quality
+        const randomQuality = qualities[Math.floor(Math.random() * qualities.length)];
+        $('#ht-quality').val(randomQuality).trigger('change');
+        // Fill Flat/Raised
+        setTimeout(function() {
+          const flatOrRaised = ['Flat', 'Raised'][Math.floor(Math.random() * 2)];
+          $('#ht-flat-or-raised').val(flatOrRaised).trigger('change');
+          // Fill Direct/Reverse
+          setTimeout(function() {
+            const directOrReverse = ['Direct', 'Reverse'][Math.floor(Math.random() * 2)];
+            $('#ht-direct-or-reverse').val(directOrReverse).trigger('change');
+            // Fill Thickness if enabled
+            if (!$('#ht-thickness').prop('disabled')) {
+              const thickness = (Math.random() * 1.4 + 0.1).toFixed(1); // 0.1-1.5
+              $('#ht-thickness').val(thickness);
+            }
+          }, 100);
+        }, 100);
+        // Fill Number of Colors
+        $('#ht-num-colors').val(numColors).trigger('input');
+        setTimeout(function() {
+          // Fill Color Names (after input boxes are rendered)
+          const shuffledColors = [...colors].sort(() => 0.5 - Math.random());
+          $('#color-names-group input[type="text"]').each(function(i) {
+            $(this).val(shuffledColors[i % shuffledColors.length]);
+          });
+        }, 200);
+        // Fill Width and Length
+        $('#ht-width').val(width);
+        $('#ht-length').val(length);
       });
     });
   });

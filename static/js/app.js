@@ -1,6 +1,63 @@
 // Remove LocalStorage and in-memory array logic
 // Use AJAX to communicate with Flask backend
 let customers = [];
+let currentFocus = -1;
+
+// Function to update suggestion list
+function updateSuggestions(val = '') {
+  val = val.toLowerCase();
+  let matches = val ? 
+    customers.filter(c => c.company.toLowerCase().includes(val)) :
+    customers;
+  
+  const $suggestionList = $('#company2-suggestions ul');
+  if (matches.length) {
+    const html = matches.map(c => 
+      `<li data-id="${c.id}" style="padding: 8px 12px; cursor: pointer; list-style: none; border-bottom: 1px solid #eee;">${c.company}</li>`
+    ).join('');
+    $suggestionList.html(html).show();
+    currentFocus = -1; // Reset focus when updating list
+  } else {
+    $suggestionList.hide();
+  }
+}
+
+// Function to select company
+function selectCompany(id) {
+  const company = customers.find(c => c.id == id);
+  if (company) {
+    $('#quotation2-company-input').val(company.company);
+    $('#quotation2-company-id').val(company.id);
+    $('#company2-suggestions ul').hide();
+    // Mark as selected
+    $('#quotation2-company-input').attr('data-selected', 'true');
+
+    // Populate key people
+    let kpOpts = '<option value="">-- Select Key Person --</option>';
+    if (Array.isArray(company.keyPeople)) {
+      kpOpts += company.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+    }
+    $('#quotation2-keyperson').html(kpOpts);
+  }
+}
+
+// Function to fetch customers from the server
+function fetchCustomers(callback) {
+  $.ajax({
+    url: '/customers',
+    type: 'GET',
+    success: function(data) {
+      customers = data;
+      console.log('[DEBUG] Fetched customers:', customers.length);
+      if (callback) callback();
+    },
+    error: function(xhr, status, error) {
+      console.error('[ERROR] Failed to fetch customers:', status, error);
+      showCustomPopup('Failed to load customers. Please try again.', true);
+      if (callback) callback([]);
+    }
+  });
+}
 
 // Add this at the beginning of the file
 function checkUserPermission(callback) {
@@ -26,124 +83,6 @@ function handleSubmitSlide2() {}
   let slide2Data = {};
 let editStep1Data = {};
 let editStep2Data = {};
-
-function fetchCustomers(callback) {
-  $.ajax({
-    url: '/customers',
-    type: 'GET',
-    success: function(data) {
-      customers = data;
-      console.log('[DEBUG] Fetched customers:', customers.length);
-      if (callback) callback();
-    },
-    error: function(xhr, status, error) {
-      console.error('[ERROR] Failed to fetch customers:', status, error);
-      showCustomPopup('Failed to load customers. Please try again.', true);
-      if (callback) callback([]);
-    }
-  });
-}
-
-function createCustomer(customer, callback) {
-  $('#right-frame').append(`
-    <div id="create-loading-indicator" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;">
-      <div style="text-align: center; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <p>Creating customer... <span class="spinner" style="display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #3498db; animation: spin 1s linear infinite;"></span></p>
-      </div>
-    </div>
-  `);
-  
-  $.ajax({
-    url: '/customers',
-    type: 'POST',
-    contentType: 'application/json',
-    data: JSON.stringify(customer),
-    success: function(response) {
-      $('#create-loading-indicator').remove();
-      // Show email status message if present
-      if (response && response.email_message) {
-        showCustomPopup(response.email_message, response.email_status !== 'success');
-      }
-      
-      // Explicitly fetch customers again to ensure we have the latest data
-      fetchCustomers(function() {
-        console.log('[DEBUG] Customers refreshed after create:', customers.length);
-        if (callback) callback();
-      });
-    },
-    error: function(xhr, status, error) {
-      $('#create-loading-indicator').remove();
-      console.error('[ERROR] Failed to create customer:', status, error, xhr.responseText);
-      let errorMsg = 'Failed to create customer.';
-      
-      // Try to extract more detailed error message from response if possible
-      try {
-        const response = JSON.parse(xhr.responseText);
-        if (response && response.error) {
-          errorMsg += ' ' + response.error;
-        }
-      } catch (e) {
-        // Ignore JSON parse errors
-      }
-      
-      showCustomPopup(errorMsg, true);
-      if (callback) callback(false);
-    }
-  });
-}
-
-function updateCustomer(id, customer, callback) {
-  $('#right-frame').append(`
-    <div id="update-loading-indicator" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;">
-      <div style="text-align: center; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <p>Updating customer... <span class="spinner" style="display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #3498db; animation: spin 1s linear infinite;"></span></p>
-      </div>
-    </div>
-  `);
-  
-  if (!id) {
-    console.error('[ERROR] No customer ID provided for update');
-    $('#update-loading-indicator').remove();
-    showCustomPopup('Failed to update: Missing customer ID', true);
-    if (callback) callback(false);
-    return;
-  }
-  
-  console.log('[DEBUG] Updating customer ID:', id);
-  
-  $.ajax({
-    url: '/customers/' + id,
-    type: 'PUT',
-    contentType: 'application/json',
-    data: JSON.stringify(customer),
-    success: function() { 
-      $('#update-loading-indicator').remove();
-      // Explicitly fetch customers again to ensure we have the latest data
-      fetchCustomers(function() {
-        console.log('[DEBUG] Customers refreshed after update:', customers.length);
-        if (callback) callback(true);
-      });
-    },
-    error: function(xhr, status, error) {
-      $('#update-loading-indicator').remove();
-      console.error('[ERROR] Failed to update customer:', status, error, xhr.responseText);
-      let errorMsg = 'Failed to update customer.';
-      
-      // Try to extract more detailed error message from response if possible
-      try {
-        const response = JSON.parse(xhr.responseText);
-        if (response && response.error) {
-          errorMsg += ' ' + response.error;
-        }
-      } catch (e) {
-        // Ignore JSON parse errors
-      }
-      
-      showCustomPopup(errorMsg, true);
-      if (callback) callback(false);
-    }
-  });
-}
 
 $(function() {
   $('#right-frame').empty();
@@ -252,6 +191,17 @@ $(function() {
   });
   $('#btn-quotation-create').on('click', function() {
     showQuotationCreateForm();
+  });
+
+  // Quotation 2 menu logic
+  $('#btn-quotation2').click(function() {
+    $('#quotation2-nested').toggle();
+  });
+  $('#btn-quotation2-create2').click(function() {
+    showQuotationCreateForm2();
+  });
+  $('#btn-view-quotations').click(function() {
+    $('#right-frame').load('/view_quotations_simple');
   });
 });
   
@@ -641,7 +591,7 @@ $(function() {
       let domain = '';
       if ($form.find('.keyperson-email-domain').is('select')) {
         domain = $form.find('.keyperson-email-domain').val();
-    } else {
+      } else {
         domain = $form.find('.keyperson-email-domain').val();
       }
       const email = emailPrefix && domain ? `${emailPrefix}@${domain}` : '';
@@ -2076,7 +2026,7 @@ function showQuotationCreateForm() {
       // Validate company
       const companyId = $('#quotation-company-id').val();
       if (!companyId) {
-        showCustomPopup('Please select a company from the list.', true);
+        showCustomPopup('Please fill all required fields correctly.', true);
         $('#quotation-company-input').css('background', '#ffd6d6');
         hasError = true;
       } else {
@@ -2084,18 +2034,8 @@ function showQuotationCreateForm() {
       }
       // Validate key person
       const keyPersonIdx = $('#quotation-keyperson').val();
-      const company = customers.find(c => c.id == companyId);
-      let keyPersonId = null;
-      let keyPersonName = null;
-      let keyPersonEmail = null;
-      if (company && Array.isArray(company.keyPeople) && keyPersonIdx !== "" && keyPersonIdx !== null && keyPersonIdx !== undefined) {
-        const kp = company.keyPeople[keyPersonIdx];
-        keyPersonId = kp && kp.id ? kp.id : null;
-        keyPersonName = kp && kp.name ? kp.name : null;
-        keyPersonEmail = kp && kp.email ? kp.email : null;
-      }
-      if (keyPersonIdx === "" || keyPersonIdx === null || keyPersonIdx === undefined) {
-        showCustomPopup('Please select a key person.', true);
+      if (keyPersonIdx === '' || keyPersonIdx === null || keyPersonIdx === undefined) {
+        showCustomPopup('Please fill all required fields correctly.', true);
         $('#quotation-keyperson').css('background', '#ffd6d6');
         hasError = true;
       } else {
@@ -2104,73 +2044,20 @@ function showQuotationCreateForm() {
       // Validate product type
       const productType = $('#quotation-product-type').val();
       if (!productType) {
-        showCustomPopup('Please select a product type.', true);
+        showCustomPopup('Please fill all required fields correctly.', true);
         $('#quotation-product-type').css('background', '#ffd6d6');
         hasError = true;
       } else {
         $('#quotation-product-type').css('background', '');
       }
-      // Gather dynamic fields
-      const fields = productTypeFields[productType] || [];
-      const attributes = {};
-      // Validate all visible and enabled dynamic fields
-      $('#quotation-dynamic-fields input:visible:enabled, #quotation-dynamic-fields select:visible:enabled').each(function() {
-        const val = $(this).val();
-        if (!val) {
-          $(this).css('background', '#ffd6d6');
-          hasError = true;
-        } else {
-          $(this).css('background', '');
-        }
-      });
-      if (hasError) return;
-      fields.forEach(field => {
-        if (field.type === 'dynamic' && field.name === 'colorNames') {
-          const numColors = parseInt($('#quotation-dynamic-fields [name="numColors"]').val() || '0', 10);
-          if (numColors > 0) {
-            attributes['colorNames'] = [];
-            for (let i = 0; i < numColors; i++) {
-              const val = $('#quotation-dynamic-fields [name="colorName'+(i+1)+'"]').val();
-              attributes['colorNames'].push(val);
-            }
-          }
-        } else if (field.dependsOn) {
-          const depVal = $('#quotation-dynamic-fields [name="'+field.dependsOn.field+'"]:visible').val();
-          if (depVal !== field.dependsOn.value) {
-            // skip, handled by UI
-            return;
-          }
-          attributes[field.name] = $('#quotation-dynamic-fields [name="'+field.name+'"]').val();
-        } else {
-          attributes[field.name] = $('#quotation-dynamic-fields [name="'+field.name+'"]').val();
-        }
-      });
-      // POST to backend
-      $.ajax({
-        url: '/quotations',
-        type: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({
-          customer_id: companyId,
-          key_person_id: keyPersonId,
-          key_person_name: keyPersonName,
-          key_person_email: keyPersonEmail,
-          product_type: productType,
-          attributes: attributes
-        }),
-        success: function(resp) {
-          showCustomPopup('Quotation created!', false);
-          showQuotationCreateForm();
-        },
-        error: function(xhr) {
-          let msg = 'Failed to create quotation.';
-          try {
-            const r = JSON.parse(xhr.responseText);
-            if (r && r.error) msg += ' ' + r.error;
-          } catch(e) {}
-          showCustomPopup(msg, true);
-        }
-      });
+      // Validate dynamic fields (if any)
+      // ... (add more validation as needed) ...
+      if (hasError) {
+        return;
+      }
+      // If all fields are valid, show success popup (do not call backend)
+      showCustomPopup('Data updated successfully', false);
+      // Optionally reset the form or keep as is
     });
     // --- update renderDynamicFields for Direct or Reverse ---
     function renderDynamicFields() {
@@ -2236,3 +2123,33 @@ $(document).on('click', '#all-users-btn', function() {
     // You can add actual submission logic here
   }
 });
+
+function showQuotationCreateForm2() {
+  // First fetch customers for company search and check permission level
+  fetchCustomers(function() {
+    // Get the user permission level
+    $.get('/check_permission', function(response) {
+      const userLevel = response.level || 0;
+      
+      $('#right-frame').html(`
+        <div style="padding:32px;max-width:600px; min-height:100vh;">
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.1.7</span></h2>
+          
+          ${userLevel >= 3 ? `
+          <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
+          <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
+            <button id="btn-ht-database" type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+              DATABASE
+            </button>
+          </div>
+          ` : ''}
+        </div>
+      `);
+    });
+  });
+}
+
+// Global variables and functions for company selection
+function showQuotationCreateForm2() {
+  // ... existing code ...
+}

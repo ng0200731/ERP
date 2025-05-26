@@ -2,13 +2,18 @@ print('STARTING SERVER.PY')
 from flask import Flask, request, jsonify, send_from_directory, render_template, session, redirect, url_for
 from flask_cors import CORS
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 from flask_mail import Mail, Message
 import os
 import logging
 from ht_database import ht_database_bp
-from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
+from quotation_database import quotation_bp, Base, Quotation, get_db
+from sqlalchemy import create_engine
+import pandas as pd
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 # Set up logging
 logging.basicConfig(
@@ -162,7 +167,7 @@ def update_customer(id):
             )
     conn.commit()
     conn.close()
-    return '', 204
+    return 'Record updated successfully', 204
 
 def init_db():
     conn = get_db()
@@ -769,6 +774,167 @@ def clear_session():
     # Return the page that will clear client-side cookies
     return render_template('clear_session.html')
 
+@app.route('/quotation/save', methods=['POST'])
+def save_quotation():
+    try:
+        data = request.form.to_dict() if request.form else request.json
+        jpg_file = request.files.get('artwork_image') if 'artwork_image' in request.files else None
+        artwork_image_path = None
+        print('[DEBUG] /quotation/save called')
+        if jpg_file:
+            print(f'[DEBUG] Received file: {jpg_file.filename}')
+        else:
+            print('[DEBUG] No file received in request.files')
+        if jpg_file and jpg_file.filename:
+            # Only accept .jpg/.jpeg
+            if not jpg_file.filename.lower().endswith(('.jpg', '.jpeg')):
+                print('[DEBUG] File is not a JPG')
+                return jsonify({'error': 'Only JPG files are allowed'}), 400
+            # Save file
+            uploads_dir = os.path.join('uploads', 'artwork_images')
+            os.makedirs(uploads_dir, exist_ok=True)
+            print(f'[DEBUG] Ensured folder exists: {uploads_dir}')
+            timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+            safe_name = f"{timestamp}_{jpg_file.filename.replace(' ', '_')}"
+            file_path = os.path.join(uploads_dir, safe_name)
+            jpg_file.save(file_path)
+            print(f'[DEBUG] Saved file to: {file_path}')
+            artwork_image_path = file_path
+        
+        engine = create_engine('sqlite:///database.db')
+        Base.metadata.create_all(engine)
+        
+        # Get user email from session if available, otherwise use a default
+        user_email = session.get('user', 'unknown@example.com') if 'user' in session else 'unknown@example.com'
+        
+        # Helper function to safely convert numeric values
+        def safe_float(value, default=0.0):
+            try:
+                if value is None or value == '' or value == '-':
+                    return default
+                return float(value)
+            except (ValueError, TypeError):
+                return default
+
+        def safe_int(value, default=0):
+            try:
+                if value is None or value == '' or value == '-':
+                    return default
+                return int(value)
+            except (ValueError, TypeError):
+                return default
+        
+        # Create a session
+        Session = sessionmaker(bind=engine)
+        db_session = Session()
+        
+        try:
+            # Begin transaction
+            db_session.begin()
+            current_time = datetime.utcnow()
+            # Always create a new Quotation object (no duplicate check)
+            quotation = Quotation(
+                customer_name=data.get('customer_name', ''),
+                key_person_name=data.get('key_person_name', ''),
+                customer_item_code=data.get('customer_item_code', ''),
+                creator_email=user_email,
+                quality=data.get('quality', ''),
+                flat_or_raised=data.get('flat_or_raised', ''),
+                direct_or_reverse=data.get('direct_or_reverse', ''),
+                thickness=safe_float(data.get('thickness')),
+                num_colors=safe_int(data.get('num_colors')),
+                length=safe_float(data.get('length')),
+                width=safe_float(data.get('width')),
+                price=safe_float(data.get('price')),
+                created_at=current_time,
+                last_updated=current_time,
+                artwork_image=artwork_image_path
+            )
+            db_session.add(quotation)
+            db_session.commit()
+            return jsonify({'message': 'Quotation saved successfully', 'action': 'created'}), 200
+        except Exception as e:
+            db_session.rollback()
+            logger.error(f"Database error while saving quotation: {str(e)}")
+            return jsonify({'error': str(e)}), 409
+        finally:
+            db_session.close()
+            
+    except Exception as e:
+        logger.error(f"Error saving quotation: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/quotation/list', methods=['GET'])
+def list_quotations():
+    try:
+        engine = create_engine('sqlite:///database.db')
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Query all quotations ordered by last_updated in descending order
+        quotations = session.query(Quotation).order_by(Quotation.last_updated.desc()).all()
+        
+        # Convert to dictionary format
+        records = []
+        for q in quotations:
+            record = {
+                'id': q.id,
+                'customer_name': q.customer_name,
+                'key_person_name': q.key_person_name,
+                'customer_item_code': q.customer_item_code,
+                'creator_email': q.creator_email,
+                'quality': q.quality,
+                'flat_or_raised': q.flat_or_raised,
+                'direct_or_reverse': q.direct_or_reverse,
+                'thickness': float(q.thickness) if q.thickness else None,
+                'num_colors': q.num_colors,
+                'length': float(q.length) if q.length else None,
+                'width': float(q.width) if q.width else None,
+                'price': float(q.price) if q.price else None,
+                'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S') if q.created_at else None,
+                'last_updated': q.last_updated.strftime('%Y-%m-%d %H:%M:%S') if q.last_updated else None,
+                'artwork_image': q.artwork_image if q.artwork_image else None
+            }
+            records.append(record)
+        
+        session.close()
+        return jsonify(records)
+    except Exception as e:
+        logger.error(f"Error listing quotations: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/view_quotations')
+@login_required
+def view_quotations():
+    # Get the user's permission level from session
+    permission_level = session.get('permission_level', 1)
+    user_email = session.get('user', None)
+    return render_template('view_quotations.html', permission_level=permission_level, user_email=user_email)
+
+@app.route('/view_quotations_simple')
+def view_quotations_simple():
+    try:
+        engine = create_engine('sqlite:///database.db')
+        df = pd.read_sql_table('quotations', engine)
+        records = df.to_dict('records')
+        # Format the last_updated datetime
+        for record in records:
+            if record['last_updated']:
+                dt = pd.to_datetime(record['last_updated'])
+                record['last_updated'] = dt.strftime('%m/%d/%Y, %I:%M:%S %p')
+        return render_template('view_quotations_simple.html', records=records)
+    except Exception as e:
+        logger.error(f"Error in view_quotations_simple: {str(e)}")
+        return render_template('view_quotations_simple.html', records=[], error=str(e))
+
+@app.route('/uploads/artwork_images/<filename>')
+def uploaded_artwork_image(filename):
+    return send_from_directory('uploads/artwork_images', filename)
+
+# Register blueprints
+app.register_blueprint(ht_database_bp)
+app.register_blueprint(quotation_bp)
+
 # Call all initializers
 if __name__ == '__main__':
     print('INSIDE MAIN BLOCK')
@@ -778,7 +944,7 @@ if __name__ == '__main__':
         init_option_db()
         init_user_db()
         set_admin_level()
-        app.register_blueprint(ht_database_bp)
+        # Remove duplicate blueprint registrations
         app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
         app.config['SESSION_COOKIE_SECURE'] = False  # Only True if using HTTPS
         app.run(host='0.0.0.0', port=5000, debug=True)

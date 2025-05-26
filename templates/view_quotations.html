@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>View Quotations Data</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .version {
+            font-size: 1rem;
+            color: #888;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .json-key {
+            color: #0066cc;
+        }
+        .json-string {
+            color: #008000;
+        }
+        .json-number {
+            color: #aa0d91;
+        }
+        .refresh-btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .refresh-btn:hover {
+            background: #0056b3;
+        }
+        #last-updated {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 10px;
+            text-align: right;
+        }
+        .user-info {
+            position: fixed;
+            top: 18px;
+            right: 32px;
+            z-index: 1000;
+            font-size: 16px;
+            color: #444;
+            background: #f7f7f7;
+            padding: 6px 18px;
+            border-radius: 18px;
+            box-shadow: 0 2px 8px #eee;
+        }
+        .back-btn {
+            position: fixed;
+            top: 18px;
+            left: 32px;
+            z-index: 1000;
+            padding: 6px 18px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 18px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+        }
+        .back-btn:hover {
+            background: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <!-- User info display -->
+    <div class="user-info">
+        {% if user_email %}
+            Logged in as <b>{{ user_email }}</b> (level {{ permission_level }})
+        {% endif %}
+    </div>
+
+    <!-- Back button -->
+    <a href="/" class="back-btn">← Back to Main</a>
+
+    <div class="container">
+        <h1>
+            Quotations Data 
+            <span class="version">v1.2.68</span>
+            <button class="refresh-btn" onclick="loadData()">Refresh Data</button>
+        </h1>
+        <pre id="json-display"></pre>
+        <div id="last-updated"></div>
+    </div>
+
+    <script>
+        function syntaxHighlight(json) {
+            if (typeof json !== 'string') {
+                json = JSON.stringify(json, undefined, 2);
+            }
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                var cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        function loadData() {
+            $.ajax({
+                url: '/quotation/list',
+                method: 'GET',
+                success: function(data) {
+                    const formattedJson = syntaxHighlight(data);
+                    $('#json-display').html(formattedJson);
+                    $('#last-updated').text('Last updated: ' + new Date().toLocaleString());
+                },
+                error: function(xhr, status, error) {
+                    if (xhr.status === 403) {
+                        window.location.href = '/login';
+                    } else {
+                        $('#json-display').html('Error loading data: ' + error);
+                    }
+                }
+            });
+        }
+
+        // Load data when page loads
+        $(document).ready(function() {
+            loadData();
+        });
+    </script>
+</body>
+</html> 

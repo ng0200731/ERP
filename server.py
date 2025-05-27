@@ -872,6 +872,25 @@ def save_quotation():
             print(f'[DEBUG] Result row: {row}')
             if row:
                 price = row[0]
+            else:
+                # If not found, pick the minimum thickness for this combo
+                sql2 = '''
+                    SELECT price FROM ht_database
+                    WHERE trim(lower(quality))=trim(lower(?))
+                      AND trim(lower(flat_or_raised))=trim(lower(?))
+                      AND trim(lower(direct_or_reverse))=trim(lower(?))
+                      AND num_colors=?
+                    ORDER BY thickness ASC
+                    LIMIT 1
+                '''
+                params2 = (quality, flat_or_raised, direct_or_reverse, num_colors)
+                print(f'[DEBUG] Fallback SQL: {sql2.strip()}')
+                print(f'[DEBUG] Fallback Params: {params2}')
+                cursor.execute(sql2, params2)
+                row2 = cursor.fetchone()
+                print(f'[DEBUG] Fallback Result row: {row2}')
+                if row2:
+                    price = row2[0]
         conn.close()
         # --- END PRICE LOOKUP ---
 

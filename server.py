@@ -823,7 +823,58 @@ def save_quotation():
                 return int(value)
             except (ValueError, TypeError):
                 return default
-        
+
+        # --- PRICE LOOKUP LOGIC ---
+        conn = engine.raw_connection()
+        cursor = conn.cursor()
+        # Print all rows for debugging
+        cursor.execute("SELECT * FROM ht_database")
+        all_rows = cursor.fetchall()
+        print(f"[DEBUG] All rows in ht_database: {all_rows}")
+        quality = data.get('quality', '')
+        flat_or_raised = data.get('flat_or_raised', '')
+        direct_or_reverse = data.get('direct_or_reverse', '')
+        num_colors = safe_int(data.get('num_colors'))
+        thickness = safe_float(data.get('thickness'))
+        price = '-'
+        print(f'[DEBUG] Price lookup input: quality={quality}, flat_or_raised={flat_or_raised}, direct_or_reverse={direct_or_reverse}, num_colors={num_colors}, thickness={thickness}')
+        if flat_or_raised.lower() == 'flat':
+            sql = '''
+                SELECT price FROM ht_database
+                WHERE trim(lower(quality))=trim(lower(?))
+                  AND trim(lower(flat_or_raised))=trim(lower(?))
+                  AND trim(lower(direct_or_reverse))=trim(lower(?))
+                  AND num_colors=?
+            '''
+            params = (quality, flat_or_raised, direct_or_reverse, num_colors)
+            print(f'[DEBUG] SQL: {sql}')
+            print(f'[DEBUG] Params: {params}')
+            cursor.execute(sql, params)
+            row = cursor.fetchone()
+            print(f'[DEBUG] Result row: {row}')
+            if row:
+                price = row[0]
+        elif flat_or_raised.lower() == 'raised':
+            sql = '''
+                SELECT price FROM ht_database
+                WHERE trim(lower(quality))=trim(lower(?))
+                  AND trim(lower(flat_or_raised))=trim(lower(?))
+                  AND trim(lower(direct_or_reverse))=trim(lower(?))
+                  AND num_colors=? AND thickness <= ?
+                ORDER BY thickness DESC
+                LIMIT 1
+            '''
+            params = (quality, flat_or_raised, direct_or_reverse, num_colors, thickness)
+            print(f'[DEBUG] SQL: {sql.strip()}')
+            print(f'[DEBUG] Params: {params}')
+            cursor.execute(sql, params)
+            row = cursor.fetchone()
+            print(f'[DEBUG] Result row: {row}')
+            if row:
+                price = row[0]
+        conn.close()
+        # --- END PRICE LOOKUP ---
+
         # Create a session
         Session = sessionmaker(bind=engine)
         db_session = Session()
@@ -838,14 +889,14 @@ def save_quotation():
                 key_person_name=data.get('key_person_name', ''),
                 customer_item_code=data.get('customer_item_code', ''),
                 creator_email=user_email,
-                quality=data.get('quality', ''),
-                flat_or_raised=data.get('flat_or_raised', ''),
-                direct_or_reverse=data.get('direct_or_reverse', ''),
-                thickness=safe_float(data.get('thickness')),
-                num_colors=safe_int(data.get('num_colors')),
+                quality=quality,
+                flat_or_raised=flat_or_raised,
+                direct_or_reverse=direct_or_reverse,
+                thickness=thickness,
+                num_colors=num_colors,
                 length=safe_float(data.get('length')),
                 width=safe_float(data.get('width')),
-                price=safe_float(data.get('price')),
+                price=price if price != '-' else None,
                 created_at=current_time,
                 last_updated=current_time,
                 artwork_image=artwork_image_path
@@ -859,7 +910,7 @@ def save_quotation():
             return jsonify({'error': str(e)}), 409
         finally:
             db_session.close()
-            
+        
     except Exception as e:
         logger.error(f"Error saving quotation: {str(e)}")
         return jsonify({'error': str(e)}), 500

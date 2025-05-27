@@ -841,7 +841,10 @@ def save_quotation():
         if flat_or_raised.lower() == 'flat':
             sql = '''
                 SELECT price FROM ht_database
-                WHERE lower(quality)=lower(?) AND lower(flat_or_raised)=lower(?) AND lower(direct_or_reverse)=lower(?) AND num_colors=?
+                WHERE trim(lower(quality))=trim(lower(?))
+                  AND trim(lower(flat_or_raised))=trim(lower(?))
+                  AND trim(lower(direct_or_reverse))=trim(lower(?))
+                  AND num_colors=?
             '''
             params = (quality, flat_or_raised, direct_or_reverse, num_colors)
             print(f'[DEBUG] SQL: {sql}')
@@ -854,8 +857,11 @@ def save_quotation():
         elif flat_or_raised.lower() == 'raised':
             sql = '''
                 SELECT price FROM ht_database
-                WHERE lower(quality)=lower(?) AND lower(flat_or_raised)=lower(?) AND lower(direct_or_reverse)=lower(?) AND num_colors=? AND thickness > ?
-                ORDER BY thickness ASC
+                WHERE trim(lower(quality))=trim(lower(?))
+                  AND trim(lower(flat_or_raised))=trim(lower(?))
+                  AND trim(lower(direct_or_reverse))=trim(lower(?))
+                  AND num_colors=? AND thickness <= ?
+                ORDER BY thickness DESC
                 LIMIT 1
             '''
             params = (quality, flat_or_raised, direct_or_reverse, num_colors, thickness)

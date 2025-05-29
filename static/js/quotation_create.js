@@ -1,4 +1,4 @@
-// Version v1.2.99
+// Version v1.3.00
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -538,7 +538,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.99</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.00</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -1089,8 +1089,8 @@ function renderQuotationBlock(latestRecord) {
     xDivN = Math.floor(dbLength / nPlus6);
     combA = xDivM * yDivN;
     combB = yDivM * xDivN;
-    combAeq = `floor(${fmt(dbLength,2)} / (${fmt(uLength,2)}+6)) × floor(${fmt(dbWidth,2)} / (${fmt(uWidth,2)}+6)) = ${xDivM} × ${yDivN} = ${combA} (# per 1 pet)`;
-    combBeq = `floor(${fmt(dbWidth,2)} / (${fmt(uLength,2)}+6)) × floor(${fmt(dbLength,2)} / (${fmt(uWidth,2)}+6)) = ${yDivM} × ${xDivN} = ${combB} (# per 1 pet)`;
+    combAeq = `(${fmt(dbLength,2)} / (${fmt(uLength,2)}+6)) × (${fmt(dbWidth,2)} / (${fmt(uWidth,2)}+6)) = ${xDivM} × ${yDivN} = ${combA} (# per 1 pet)`;
+    combBeq = `(${fmt(dbWidth,2)} / (${fmt(uLength,2)}+6)) × (${fmt(dbLength,2)} / (${fmt(uWidth,2)}+6)) = ${yDivM} × ${xDivN} = ${combB} (# per 1 pet)`;
   }
   // 2) Combinations (show with dimming for smaller value)
   let combAColor = '#222', combBColor = '#bbb';

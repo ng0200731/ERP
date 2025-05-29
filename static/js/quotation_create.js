@@ -1,4 +1,4 @@
-// Version v1.3.00
+// Version v1.3.02
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -538,7 +538,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.00</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.02</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -573,46 +573,59 @@ function showQuotationCreateForm2() {
                   <!-- Dummy Button -->
                   <button type="button" id="dummy-fill-btn" style="position: fixed; top: 20px; right: 20px; padding: 8px 20px; background-color: #ccc; color: #000; border: none; border-radius: 4px; cursor: pointer; z-index: 1000;">Dummy Fill</button>
                   <div id="quotation2-dynamic-fields">
+                    <!-- 1. Item Code (1 line) -->
                     <label>Item Code:<br>
                       <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                         <input type="text" id="customer-item-code" name="customer_item_code" style="flex: 1; padding: 8px;">
                         <button type="button" id="generate-item-code-btn" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate</button>
                       </div>
                     </label>
-                    <label>Quality:<br>
-                      <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
-                        <option value="">-- Select --</option>
-                        <option value="PU">PU</option>
-                        <option value="Silicon">Silicon</option>
-                      </select>
-                    </label><br><br>
-                    <label>Flat or Raised:<br>
-                      <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
-                        <option value="">-- Select --</option>
-                        <option value="Flat">Flat</option>
-                        <option value="Raised">Raised</option>
-                      </select>
-                    </label><br><br>
-                    <label>Direct or Reverse:<br>
-                      <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
-                        <option value="">-- Select --</option>
-                        <option value="Direct">Direct</option>
-                        <option value="Reverse">Reverse</option>
-                      </select>
-                    </label><br><br>
-                    <label>Thickness 0.1-1.5:<br>
-                      <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
-                    </label><br><br>
-                    <label># of Colors:<br>
-                      <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
-                    </label>
-                    <div id="color-names-group" style="margin-top: 10px;"></div>
-                    <label>Width:<br>
-                      <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; margin-top: 16px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
-                    </label><br><br>
-                    <label>Length:<br>
-                      <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
-                    </label>
+                    <!-- 2. Width, Length (1 line) -->
+                    <div style="display: flex; gap: 32px; align-items: flex-end; margin-bottom: 16px;">
+                      <label style="flex:1;">Width:<br>
+                        <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
+                      </label>
+                      <label style="flex:1;">Length:<br>
+                        <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
+                      </label>
+                    </div>
+                    <!-- 3. Quality, Flat or Raised (1 line) -->
+                    <div style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px;">
+                      <label style="flex:1;">Quality:<br>
+                        <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
+                          <option value="">-- Select --</option>
+                          <option value="PU">PU</option>
+                          <option value="Silicon">Silicon</option>
+                        </select>
+                      </label>
+                      <label style="flex:1;">Flat or Raised:<br>
+                        <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
+                          <option value="">-- Select --</option>
+                          <option value="Flat">Flat</option>
+                          <option value="Raised">Raised</option>
+                        </select>
+                      </label>
+                    </div>
+                    <!-- 4. Direct or Reverse, Thickness (1 line) -->
+                    <div style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px;">
+                      <label style="flex:1;">Direct or Reverse:<br>
+                        <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
+                          <option value="">-- Select --</option>
+                          <option value="Direct">Direct</option>
+                          <option value="Reverse">Reverse</option>
+                        </select>
+                      </label>
+                      <label style="flex:1;">Thickness 0.1-1.5:<br>
+                        <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
+                      </label>
+                    </div>
+                    <!-- 5. # of Colors (1 line) -->
+                    <div style="margin-bottom: 16px;">
+                      <label># of Colors:<br>
+                        <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
+                      </label>
+                      <div id="color-names-group" style="margin-top: 10px;"></div>
+                    </div>
                   </div>
                 </div>
                 <br>

@@ -1,4 +1,4 @@
-// Version v1.2.96
+// Version v1.2.99
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -538,7 +538,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.96</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.99</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -1060,8 +1060,17 @@ function renderQuotationBlock(latestRecord) {
   const userWidth = $('#ht-width').val() || '-';
   // 1) Cost of PET: always show the price from the latest quotation record
   let costOfPET = '-';
-  if (latestRecord && latestRecord.price !== undefined && latestRecord.price !== null && latestRecord.price !== '') {
-    costOfPET = latestRecord.price === '-' ? '-' : latestRecord.price;
+  let inputSummary = '';
+  if (latestRecord) {
+    const q = latestRecord.quality || '-';
+    const f = latestRecord.flat_or_raised || '-';
+    const d = latestRecord.direct_or_reverse || '-';
+    const t = (latestRecord.thickness !== undefined && latestRecord.thickness !== null && latestRecord.thickness !== '') ? latestRecord.thickness : '-';
+    const n = (latestRecord.num_colors !== undefined && latestRecord.num_colors !== null && latestRecord.num_colors !== '') ? latestRecord.num_colors : '-';
+    inputSummary = `(${q}, ${f}, ${d}, ${t}, ${n})`;
+    if (latestRecord.price !== undefined && latestRecord.price !== null && latestRecord.price !== '') {
+      costOfPET = latestRecord.price === '-' ? '-' : latestRecord.price;
+    }
   }
   // 2) Combinations (show with dimming for smaller value)
   let combA = '-', combB = '-';
@@ -1080,8 +1089,8 @@ function renderQuotationBlock(latestRecord) {
     xDivN = Math.floor(dbLength / nPlus6);
     combA = xDivM * yDivN;
     combB = yDivM * xDivN;
-    combAeq = `floor(${fmt(dbLength,2)} / (${fmt(uLength,2)}+6)) × floor(${fmt(dbWidth,2)} / (${fmt(uWidth,2)}+6)) = ${xDivM} × ${yDivN} = ${combA}`;
-    combBeq = `floor(${fmt(dbWidth,2)} / (${fmt(uLength,2)}+6)) × floor(${fmt(dbLength,2)} / (${fmt(uWidth,2)}+6)) = ${yDivM} × ${xDivN} = ${combB}`;
+    combAeq = `floor(${fmt(dbLength,2)} / (${fmt(uLength,2)}+6)) × floor(${fmt(dbWidth,2)} / (${fmt(uWidth,2)}+6)) = ${xDivM} × ${yDivN} = ${combA} (# per 1 pet)`;
+    combBeq = `floor(${fmt(dbWidth,2)} / (${fmt(uLength,2)}+6)) × floor(${fmt(dbLength,2)} / (${fmt(uWidth,2)}+6)) = ${yDivM} × ${xDivN} = ${combB} (# per 1 pet)`;
   }
   // 2) Combinations (show with dimming for smaller value)
   let combAColor = '#222', combBColor = '#bbb';
@@ -1114,9 +1123,11 @@ function renderQuotationBlock(latestRecord) {
     if (val === '-' || val === undefined || val === null || isNaN(val)) return '-';
     return Number(val).toLocaleString(undefined, {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
   }
+  let xVal = dbLength !== undefined && dbLength !== null && dbLength !== '' ? fmt(dbLength,2) : '-';
+  let yVal = dbWidth !== undefined && dbWidth !== null && dbWidth !== '' ? fmt(dbWidth,2) : '-';
   // Build HTML
   let html = '';
-  html += `<div><b>1) Cost of PET:</b> <span style='color:#007bff;'>${fmt(costOfPET)}</span></div>`;
+  html += `<div><b>1) Cost of PET (${xVal} × ${yVal}):</b> <span style='color:#007bff;'>${inputSummary} = ${fmt(costOfPET)}</span></div>`;
   html += `<div style='margin-top:8px;'><b>2) Combination A:</b> <span style='color:${combAColor};'>${combAeq}</span></div>`;
   html += `<div><b>Combination B:</b> <span style='color:${combBColor};'>${combBeq}</span></div>`;
   html += `<div style='margin-top:8px;'><b>3) Cost per 1 label:</b> <span style='#28a745;'>${fmt(costPerLabel)}</span></div>`;

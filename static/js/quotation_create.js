@@ -1,4 +1,4 @@
-// Version v1.3.02
+// Version v1.3.03
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -538,7 +538,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.02</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.03</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -641,6 +641,15 @@ function showQuotationCreateForm2() {
                   <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
                   <div id="q2-jpg-preview" style="margin-top:12px;"></div>
                 </div>
+              </div>
+              <!-- New Multi Artwork Upload block -->
+              <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 24px;">
+                <label style="font-weight:bold;">Upload Additional Artwork(s):<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop or click to select multiple files)</span></label>
+                <div id="multi-artwork-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer; margin-bottom:10px;">
+                  <span id="multi-artwork-drop-label">Drag & drop files here or click to select</span>
+                  <input type="file" id="multi-artwork-input" accept=".jpg,.jpeg,.png,.pdf,.ai,.psd,.svg" multiple style="display:none;" />
+                </div>
+                <ul id="multi-artwork-list" style="list-style:none; padding:0; margin:0;"></ul>
               </div>
               <!-- New Quotation block -->
               <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 24px;">
@@ -1063,6 +1072,55 @@ function showQuotationCreateForm2() {
         $('#ht-width').val(width);
         $('#ht-length').val(length);
       });
+
+      // Add JS logic for multi-artwork upload after DOM is ready
+      setTimeout(function() {
+        const multiDropArea = document.getElementById('multi-artwork-drop-area');
+        const multiInput = document.getElementById('multi-artwork-input');
+        const multiList = document.getElementById('multi-artwork-list');
+        let multiFiles = [];
+        function renderMultiList() {
+          multiList.innerHTML = '';
+          multiFiles.forEach((file, idx) => {
+            const li = document.createElement('li');
+            li.style.display = 'flex';
+            li.style.alignItems = 'center';
+            li.style.justifyContent = 'space-between';
+            li.style.padding = '4px 0';
+            li.innerHTML = `<span style='font-size:14px;'>${file.name}</span> <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
+            multiList.appendChild(li);
+          });
+          // Remove handler
+          multiList.querySelectorAll('button[data-idx]').forEach(btn => {
+            btn.onclick = function() {
+              const idx = parseInt(this.getAttribute('data-idx'));
+              multiFiles.splice(idx, 1);
+              renderMultiList();
+            };
+          });
+        }
+        multiDropArea.addEventListener('click', () => multiInput.click());
+        multiDropArea.addEventListener('dragover', e => { e.preventDefault(); multiDropArea.style.background = '#e3e7ea'; });
+        multiDropArea.addEventListener('dragleave', e => { e.preventDefault(); multiDropArea.style.background = '#fafbfc'; });
+        multiDropArea.addEventListener('drop', e => {
+          e.preventDefault();
+          multiDropArea.style.background = '#fafbfc';
+          if (e.dataTransfer.files && e.dataTransfer.files.length) {
+            for (let i = 0; i < e.dataTransfer.files.length; i++) {
+              multiFiles.push(e.dataTransfer.files[i]);
+            }
+            renderMultiList();
+          }
+        });
+        multiInput.addEventListener('change', e => {
+          if (multiInput.files && multiInput.files.length) {
+            for (let i = 0; i < multiInput.files.length; i++) {
+              multiFiles.push(multiInput.files[i]);
+            }
+            renderMultiList();
+          }
+        });
+      }, 0);
     });
   });
 }

@@ -1,4 +1,4 @@
-// Version v1.2.83
+// Version v1.2.84
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -527,7 +527,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.83</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.84</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -616,6 +616,14 @@ function showQuotationCreateForm2() {
                   <span id="q2-drop-label">Drag & drop JPG/PNG here or click to select</span>
                   <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
                   <div id="q2-jpg-preview" style="margin-top:12px;"></div>
+                </div>
+              </div>
+              <!-- New Quotation block -->
+              <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 24px;">
+                <label style="font-weight:bold;">Quotation</label>
+                <div id="quotation-block-content" style="margin-top: 10px; color: #555; font-size: 15px;">
+                  <!-- Placeholder for future quotation details or summary -->
+                  <span style="color:#888;">(Quotation details will appear here.)</span>
                 </div>
               </div>
             </div>

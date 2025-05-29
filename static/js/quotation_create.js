@@ -1,4 +1,4 @@
-// Version v1.2.89
+// Version v1.2.96
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -538,7 +538,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.89</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.96</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -1063,16 +1063,42 @@ function renderQuotationBlock(latestRecord) {
   if (latestRecord && latestRecord.price !== undefined && latestRecord.price !== null && latestRecord.price !== '') {
     costOfPET = latestRecord.price === '-' ? '-' : latestRecord.price;
   }
-  // 2) Combinations (always show user input)
+  // 2) Combinations (show with dimming for smaller value)
   let combA = '-', combB = '-';
-  if (userLength !== '-' && userWidth !== '-') {
-    combA = userLength + ' X ' + userWidth;
-    combB = userWidth + ' X ' + userLength;
+  let combAeq = '', combBeq = '';
+  let dbLength = latestRecord && latestRecord.length !== undefined && latestRecord.length !== null && latestRecord.length !== '' ? parseFloat(latestRecord.length) : null;
+  let dbWidth = latestRecord && latestRecord.width !== undefined && latestRecord.width !== null && latestRecord.width !== '' ? parseFloat(latestRecord.width) : null;
+  let uLength = userLength !== '-' && userLength !== '' ? parseFloat(userLength) : null;
+  let uWidth = userWidth !== '-' && userWidth !== '' ? parseFloat(userWidth) : null;
+  let xDivM, yDivN, yDivM, xDivN;
+  let mPlus6 = uLength !== null ? uLength + 6 : null;
+  let nPlus6 = uWidth !== null ? uWidth + 6 : null;
+  if (dbLength && dbWidth && uLength && uWidth) {
+    xDivM = Math.floor(dbLength / mPlus6);
+    yDivN = Math.floor(dbWidth / nPlus6);
+    yDivM = Math.floor(dbWidth / mPlus6);
+    xDivN = Math.floor(dbLength / nPlus6);
+    combA = xDivM * yDivN;
+    combB = yDivM * xDivN;
+    combAeq = `floor(${fmt(dbLength,2)} / (${fmt(uLength,2)}+6)) × floor(${fmt(dbWidth,2)} / (${fmt(uWidth,2)}+6)) = ${xDivM} × ${yDivN} = ${combA}`;
+    combBeq = `floor(${fmt(dbWidth,2)} / (${fmt(uLength,2)}+6)) × floor(${fmt(dbLength,2)} / (${fmt(uWidth,2)}+6)) = ${yDivM} × ${xDivN} = ${combB}`;
+  }
+  // 2) Combinations (show with dimming for smaller value)
+  let combAColor = '#222', combBColor = '#bbb';
+  if (typeof combA === 'number' && typeof combB === 'number') {
+    if (combA < combB) {
+      combAColor = '#bbb'; combBColor = '#222';
+    } else if (combA > combB) {
+      combAColor = '#222'; combBColor = '#bbb';
+    } else { // equal
+      combAColor = combBColor = '#222';
+    }
   }
   // 3) Cost per 1 label (only if costOfPET is available)
   let costPerLabel = '-';
-  if (costOfPET !== '-' && userLength !== '-' && userWidth !== '-') {
-    costPerLabel = costOfPET;
+  if (costOfPET !== '-' && typeof combA === 'number' && typeof combB === 'number') {
+    let maxComb = Math.max(combA, combB);
+    if (maxComb > 0) costPerLabel = costOfPET / maxComb;
   }
   // 4) Tier quotation
   const tiers = [
@@ -1091,15 +1117,15 @@ function renderQuotationBlock(latestRecord) {
   // Build HTML
   let html = '';
   html += `<div><b>1) Cost of PET:</b> <span style='color:#007bff;'>${fmt(costOfPET)}</span></div>`;
-  html += `<div style='margin-top:8px;'><b>2) Combination A:</b> <span style='#222;'>${combA}</span></div>`;
-  html += `<div><b>Combination B:</b> <span style='#bbb;'>${combB}</span></div>`;
+  html += `<div style='margin-top:8px;'><b>2) Combination A:</b> <span style='color:${combAColor};'>${combAeq}</span></div>`;
+  html += `<div><b>Combination B:</b> <span style='color:${combBColor};'>${combBeq}</span></div>`;
   html += `<div style='margin-top:8px;'><b>3) Cost per 1 label:</b> <span style='#28a745;'>${fmt(costPerLabel)}</span></div>`;
   html += `<div style='margin-top:8px;'><b>4) Tier quotation</b></div>`;
   html += `<table style='width:100%;margin-top:4px;font-size:15px;'><thead><tr><th style='text-align:left;'>Qty</th><th style='text-align:right;'>Price</th></tr></thead><tbody>`;
   tiers.forEach(tier => {
     let price = '-';
     if (costPerLabel !== '-' && typeof costPerLabel === 'number') {
-      price = costPerLabel * tier.factor;
+      price = costPerLabel * tier.factor * 1000;
     }
     html += `<tr><td>${tier.qty.toLocaleString()}</td><td style='text-align:right;'>${fmt(price)}</td></tr>`;
   });

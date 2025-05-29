@@ -1,4 +1,4 @@
-// Version v1.2.84
+// Version v1.2.87
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -256,8 +256,9 @@ $(function() {
             });
         } else {
           showCustomPopup('Quotation saved successfully', false);
+          // Instead of redirecting, show the Quotation block with calculated values
           setTimeout(() => {
-            $('#right-frame').load('/view_quotations_simple');
+            renderQuotationBlock();
           }, 1000);
         }
       },
@@ -527,7 +528,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.84</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.87</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -1041,4 +1042,85 @@ function showQuotationCreateForm2() {
       });
     });
   });
+}
+
+function renderQuotationBlock() {
+  // Get user input values
+  const quality = $('#ht-quality').val();
+  const flatOrRaised = $('#ht-flat-or-raised').val();
+  const directOrReverse = $('#ht-direct-or-reverse').val();
+  const thickness = parseFloat($('#ht-thickness').val()) || 0;
+  const numColors = parseInt($('#ht-num-colors').val()) || 0;
+  const userLength = parseFloat($('#ht-length').val()) || '-';
+  const userWidth = parseFloat($('#ht-width').val()) || '-';
+
+  // Find the matching row in ht_database (assume window.ht_database_data is loaded)
+  let dbRow = null;
+  if (window.ht_database_data && Array.isArray(window.ht_database_data)) {
+    if (flatOrRaised === 'Flat') {
+      dbRow = window.ht_database_data.find(row =>
+        String(row.quality).trim().toLowerCase() === String(quality).trim().toLowerCase() &&
+        String(row.flat_or_raised).trim().toLowerCase() === String(flatOrRaised).trim().toLowerCase() &&
+        String(row.direct_or_reverse).trim().toLowerCase() === String(directOrReverse).trim().toLowerCase() &&
+        Number(row.num_colors) === numColors
+      );
+    } else if (flatOrRaised === 'Raised') {
+      let candidates = window.ht_database_data.filter(row =>
+        String(row.quality).trim().toLowerCase() === String(quality).trim().toLowerCase() &&
+        String(row.flat_or_raised).trim().toLowerCase() === String(flatOrRaised).trim().toLowerCase() &&
+        String(row.direct_or_reverse).trim().toLowerCase() === String(directOrReverse).trim().toLowerCase() &&
+        Number(row.num_colors) === numColors
+      );
+      candidates = candidates.sort((a, b) => b.thickness - a.thickness);
+      dbRow = candidates.find(row => parseFloat(row.thickness) <= thickness);
+      if (!dbRow && candidates.length > 0) {
+        dbRow = candidates[candidates.length - 1];
+      }
+    }
+  }
+  // 1) Cost of PET
+  const costOfPET = dbRow ? (Number(dbRow.price) || '-') : '-';
+  // 2) Combinations (always show user input)
+  let combA = '-', combB = '-';
+  if (userLength !== '-' && userWidth !== '-') {
+    combA = userLength + ' X ' + userWidth;
+    combB = userWidth + ' X ' + userLength;
+  }
+  // 3) Cost per 1 label (only if costOfPET is available)
+  let costPerLabel = '-';
+  if (costOfPET !== '-' && userLength !== '-' && userWidth !== '-') {
+    // For now, just show costOfPET as cost per label (since no database size logic)
+    costPerLabel = costOfPET;
+  }
+  // 4) Tier quotation
+  const tiers = [
+    { qty: 1000, factor: 1.10 },
+    { qty: 3000, factor: 1.05 },
+    { qty: 5000, factor: 1.03 },
+    { qty: 10000, factor: 1.00 },
+    { qty: 30000, factor: 0.95 },
+    { qty: 50000, factor: 0.90 },
+    { qty: 100000, factor: 0.85 }
+  ];
+  function fmt(val, decimals=2) {
+    if (val === '-' || val === undefined || val === null || isNaN(val)) return '-';
+    return Number(val).toLocaleString(undefined, {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+  }
+  // Build HTML
+  let html = '';
+  html += `<div><b>1) Cost of PET:</b> <span style='color:#007bff;'>${fmt(costOfPET)}</span></div>`;
+  html += `<div style='margin-top:8px;'><b>2) Combination A:</b> <span style='color:#222;'>${combA}</span></div>`;
+  html += `<div><b>Combination B:</b> <span style='color:#bbb;'>${combB}</span></div>`;
+  html += `<div style='margin-top:8px;'><b>3) Cost per 1 label:</b> <span style='color:#28a745;'>${fmt(costPerLabel)}</span></div>`;
+  html += `<div style='margin-top:8px;'><b>4) Tier quotation</b></div>`;
+  html += `<table style='width:100%;margin-top:4px;font-size:15px;'><thead><tr><th style='text-align:left;'>Qty</th><th style='text-align:right;'>Price</th></tr></thead><tbody>`;
+  tiers.forEach(tier => {
+    let price = '-';
+    if (costPerLabel !== '-' && typeof costPerLabel === 'number') {
+      price = costPerLabel * tier.factor;
+    }
+    html += `<tr><td>${tier.qty.toLocaleString()}</td><td style='text-align:right;'>${fmt(price)}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  $('#quotation-block-content').html(html);
 }

@@ -655,7 +655,7 @@ function showQuotationCreateForm2() {
             </div>
             <div style="flex:1; min-width:220px; max-width:320px; margin-top:0;">
               <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
-                <label style="font-weight:bold;">Upload JPG/PNG Artwork:<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop, click, or <b>Ctrl+V</b> to paste JPG/PNG or screenshot)</span></label>
+                <label style="font-weight:bold;">Upload product image:<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop, click, or <b>Ctrl+V</b> to paste JPG/PNG or screenshot)</span></label>
                 <div id="q2-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
                   <span id="q2-drop-label">Drag & drop JPG/PNG here or click to select</span>
                   <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
@@ -1102,12 +1102,27 @@ function showQuotationCreateForm2() {
         function renderMultiList() {
           multiList.innerHTML = '';
           multiFiles.forEach((file, idx) => {
-            const li = document.createElement('li');
+            const ext = file.name.split('.').pop().toLowerCase();
+            let li = document.createElement('li');
             li.style.display = 'flex';
             li.style.alignItems = 'center';
             li.style.justifyContent = 'space-between';
             li.style.padding = '4px 0';
-            li.innerHTML = `<span style='font-size:14px;'>${file.name}</span> <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
+            let content = '';
+
+            // Check if the file type is viewable/downloadable (image, pdf, common document types)
+            const isViewableOrDownloadable = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'].includes(ext);
+
+            if (isViewableOrDownloadable) {
+              // For viewable/downloadable files, show a hyperlink to open in a new tab
+              const url = URL.createObjectURL(file);
+              content = `<a href="${url}" target="_blank" style="color:#007bff;text-decoration:underline;">${file.name}</a>`;
+            } else {
+              // For other file types, just show the name
+              content = `<span>${file.name}</span>`;
+            }
+
+            li.innerHTML = `<span style='font-size:14px;'>${content}</span> <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
             multiList.appendChild(li);
           });
           // Remove handler

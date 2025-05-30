@@ -109,12 +109,24 @@
             background-clip: padding-box;
             border-right: 2px solid #fff;
         }
-        .sticky-id { left: 0; z-index: 101; max-width: 70px; min-width: 60px; overflow: hidden; white-space: nowrap; background: #fff !important; }
-        .sticky-customer { left: 70px; z-index: 102; max-width: 180px; min-width: 160px; overflow: hidden; white-space: nowrap; background: #fff !important; }
-        .sticky-keyperson { left: 250px; z-index: 103; max-width: 200px; min-width: 180px; overflow: hidden; white-space: nowrap; background: #fff !important; }
-        .sticky-itemcode { left: 450px; z-index: 104; max-width: 160px; min-width: 140px; overflow: hidden; white-space: nowrap; background: #fff !important; }
-        .sticky-artwork { left: 610px; z-index: 105; max-width: 140px; min-width: 120px; overflow: hidden; background: #fff !important; }
-        .sticky-status { left: 750px; z-index: 106; max-width: 100px; min-width: 80px; overflow: hidden; white-space: nowrap; background: #fff !important; box-shadow: 2px 0 6px -2px #bbb; }
+
+        /* Sticky styles for Actions column */
+        .sticky-actions {
+            position: sticky;
+            left: 0;
+            z-index: 107; /* Higher z-index than other sticky columns */
+            max-width: 100px; /* Match defined max-width in CSS */
+            min-width: 80px; /* Match defined min-width in CSS */
+            background: #fff !important; /* Ensure background is white when sticky */
+            box-shadow: 2px 0 6px -2px #bbb; /* Add a shadow to indicate stickiness */
+        }
+
+        /* Adjust left positions of other sticky columns */
+        .sticky-customer { left: 80px; z-index: 102; max-width: 180px; min-width: 160px; overflow: hidden; white-space: nowrap; background: #fff !important; }
+        .sticky-keyperson { left: 260px; z-index: 103; max-width: 200px; min-width: 180px; overflow: hidden; white-space: nowrap; background: #fff !important; }
+        .sticky-itemcode { left: 460px; z-index: 104; max-width: 160px; min-width: 140px; overflow: hidden; white-space: nowrap; background: #fff !important; }
+        .sticky-artwork { left: 620px; z-index: 105; max-width: 140px; min-width: 120px; overflow: hidden; background: #fff !important; }
+        .sticky-status { left: 760px; z-index: 106; max-width: 100px; min-width: 80px; overflow: hidden; white-space: nowrap; background: #fff !important; box-shadow: 2px 0 6px -2px #bbb; }
 
         .quotation-table th {
             position: sticky;
@@ -123,6 +135,69 @@
             background: #fff !important;
             border-bottom: 2px solid #dee2e6;
             white-space: nowrap;
+        }
+
+        /* Styles for the action button and menu */
+        .action-container {
+            position: relative;
+            display: inline-block;
+            /* Ensure sufficient space for the absolute menu */
+            vertical-align: top; 
+        }
+
+        .action-button {
+            background: none;
+            border: 1px solid #ccc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .action-button:hover {
+            background-color: #f0f0f0;
+            border-color: #aaa;
+        }
+
+        .action-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%; /* Position below the button */
+            background-color: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 9999; /* Try an even higher z-index */
+            list-style: none;
+            padding: 8px 15px; /* Adjusted padding */
+            margin: 4px 0 0 0;
+            min-width: 170px; /* Adjusted minimum width for a better fit */
+            border-radius: 4px;
+            overflow: visible; /* Allow box-shadow to be visible */
+            background-color: #fff; /* Explicitly set background to white */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15); /* Stronger shadow */
+            border: 1px solid #bbb; /* Slightly darker border */
+            /* Ensure it's not clipped by parent elements */
+            overflow: visible; 
+        }
+
+        .action-menu li {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9em;
+            color: #333; /* Darker text for better contrast */
+            white-space: nowrap; /* Prevent text wrapping */
+            transition: background-color 0.15s;
+        }
+
+        .action-menu li:last-child {
+            border-bottom: none;
+        }
+
+        .action-menu li:hover {
+            background-color: #f0f0f0;
         }
     </style>
 </head>
@@ -144,7 +219,7 @@
         <table class="quotation-table">
             <thead>
                 <tr>
-                    <th class="sticky sticky-id" style="left:0;top:0;z-index:201;background:#fff;">ID</th>
+                    <th class="sticky sticky-actions" style="left:0;top:0;z-index:207;background:#fff;box-shadow:2px 0 6px -2px #bbb;">Actions</th>
                     <th class="sticky sticky-customer" style="left:70px;top:0;z-index:202;background:#fff;">Customer</th>
                     <th class="sticky sticky-keyperson" style="left:250px;top:0;z-index:203;background:#fff;">Key Person</th>
                     <th class="sticky sticky-itemcode" style="left:450px;top:0;z-index:204;background:#fff;">Item Code</th>
@@ -195,8 +270,19 @@
             }
 
             return data.map(row => `
-                <tr>
-                    <td class="sticky sticky-id">${row.id || ''}</td>
+                <tr data-quotation-id="${row.id}" style="cursor:pointer;">
+                    <td class="sticky sticky-actions">
+                        <div class="action-container">
+                            <button class="action-button">Actions</button>
+                            <ul class="action-menu">
+                                <li data-action="view" data-id="${row.id}">View</li>
+                                <li data-action="edit" data-id="${row.id}">Edit</li>
+                                <li data-action="send" data-id="${row.id}">Send to Customer</li>
+                                <li data-action="approve" data-id="${row.id}">Approval</li>
+                                <li data-action="sample" data-id="${row.id}">Start Sampling</li>
+                            </ul>
+                        </div>
+                    </td>
                     <td class="sticky sticky-customer">${row.customer_name || ''}</td>
                     <td class="sticky sticky-keyperson">${row.key_person_name || ''}</td>
                     <td class="sticky sticky-itemcode" style="font-family: monospace;">${row.customer_item_code || ''}</td>
@@ -229,7 +315,8 @@
                     if (data.error) {
                         throw new Error(data.error);
                     }
-                    document.getElementById('quotation-table-body').innerHTML = createTableRows(data);
+                    const tbody = document.getElementById('quotation-table-body');
+                    tbody.innerHTML = createTableRows(data);
                 })
                 .catch(error => {
                     console.error('Error loading data:', error);
@@ -240,6 +327,135 @@
 
         // Load data when page loads
         loadData();
+
+        // Close menus when clicking outside
+        document.addEventListener('click', function(event) {
+            document.querySelectorAll('.action-menu').forEach(menu => {
+                if (!menu.previousElementSibling.contains(event.target) && !menu.contains(event.target)) {
+                    menu.style.display = 'none';
+                }
+            });
+        });
+
+        // Delegate click handling for action buttons and menu items
+        document.getElementById('quotation-table-body').addEventListener('click', function(event) {
+            console.log('Click event on quotation-table-body');
+            const target = event.target;
+
+            // Check if an action button was clicked
+            if (target.classList.contains('action-button')) {
+                console.log('Action button clicked', target);
+                event.preventDefault(); // Prevent default button action if any
+                const menu = target.nextElementSibling; // The menu is the next sibling
+                console.log('Menu element found:', menu);
+
+                // Close all other menus
+                document.querySelectorAll('.action-menu').forEach(m => {
+                    if (m !== menu) {
+                        m.style.display = 'none';
+                        // Optionally move menu back if it was appended to body
+                        // if (m.dataset.originalParent) { // Check if originalParent data exists
+                        //     const originalParent = document.querySelector(m.dataset.originalParent);
+                        //     if (originalParent) originalParent.appendChild(m);
+                        //     delete m.dataset.originalParent;
+                        // }
+                    }
+                });
+
+                // Toggle the clicked menu display
+                if (menu.style.display === 'block') {
+                    console.log('Hiding menu');
+                    menu.style.display = 'none';
+                    // Optionally move menu back if it was appended to body
+                    // if (menu.dataset.originalParent) { // Check if originalParent data exists
+                    //     const originalParent = document.querySelector(menu.dataset.originalParent);
+                    //     if (originalParent) originalParent.appendChild(menu);
+                    //     delete menu.dataset.originalParent;
+                    // }
+                    console.log('Showing menu');
+                } else {
+                    // Move menu to body to escape overflow issues and position it
+                    // Store original parent to move it back when closed
+                    // if (!menu.dataset.originalParent) { // Avoid overwriting if already stored
+                    //     menu.dataset.originalParent = '#' + target.closest('.action-container').id; // Assuming action-container has an ID
+                    //     if (!target.closest('.action-container').id) { // Add ID if not present
+                    //         const containerId = 'action-container-' + Date.now();
+                    //         target.closest('.action-container').id = containerId;
+                    //         menu.dataset.originalParent = '#' + containerId;
+                    //     }
+                    // }
+                    document.body.appendChild(menu); // Append to body
+
+                    // Position the menu near the button
+                    const buttonRect = target.getBoundingClientRect();
+                    console.log('Button rect:', buttonRect);
+                    menu.style.position = 'absolute'; // Ensure absolute positioning
+                    menu.style.top = (buttonRect.bottom + window.scrollY) + 'px';
+                    menu.style.left = (buttonRect.left + window.scrollX) + 'px';
+                    menu.style.right = 'auto'; // Prevent menu from stretching full width
+                    // Or buttonRect.right - menu.offsetWidth + window.scrollX + 'px' for right alignment
+                    console.log('Setting menu position - Top:', menu.style.top, 'Left:', menu.style.left);
+                    menu.style.display = 'block'; // Show the menu
+                    console.log('Menu display after setting:', menu.style.display);
+                }
+                
+                event.stopPropagation(); // Prevent the click from closing the menu immediately
+                console.log('Event propagation stopped.');
+            }
+            // Check if a menu item was clicked
+            else if (target.tagName === 'LI' && target.closest('.action-menu')) {
+                const action = target.getAttribute('data-action');
+                const quotationId = target.getAttribute('data-id');
+                // Handle the action
+                handleQuotationAction(action, quotationId);
+                // Close the menu after an action is performed
+                target.closest('.action-menu').style.display = 'none';
+            }
+        });
+
+        // Placeholder function to handle the different actions
+        function handleQuotationAction(action, quotationId) {
+            console.log(`Action: ${action}, Quotation ID: ${quotationId}`);
+            // Implement logic for each action:
+            switch (action) {
+                case 'view':
+                    // Load the edit/view form for quotationId
+                    // Assuming showQuotationCreateForm2 is a global function or accessible
+                    if (typeof showQuotationCreateForm2 === 'function') {
+                        showQuotationCreateForm2(quotationId);
+                    } else {
+                        console.error('showQuotationCreateForm2 function not found.');
+                        // Fallback
+                        alert(`View action for ID ${quotationId}`); // Placeholder
+                    }
+                    break;
+                case 'edit':
+                    // Load the edit form for quotationId
+                    // Assuming showQuotationCreateForm2 is a global function or accessible
+                    if (typeof showQuotationCreateForm2 === 'function') {
+                        showQuotationCreateForm2(quotationId);
+                    } else {
+                        console.error('showQuotationCreateForm2 function not found.');
+                        // Fallback
+                        alert(`Edit action for ID ${quotationId}`); // Placeholder
+                    }
+                    break;
+                case 'send':
+                    // Implement send logic for quotationId
+                    alert(`Send to Customer action for ID ${quotationId}`); // Placeholder
+                    break;
+                case 'approve':
+                    // Implement approval logic for quotationId
+                    alert(`Approval action for ID ${quotationId}`); // Placeholder
+                    break;
+                case 'sample':
+                    // Implement sampling logic for quotationId
+                    alert(`Start Sampling action for ID ${quotationId}`); // Placeholder
+                    break;
+                default:
+                    console.warn(`Unknown action: ${action}`);
+            }
+        }
     </script>
 </body>
 </html> 

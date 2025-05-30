@@ -1,4 +1,4 @@
-// Version v1.3.03
+// Version v1.3.04
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -196,6 +196,20 @@ $(function() {
       document.getElementById('q2-drop-area').style.borderColor = '#aaa';
     }
 
+    // --- Multi-artwork attachment validation ---
+    var multiFiles = window.multiArtworkFiles || [];
+    if (!multiFiles || multiFiles.length === 0) {
+      showCustomPopup('Please upload at least one attachment in the Additional Artwork(s) section.', true);
+      $submitBtn.prop('disabled', false)
+        .css({
+          'background': '',
+          'color': '',
+          'border': ''
+        });
+      window.isSubmittingQuotation2 = false;
+      return;
+    }
+
     // If form is not valid, show the single alert and stop submission
     if (!formIsValid) {
         showCustomPopup('Please fill in below highlight in red border fill', true);
@@ -214,6 +228,12 @@ $(function() {
     var fileInput = document.getElementById('q2-jpg-input');
     if (fileInput && fileInput.files && fileInput.files[0]) {
       formData.append('artwork_image', fileInput.files[0]);
+    }
+    // Add multi-artwork files
+    if (multiFiles && multiFiles.length > 0) {
+      for (let i = 0; i < multiFiles.length; i++) {
+        formData.append('attachments', multiFiles[i]);
+      }
     }
     // Add other fields manually if needed
     formData.append('customer_name', company ? company.company : '');
@@ -538,7 +558,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.03</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.04</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -1096,8 +1116,10 @@ function showQuotationCreateForm2() {
               const idx = parseInt(this.getAttribute('data-idx'));
               multiFiles.splice(idx, 1);
               renderMultiList();
+              window.multiArtworkFiles = multiFiles;
             };
           });
+          window.multiArtworkFiles = multiFiles;
         }
         multiDropArea.addEventListener('click', () => multiInput.click());
         multiDropArea.addEventListener('dragover', e => { e.preventDefault(); multiDropArea.style.background = '#e3e7ea'; });

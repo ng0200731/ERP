@@ -1,4 +1,4 @@
-// Version v1.3.04
+// Version v1.2.83
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -196,20 +196,6 @@ $(function() {
       document.getElementById('q2-drop-area').style.borderColor = '#aaa';
     }
 
-    // --- Multi-artwork attachment validation ---
-    var multiFiles = window.multiArtworkFiles || [];
-    if (!multiFiles || multiFiles.length === 0) {
-      showCustomPopup('Please upload at least one attachment in the Additional Artwork(s) section.', true);
-      $submitBtn.prop('disabled', false)
-        .css({
-          'background': '',
-          'color': '',
-          'border': ''
-        });
-      window.isSubmittingQuotation2 = false;
-      return;
-    }
-
     // If form is not valid, show the single alert and stop submission
     if (!formIsValid) {
         showCustomPopup('Please fill in below highlight in red border fill', true);
@@ -228,12 +214,6 @@ $(function() {
     var fileInput = document.getElementById('q2-jpg-input');
     if (fileInput && fileInput.files && fileInput.files[0]) {
       formData.append('artwork_image', fileInput.files[0]);
-    }
-    // Add multi-artwork files
-    if (multiFiles && multiFiles.length > 0) {
-      for (let i = 0; i < multiFiles.length; i++) {
-        formData.append('attachments', multiFiles[i]);
-      }
     }
     // Add other fields manually if needed
     formData.append('customer_name', company ? company.company : '');
@@ -276,19 +256,8 @@ $(function() {
             });
         } else {
           showCustomPopup('Quotation saved successfully', false);
-          // Instead of redirecting, show the Quotation block with calculated values
           setTimeout(() => {
-            // Fetch the latest quotation record and render the block with its price
-            fetch('/quotation/list')
-              .then(res => res.json())
-              .then(records => {
-                if (Array.isArray(records) && records.length > 0) {
-                  const latest = records[0];
-                  renderQuotationBlock(latest);
-                } else {
-                  renderQuotationBlock();
-                }
-              });
+            $('#right-frame').load('/view_quotations_simple');
           }, 1000);
         }
       },
@@ -558,7 +527,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.04</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.2.83</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -593,59 +562,46 @@ function showQuotationCreateForm2() {
                   <!-- Dummy Button -->
                   <button type="button" id="dummy-fill-btn" style="position: fixed; top: 20px; right: 20px; padding: 8px 20px; background-color: #ccc; color: #000; border: none; border-radius: 4px; cursor: pointer; z-index: 1000;">Dummy Fill</button>
                   <div id="quotation2-dynamic-fields">
-                    <!-- 1. Item Code (1 line) -->
                     <label>Item Code:<br>
                       <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                         <input type="text" id="customer-item-code" name="customer_item_code" style="flex: 1; padding: 8px;">
                         <button type="button" id="generate-item-code-btn" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate</button>
                       </div>
                     </label>
-                    <!-- 2. Width, Length (1 line) -->
-                    <div style="display: flex; gap: 32px; align-items: flex-end; margin-bottom: 16px;">
-                      <label style="flex:1;">Width:<br>
-                        <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
-                      </label>
-                      <label style="flex:1;">Length:<br>
-                        <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
-                      </label>
-                    </div>
-                    <!-- 3. Quality, Flat or Raised (1 line) -->
-                    <div style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px;">
-                      <label style="flex:1;">Quality:<br>
-                        <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
-                          <option value="">-- Select --</option>
-                          <option value="PU">PU</option>
-                          <option value="Silicon">Silicon</option>
-                        </select>
-                      </label>
-                      <label style="flex:1;">Flat or Raised:<br>
-                        <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
-                          <option value="">-- Select --</option>
-                          <option value="Flat">Flat</option>
-                          <option value="Raised">Raised</option>
-                        </select>
-                      </label>
-                    </div>
-                    <!-- 4. Direct or Reverse, Thickness (1 line) -->
-                    <div style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px;">
-                      <label style="flex:1;">Direct or Reverse:<br>
-                        <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
-                          <option value="">-- Select --</option>
-                          <option value="Direct">Direct</option>
-                          <option value="Reverse">Reverse</option>
-                        </select>
-                      </label>
-                      <label style="flex:1;">Thickness 0.1-1.5:<br>
-                        <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
-                      </label>
-                    </div>
-                    <!-- 5. # of Colors (1 line) -->
-                    <div style="margin-bottom: 16px;">
-                      <label># of Colors:<br>
-                        <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
-                      </label>
-                      <div id="color-names-group" style="margin-top: 10px;"></div>
-                    </div>
+                    <label>Quality:<br>
+                      <select id="ht-quality" name="quality" style="width: 100%; padding: 8px;">
+                        <option value="">-- Select --</option>
+                        <option value="PU">PU</option>
+                        <option value="Silicon">Silicon</option>
+                      </select>
+                    </label><br><br>
+                    <label>Flat or Raised:<br>
+                      <select id="ht-flat-or-raised" name="flatOrRaised" style="width: 100%; padding: 8px;" disabled>
+                        <option value="">-- Select --</option>
+                        <option value="Flat">Flat</option>
+                        <option value="Raised">Raised</option>
+                      </select>
+                    </label><br><br>
+                    <label>Direct or Reverse:<br>
+                      <select id="ht-direct-or-reverse" name="directOrReverse" style="width: 100%; padding: 8px;" disabled>
+                        <option value="">-- Select --</option>
+                        <option value="Direct">Direct</option>
+                        <option value="Reverse">Reverse</option>
+                      </select>
+                    </label><br><br>
+                    <label>Thickness 0.1-1.5:<br>
+                      <input type="number" id="ht-thickness" name="thickness" min="0.1" max="1.5" step="0.1" style="width: 100%; padding: 8px;" disabled>
+                    </label><br><br>
+                    <label># of Colors:<br>
+                      <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
+                    </label>
+                    <div id="color-names-group" style="margin-top: 10px;"></div>
+                    <label>Width:<br>
+                      <input type="number" id="ht-width" name="width" min="0" style="width: 100%; padding: 8px; margin-top: 16px; border: 1.5px solid #b3c6ff; border-radius: 4px;">
+                    </label><br><br>
+                    <label>Length:<br>
+                      <input type="number" id="ht-length" name="length" min="0" style="width: 100%; padding: 8px;">
+                    </label>
                   </div>
                 </div>
                 <br>
@@ -655,28 +611,11 @@ function showQuotationCreateForm2() {
             </div>
             <div style="flex:1; min-width:220px; max-width:320px; margin-top:0;">
               <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
-                <label style="font-weight:bold;">Upload product image:<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop, click, or <b>Ctrl+V</b> to paste JPG/PNG or screenshot)</span></label>
+                <label style="font-weight:bold;">Upload JPG/PNG Artwork:<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop, click, or <b>Ctrl+V</b> to paste JPG/PNG or screenshot)</span></label>
                 <div id="q2-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
                   <span id="q2-drop-label">Drag & drop JPG/PNG here or click to select</span>
                   <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
                   <div id="q2-jpg-preview" style="margin-top:12px;"></div>
-                </div>
-              </div>
-              <!-- New Multi Artwork Upload block -->
-              <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 24px;">
-                <label style="font-weight:bold;">Upload Additional Artwork(s):<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop or click to select multiple files)</span></label>
-                <div id="multi-artwork-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer; margin-bottom:10px;">
-                  <span id="multi-artwork-drop-label">Drag & drop files here or click to select</span>
-                  <input type="file" id="multi-artwork-input" accept=".jpg,.jpeg,.png,.pdf,.ai,.psd,.svg" multiple style="display:none;" />
-                </div>
-                <ul id="multi-artwork-list" style="list-style:none; padding:0; margin:0;"></ul>
-              </div>
-              <!-- New Quotation block -->
-              <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 24px;">
-                <label style="font-weight:bold;">Quotation</label>
-                <div id="quotation-block-content" style="margin-top: 10px; color: #555; font-size: 15px;">
-                  <!-- Placeholder for future quotation details or summary -->
-                  <span style="color:#888;">(Quotation details will appear here.)</span>
                 </div>
               </div>
             </div>
@@ -1092,162 +1031,6 @@ function showQuotationCreateForm2() {
         $('#ht-width').val(width);
         $('#ht-length').val(length);
       });
-
-      // Add JS logic for multi-artwork upload after DOM is ready
-      setTimeout(function() {
-        const multiDropArea = document.getElementById('multi-artwork-drop-area');
-        const multiInput = document.getElementById('multi-artwork-input');
-        const multiList = document.getElementById('multi-artwork-list');
-        let multiFiles = [];
-        function renderMultiList() {
-          multiList.innerHTML = '';
-          multiFiles.forEach((file, idx) => {
-            const ext = file.name.split('.').pop().toLowerCase();
-            let li = document.createElement('li');
-            li.style.display = 'flex';
-            li.style.alignItems = 'center';
-            li.style.justifyContent = 'space-between';
-            li.style.padding = '4px 0';
-            let content = '';
-
-            // Check if the file type is viewable/downloadable (image, pdf, common document types)
-            const isViewableOrDownloadable = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'].includes(ext);
-
-            if (isViewableOrDownloadable) {
-              // For viewable/downloadable files, show a hyperlink to open in a new tab
-              const url = URL.createObjectURL(file);
-              content = `<a href="${url}" target="_blank" style="color:#007bff;text-decoration:underline;">${file.name}</a>`;
-            } else {
-              // For other file types, just show the name
-              content = `<span>${file.name}</span>`;
-            }
-
-            li.innerHTML = `<span style='font-size:14px;'>${content}</span> <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
-            multiList.appendChild(li);
-          });
-          // Remove handler
-          multiList.querySelectorAll('button[data-idx]').forEach(btn => {
-            btn.onclick = function() {
-              const idx = parseInt(this.getAttribute('data-idx'));
-              multiFiles.splice(idx, 1);
-              renderMultiList();
-              window.multiArtworkFiles = multiFiles;
-            };
-          });
-          window.multiArtworkFiles = multiFiles;
-        }
-        multiDropArea.addEventListener('click', () => multiInput.click());
-        multiDropArea.addEventListener('dragover', e => { e.preventDefault(); multiDropArea.style.background = '#e3e7ea'; });
-        multiDropArea.addEventListener('dragleave', e => { e.preventDefault(); multiDropArea.style.background = '#fafbfc'; });
-        multiDropArea.addEventListener('drop', e => {
-          e.preventDefault();
-          multiDropArea.style.background = '#fafbfc';
-          if (e.dataTransfer.files && e.dataTransfer.files.length) {
-            for (let i = 0; i < e.dataTransfer.files.length; i++) {
-              multiFiles.push(e.dataTransfer.files[i]);
-            }
-            renderMultiList();
-          }
-        });
-        multiInput.addEventListener('change', e => {
-          if (multiInput.files && multiInput.files.length) {
-            for (let i = 0; i < multiInput.files.length; i++) {
-              multiFiles.push(multiInput.files[i]);
-            }
-            renderMultiList();
-          }
-        });
-      }, 0);
     });
   });
-}
-
-function renderQuotationBlock(latestRecord) {
-  // Get user input values
-  const userLength = $('#ht-length').val() || '-';
-  const userWidth = $('#ht-width').val() || '-';
-  // 1) Cost of PET: always show the price from the latest quotation record
-  let costOfPET = '-';
-  let inputSummary = '';
-  if (latestRecord) {
-    const q = latestRecord.quality || '-';
-    const f = latestRecord.flat_or_raised || '-';
-    const d = latestRecord.direct_or_reverse || '-';
-    const t = (latestRecord.thickness !== undefined && latestRecord.thickness !== null && latestRecord.thickness !== '') ? latestRecord.thickness : '-';
-    const n = (latestRecord.num_colors !== undefined && latestRecord.num_colors !== null && latestRecord.num_colors !== '') ? latestRecord.num_colors : '-';
-    inputSummary = `(${q}, ${f}, ${d}, ${t}, ${n})`;
-    if (latestRecord.price !== undefined && latestRecord.price !== null && latestRecord.price !== '') {
-      costOfPET = latestRecord.price === '-' ? '-' : latestRecord.price;
-    }
-  }
-  // 2) Combinations (show with dimming for smaller value)
-  let combA = '-', combB = '-';
-  let combAeq = '', combBeq = '';
-  let dbLength = latestRecord && latestRecord.length !== undefined && latestRecord.length !== null && latestRecord.length !== '' ? parseFloat(latestRecord.length) : null;
-  let dbWidth = latestRecord && latestRecord.width !== undefined && latestRecord.width !== null && latestRecord.width !== '' ? parseFloat(latestRecord.width) : null;
-  let uLength = userLength !== '-' && userLength !== '' ? parseFloat(userLength) : null;
-  let uWidth = userWidth !== '-' && userWidth !== '' ? parseFloat(userWidth) : null;
-  let xDivM, yDivN, yDivM, xDivN;
-  let mPlus6 = uLength !== null ? uLength + 6 : null;
-  let nPlus6 = uWidth !== null ? uWidth + 6 : null;
-  if (dbLength && dbWidth && uLength && uWidth) {
-    xDivM = Math.floor(dbLength / mPlus6);
-    yDivN = Math.floor(dbWidth / nPlus6);
-    yDivM = Math.floor(dbWidth / mPlus6);
-    xDivN = Math.floor(dbLength / nPlus6);
-    combA = xDivM * yDivN;
-    combB = yDivM * xDivN;
-    combAeq = `(${fmt(dbLength,2)} / (${fmt(uLength,2)}+6)) × (${fmt(dbWidth,2)} / (${fmt(uWidth,2)}+6)) = ${xDivM} × ${yDivN} = ${combA} (# per 1 pet)`;
-    combBeq = `(${fmt(dbWidth,2)} / (${fmt(uLength,2)}+6)) × (${fmt(dbLength,2)} / (${fmt(uWidth,2)}+6)) = ${yDivM} × ${xDivN} = ${combB} (# per 1 pet)`;
-  }
-  // 2) Combinations (show with dimming for smaller value)
-  let combAColor = '#222', combBColor = '#bbb';
-  if (typeof combA === 'number' && typeof combB === 'number') {
-    if (combA < combB) {
-      combAColor = '#bbb'; combBColor = '#222';
-    } else if (combA > combB) {
-      combAColor = '#222'; combBColor = '#bbb';
-    } else { // equal
-      combAColor = combBColor = '#222';
-    }
-  }
-  // 3) Cost per 1 label (only if costOfPET is available)
-  let costPerLabel = '-';
-  if (costOfPET !== '-' && typeof combA === 'number' && typeof combB === 'number') {
-    let maxComb = Math.max(combA, combB);
-    if (maxComb > 0) costPerLabel = costOfPET / maxComb;
-  }
-  // 4) Tier quotation
-  const tiers = [
-    { qty: 1000, factor: 1.10 },
-    { qty: 3000, factor: 1.05 },
-    { qty: 5000, factor: 1.03 },
-    { qty: 10000, factor: 1.00 },
-    { qty: 30000, factor: 0.95 },
-    { qty: 50000, factor: 0.90 },
-    { qty: 100000, factor: 0.85 }
-  ];
-  function fmt(val, decimals=2) {
-    if (val === '-' || val === undefined || val === null || isNaN(val)) return '-';
-    return Number(val).toLocaleString(undefined, {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
-  }
-  let xVal = dbLength !== undefined && dbLength !== null && dbLength !== '' ? fmt(dbLength,2) : '-';
-  let yVal = dbWidth !== undefined && dbWidth !== null && dbWidth !== '' ? fmt(dbWidth,2) : '-';
-  // Build HTML
-  let html = '';
-  html += `<div><b>1) Cost of PET (${xVal} × ${yVal}):</b> <span style='color:#007bff;'>${inputSummary} = ${fmt(costOfPET)}</span></div>`;
-  html += `<div style='margin-top:8px;'><b>2) Combination A:</b> <span style='color:${combAColor};'>${combAeq}</span></div>`;
-  html += `<div><b>Combination B:</b> <span style='color:${combBColor};'>${combBeq}</span></div>`;
-  html += `<div style='margin-top:8px;'><b>3) Cost per 1 label:</b> <span style='#28a745;'>${fmt(costPerLabel)}</span></div>`;
-  html += `<div style='margin-top:8px;'><b>4) Tier quotation</b></div>`;
-  html += `<table style='width:100%;margin-top:4px;font-size:15px;'><thead><tr><th style='text-align:left;'>Qty</th><th style='text-align:right;'>Price</th></tr></thead><tbody>`;
-  tiers.forEach(tier => {
-    let price = '-';
-    if (costPerLabel !== '-' && typeof costPerLabel === 'number') {
-      price = costPerLabel * tier.factor * 1000;
-    }
-    html += `<tr><td>${tier.qty.toLocaleString()}</td><td style='text-align:right;'>${fmt(price)}</td></tr>`;
-  });
-  html += `</tbody></table>`;
-  $('#quotation-block-content').html(html);
 }

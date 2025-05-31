@@ -837,12 +837,10 @@ def save_quotation():
         num_colors = safe_int(data.get('num_colors'))
         thickness = safe_float(data.get('thickness'))
         price = '-'
-        db_length = None
-        db_width = None
         print(f'[DEBUG] Price lookup input: quality={quality}, flat_or_raised={flat_or_raised}, direct_or_reverse={direct_or_reverse}, num_colors={num_colors}, thickness={thickness}')
         if flat_or_raised.lower() == 'flat':
             sql = '''
-                SELECT length, width, price FROM ht_database
+                SELECT price FROM ht_database
                 WHERE trim(lower(quality))=trim(lower(?))
                   AND trim(lower(flat_or_raised))=trim(lower(?))
                   AND trim(lower(direct_or_reverse))=trim(lower(?))
@@ -855,10 +853,10 @@ def save_quotation():
             row = cursor.fetchone()
             print(f'[DEBUG] Result row: {row}')
             if row:
-                db_length, db_width, price = row
+                price = row[0]
         elif flat_or_raised.lower() == 'raised':
             sql = '''
-                SELECT length, width, price FROM ht_database
+                SELECT price FROM ht_database
                 WHERE trim(lower(quality))=trim(lower(?))
                   AND trim(lower(flat_or_raised))=trim(lower(?))
                   AND trim(lower(direct_or_reverse))=trim(lower(?))
@@ -873,11 +871,11 @@ def save_quotation():
             row = cursor.fetchone()
             print(f'[DEBUG] Result row: {row}')
             if row:
-                db_length, db_width, price = row
+                price = row[0]
             else:
                 # If not found, pick the minimum thickness for this combo
                 sql2 = '''
-                    SELECT length, width, price FROM ht_database
+                    SELECT price FROM ht_database
                     WHERE trim(lower(quality))=trim(lower(?))
                       AND trim(lower(flat_or_raised))=trim(lower(?))
                       AND trim(lower(direct_or_reverse))=trim(lower(?))
@@ -892,7 +890,7 @@ def save_quotation():
                 row2 = cursor.fetchone()
                 print(f'[DEBUG] Fallback Result row: {row2}')
                 if row2:
-                    db_length, db_width, price = row2
+                    price = row2[0]
         conn.close()
         # --- END PRICE LOOKUP ---
 
@@ -915,8 +913,8 @@ def save_quotation():
                 direct_or_reverse=direct_or_reverse,
                 thickness=thickness,
                 num_colors=num_colors,
-                length=db_length if db_length is not None else None,
-                width=db_width if db_width is not None else None,
+                length=safe_float(data.get('length')),
+                width=safe_float(data.get('width')),
                 price=price if price != '-' else None,
                 created_at=current_time,
                 last_updated=current_time,
@@ -924,7 +922,7 @@ def save_quotation():
             )
             db_session.add(quotation)
             db_session.commit()
-            return jsonify({'message': 'Quotation saved successfully', 'action': 'created', 'price': price, 'length': db_length, 'width': db_width}), 200
+            return jsonify({'message': 'Quotation saved successfully', 'action': 'created'}), 200
         except Exception as e:
             db_session.rollback()
             logger.error(f"Database error while saving quotation: {str(e)}")

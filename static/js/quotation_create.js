@@ -335,14 +335,7 @@ $(function() {
   });
 
   // Attach Item Code Generate button handler
-  $('#generate-item-code-btn').off('click').on('click', function(e) {
-    e.preventDefault();
-    fetch('/quotation/generate_code')
-      .then(response => response.json())
-      .then(data => {
-        $('#customer-item-code').val(data.code);
-      });
-  });
+  $('#generate-item-code-btn').off('click');
 });
 
 function showQuotationCreateForm() {
@@ -597,7 +590,6 @@ function showQuotationCreateForm2() {
                     <label>Item Code:<br>
                       <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                         <input type="text" id="customer-item-code" name="customer_item_code" style="flex: 1; padding: 8px;">
-                        <button type="button" id="generate-item-code-btn" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate</button>
                       </div>
                     </label>
                     <!-- 2. Width, Length (1 line) -->

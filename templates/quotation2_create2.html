@@ -1,0 +1,53 @@
+<!-- Quotation 2 Create (HT) Form -->
+<div style="padding:32px;max-width:600px; min-height:100vh;">
+  <h2 id="quotation2-form-title">Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.04</span></h2>
+  
+  <!-- Test message display -->
+  {% if test_message %}
+  <div class="flash-message flash-info">
+    {{ test_message }}
+  </div>
+  {% endif %}
+
+  <!-- Flash messages display -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+      <div class="flash-message flash-{{ category }}">
+        {{ message }}
+      </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form id="quotation2-create2-form" autocomplete="off">
+    <!-- Customer Details Section -->
+    <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+      <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
+      <label>Company:<br>
+        <input type="text" id="quotation2-company-input" placeholder="Type to search or select..." autocomplete="off" style="width: 100%; padding: 8px; margin-bottom: 4px;">
+        <div id="company2-suggestions" style="position: relative;">
+          <ul style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; margin: 0; padding: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></ul>
+        </div>
+        <input type="hidden" id="quotation2-company-id">
+      </label><br><br>
+      <label>Key Person:<br>
+        <select id="quotation2-keyperson" style="width: 100%; padding: 8px;">
+          <option value="">-- Select Key Person --</option>
+        </select>
+      </label>
+    </div>
+    <!-- Item Information Section -->
+    <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
+      <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
+      <!-- Item Code (1 line) -->
+      <label>Item Code:<br>
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <input type="text" id="customer-item-code" name="customer_item_code" style="width: 100%; padding: 8px;">
+        </div>
+      </label>
+      <!-- Rest of the form fields -->
+      // ... existing code ...
+    </div>
+  </form>
+</div> 

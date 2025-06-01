@@ -542,16 +542,17 @@ function renderDynamicFieldsBlank(productTypeFields) {
   });
 }
 
-function showQuotationCreateForm2() {
+function showQuotationCreateForm2(quotationId = null) {
   // First fetch customers for company search and check permission level
   fetchCustomers(function() {
     // Get the user permission level
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
-      
-      $('#right-frame').html(`
+
+      // Use a variable for the HTML content so we can modify it based on quotationId
+      let formHtml = `
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.04</span></h2>
+          <h2>${quotationId ? 'Edit Quotation (HT)' : 'Create Quotation (HT)'} <span style='font-size:1rem;color:#888;'>v1.3.05</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -564,6 +565,7 @@ function showQuotationCreateForm2() {
               </div>
               ` : ''}
               <form id="quotation2-create2-form" autocomplete="off">
+                ${quotationId ? `<input type="hidden" name="quotation_id" value="${quotationId}">` : ''}
                 <!-- Customer Details Section -->
                 <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
                   <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
@@ -634,7 +636,7 @@ function showQuotationCreateForm2() {
                     <!-- 5. # of Colors (1 line) -->
                     <div style="margin-bottom: 16px;">
                       <label># of Colors:<br>
-                        <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;" autocomplete="off" placeholder="" />
+                        <input type="number" id="ht-num-colors" name="numColors" min="1" step="1" style="width: 100%; padding: 8px;">
                       </label>
                       <div id="color-names-group" style="margin-top: 10px;"></div>
                     </div>
@@ -642,12 +644,12 @@ function showQuotationCreateForm2() {
                 </div>
                 <br>
                 <!-- Submit button at the bottom -->
-                <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
+                <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">${quotationId ? 'Update Quotation' : 'Submit'}</button>
               </form>
             </div>
             <div style="flex:1; min-width:220px; max-width:320px; margin-top:0;">
               <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
-                <label style="font-weight:bold;">Upload JPG/PNG Artwork:<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop, click, or <b>Ctrl+V</b> to paste JPG/PNG or screenshot)</span></label>
+                <label style="font-weight:bold;">Upload product image:<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Drag & drop, click, or <b>Ctrl+V</b> to paste JPG/PNG or screenshot)</span></label>
                 <div id="q2-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
                   <span id="q2-drop-label">Drag & drop JPG/PNG here or click to select</span>
                   <input type="file" id="q2-jpg-input" accept=".jpg,.jpeg" style="display:none;" />
@@ -674,27 +676,175 @@ function showQuotationCreateForm2() {
             </div>
           </div>
         </div>
-      `);
+      `;
 
-      // Initialize HT form fields
+      // Load the form HTML into the right frame
+      $('#right-frame').html(formHtml);
+
+      // Initialize HT form fields (must be done after adding the HTML to the DOM)
       const $quality = $('#ht-quality');
       const $flatOrRaised = $('#ht-flat-or-raised');
       const $directOrReverse = $('#ht-direct-or-reverse');
       const $thickness = $('#ht-thickness');
+      const $numColors = $('#ht-num-colors');
+      const $colorNamesGroup = $('#color-names-group');
+      const $customerItemCode = $('#customer-item-code');
+      const $htWidth = $('#ht-width');
+      const $htLength = $('#ht-length');
+      const $q2JpgInput = $('#q2-jpg-input');
+      const $q2JpgPreview = $('#q2-jpg-preview');
+      const $multiArtworkList = $('#multi-artwork-list');
+      const $quotation2Create2Form = $('#quotation2-create2-form');
 
-      // Function to reset fields to default state
+      // Function to reset fields to default state (used for new quotation)
       function resetFields() {
         $quality.val('').prop('disabled', false);
         $flatOrRaised.val('').prop('disabled', true);
         $directOrReverse.val('').prop('disabled', true);
         $thickness.val('').prop('disabled', true);
+        $numColors.val(1);
+        $colorNamesGroup.html(renderColorNames(1, {}));
+        $customerItemCode.val('');
+        $htWidth.val('');
+        $htLength.val('');
+        $q2JpgPreview.html('');
+        $q2JpgInput.val(''); // Clear the file input
+        window.q2_jpgFile = null; // Clear the stored file object
+        $multiArtworkList.html('');
+        window.multiArtworkFiles = [];
+        // Also clear customer and key person
+        $('#quotation2-company-input').val('').attr('data-selected', 'false');
+        $('#quotation2-company-id').val('');
+        $('#quotation2-keyperson').html('<option value="">-- Select Key Person --</option>');
       }
 
-      // Initial reset
-      resetFields();
+      // Handle fetching and populating data if quotationId is provided
+      if (quotationId) {
+        // Fetch quotation data from backend
+        $.get(`/quotation/${quotationId}`, function(record) {
+          if (record) {
+            // Populate form fields
+            // Customer/Key Person: This needs a bit more logic.
+            // We have the customer_name and key_person_name. We need to find the corresponding IDs
+            // in the `customers` array (which is global).
+            const customer = customers.find(c => c.company === record.customer_name);
+            if (customer) {
+              $('#quotation2-company-input').val(customer.company).attr('data-selected', 'true');
+              $('#quotation2-company-id').val(customer.id);
+              // Populate key persons for this customer
+              let kpOpts = '<option value="">-- Select Key Person --</option>';
+              if (Array.isArray(customer.keyPeople)) {
+                kpOpts += customer.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+              }
+              $('#quotation2-keyperson').html(kpOpts);
+              // Select the correct key person
+              const keyPersonIdx = customer.keyPeople.findIndex(kp => kp.name === record.key_person_name);
+              if (keyPersonIdx !== -1) {
+                $('#quotation2-keyperson').val(keyPersonIdx);
+              }
+            }
+
+            $customerItemCode.val(record.customer_item_code);
+            $htWidth.val(record.width);
+            $htLength.val(record.length);
+
+            // Trigger change events after setting values to ensure dependent fields are updated
+            $quality.val(record.quality).trigger('change');
+            // Use a short delay to ensure the change handlers complete before setting the next value
+            setTimeout(() => {
+              $flatOrRaised.val(record.flat_or_raised).trigger('change');
+              setTimeout(() => {
+                 $directOrReverse.val(record.direct_or_reverse).trigger('change');
+                 $thickness.val(record.thickness);
+              }, 50);
+            }, 50);
+
+            // Set number of colors and trigger input to render color name fields
+            $numColors.val(record.num_colors);
+            // Use a small delay before triggering input to ensure the DOM is ready after setting numColors
+            setTimeout(() => {
+                $numColors.trigger('input');
+                // Populate color names (assuming record.color_names is an array or comma-separated string)
+                if (record.color_names) {
+                  const colorNames = Array.isArray(record.color_names) ? record.color_names : record.color_names.split(',').map(name => name.trim());
+                  // Need to wait for input fields to be rendered by the 'input' trigger on numColors
+                  setTimeout(() => {
+                    $colorNamesGroup.find('input[type="text"]').each(function(i) {
+                      if (i < colorNames.length) {
+                        $(this).val(colorNames[i]);
+                      }
+                    });
+                  }, 100);
+                }
+            }, 0);
+
+            // Populate artwork image (main)
+            if (record.artwork_image) {
+                // Construct the URL to the uploaded image
+                // Ensure correct path separator for web access (forward slash)
+                const imageUrl = `/${record.artwork_image.replace(/\\/g, '/')}`; 
+                $q2JpgPreview.html(`<img src="${imageUrl}" style="max-width:180px;max-height:120px;border:1px solid #ccc;border-radius:6px;" />`);
+                // Note: We cannot recreate a File object from a URL for the file input for security reasons.
+                // The original file is not available client-side directly from the URL.
+                // If the user wants to replace it, they will upload a new file.
+            }
+
+            // Populate additional artwork (assuming record has an 'attachments' array of paths)
+            // Note: Similar to the main artwork, we can't easily recreate File objects for pre-uploaded files.
+            // We will list the files with links to their server locations.
+            window.multiArtworkFiles = []; // Clear any existing client-side files when loading an existing record
+            let attachmentHtml = '';
+            if (record.attachments && Array.isArray(record.attachments)) {
+                record.attachments.forEach(attachmentPath => {
+                    const filename = attachmentPath.split(/[\\/]/).pop(); // Handle both forward and back slashes
+                    // Construct the URL to the uploaded file
+                    // Ensure correct path separator for web access (forward slash)
+                    const fileUrl = `/${attachmentPath.replace(/\\/g, '/')}`; 
+                    const ext = filename.split('.').pop().toLowerCase();
+                    // Link all file types that are supported for upload
+                    const isViewableOrDownloadable = ['jpg', 'jpeg', 'png', 'pdf', 'ai', 'psd', 'svg'].includes(ext); // Added AI, PSD, SVG
+
+                    let content = `<span>${filename}</span>`; // Default to just filename
+                    if (isViewableOrDownloadable) {
+                         // Provide a link to the server URL for pre-uploaded files
+                         content = `<a href="${fileUrl}" target="_blank" style="color:#007bff;text-decoration:underline;">${filename}</a>`;
+                    }
+                    // No remove button for pre-uploaded files unless implementing deletion functionality
+                    attachmentHtml += `<li style='display:flex; align-items:center; justify-content:space-between; padding:4px 0;'><span style='font-size:14px;'>${content}</span></li>`; 
+                });
+            }
+             $multiArtworkList.html(attachmentHtml);
+            // Note: The remove button logic for client-side files will still work for new files added after loading the record.
+            // We would need additional logic to handle deleting pre-uploaded files if required.
+
+            // The submit button text is handled by the initial HTML rendering based on quotationId
+
+          } else {
+            console.error(`Quotation record with ID ${quotationId} not found.`);
+            // Optionally show an error message to the user
+            showCustomPopup(`Quotation record with ID ${quotationId} not found.`, true);
+            // Render a blank form for new quotation
+            resetFields();
+          }
+        }).fail(function() {
+            console.error(`Error fetching quotation record with ID ${quotationId}.`);
+            showCustomPopup(`Error fetching quotation record with ID ${quotationId}.`, true);
+            // Render a blank form for new quotation on error
+            resetFields();
+        });
+
+      } else {
+        // If no quotationId, render a blank form
+        resetFields();
+      }
+
+      // --- Existing JS logic for form interactions (needs to be applied after adding the HTML to the DOM) ---
+      // Use .off().on() to prevent attaching multiple event handlers if the function is called multiple times
+
+      // Initialize HT form fields (already got references above)
 
       // L1 (Quality) change handler
-      $quality.on('change', function() {
+      $quality.off('change').on('change', function() { 
         const selectedQuality = $(this).val();
         // Reset lower levels
         $flatOrRaised.val('').prop('disabled', true);
@@ -714,7 +864,7 @@ function showQuotationCreateForm2() {
       });
 
       // L2 (Flat or Raised) change handler
-      $flatOrRaised.on('change', function() {
+      $flatOrRaised.off('change').on('change', function() {
         const selectedFlatOrRaised = $(this).val();
         const selectedQuality = $quality.val();
         // Reset lower levels
@@ -739,7 +889,7 @@ function showQuotationCreateForm2() {
       });
 
       // L3 (Direct or Reverse) change handler
-      $directOrReverse.on('change', function() {
+      $directOrReverse.off('change').on('change', function() {
         const selectedDirectOrReverse = $(this).val();
         const selectedFlatOrRaised = $flatOrRaised.val();
         const selectedQuality = $quality.val();
@@ -752,7 +902,7 @@ function showQuotationCreateForm2() {
       });
 
       // L4 (Thickness) validation
-      $thickness.on('input', function() {
+      $thickness.off('input').on('input', function() {
         const value = parseFloat($(this).val());
         if (value < 0.1 || value > 1.5) {
           $(this).css('border-color', 'red');
@@ -766,13 +916,13 @@ function showQuotationCreateForm2() {
       // Function to update suggestion list
       function updateSuggestions(val = '') {
         val = val.toLowerCase();
-        let matches = val ? 
+        let matches = val ?
           customers.filter(c => c.company.toLowerCase().includes(val)) :
           customers;
-        
+
         const $suggestionList = $('#company2-suggestions ul');
         if (matches.length) {
-          const html = matches.map(c => 
+          const html = matches.map(c =>
             `<li data-id="${c.id}" style="padding: 8px 12px; cursor: pointer; list-style: none; border-bottom: 1px solid #eee;">${c.company}</li>`
           ).join('');
           $suggestionList.html(html).show();
@@ -786,12 +936,9 @@ function showQuotationCreateForm2() {
       function selectCompany(id) {
         const company = customers.find(c => c.id == id);
         if (company) {
-          $('#quotation2-company-input').val(company.company);
+          $('#quotation2-company-input').val(company.company).attr('data-selected', 'true');
           $('#quotation2-company-id').val(company.id);
           $('#company2-suggestions ul').hide();
-          // Mark as selected
-          $('#quotation2-company-input').attr('data-selected', 'true');
-
           // Populate key people
           let kpOpts = '<option value="">-- Select Key Person --</option>';
           if (Array.isArray(company.keyPeople)) {
@@ -801,8 +948,8 @@ function showQuotationCreateForm2() {
         }
       }
 
-      // Show companies only when typing or when field is empty
-      $('#quotation2-company-input').on('focus click', function(e) {
+      // Show companies only when typing or when field is empty - use .off().on()
+      $('#quotation2-company-input').off('focus click').on('focus click', function(e) {
         // Don't show list if company is already selected
         if ($(this).attr('data-selected') === 'true') {
           return;
@@ -810,19 +957,19 @@ function showQuotationCreateForm2() {
         updateSuggestions();
       });
 
-      // Filter companies as user types
-      $('#quotation2-company-input').on('input', function() {
+      // Filter companies as user types - use .off().on()
+      $('#quotation2-company-input').off('input').on('input', function() {
         const val = $(this).val();
         // Remove selected state when user starts typing
         $(this).attr('data-selected', 'false');
         updateSuggestions(val);
       });
 
-      // Handle keyboard navigation
-      $('#quotation2-company-input').on('keydown', function(e) {
+      // Handle keyboard navigation - use .off().on()
+      $('#quotation2-company-input').off('keydown').on('keydown', function(e) {
         const $suggestions = $('#company2-suggestions ul');
         const $items = $suggestions.find('li');
-        
+
         if (!$items.length) return;
 
         // Down arrow
@@ -858,51 +1005,60 @@ function showQuotationCreateForm2() {
         }
       });
 
-      // Handle company selection by click
-      $('#company2-suggestions').on('click', 'li', function() {
+      // Handle company selection by click - use .off().on()
+      $('#company2-suggestions').off('click', 'li').on('click', 'li', function() {
         const id = $(this).data('id');
         selectCompany(id);
       });
 
-      // Handle mouse hover on suggestions
-      $('#company2-suggestions').on('mouseover', 'li', function() {
+      // Handle mouse hover on suggestions - use .off().on()
+      $('#company2-suggestions').off('mouseover', 'li').on('mouseover', 'li', function() {
         const $items = $('#company2-suggestions ul li');
         $items.removeClass('active').css('background-color', '');
         $(this).addClass('active').css('background-color', '#f0f0f0');
         currentFocus = $items.index(this);
       });
 
-      // Hide suggestions when clicking outside
-      $(document).on('click', function(e) {
+      // Hide suggestions when clicking outside - use .off().on()
+      $(document).off('click.hideSuggestions').on('click.hideSuggestions', function(e) {
         if (!$(e.target).closest('#quotation2-company-input, #company2-suggestions').length) {
           $('#company2-suggestions ul').hide();
           currentFocus = -1;
         }
       });
 
-      // Drag and drop logic for JPG/PNG
+      // Drag and drop logic for JPG/PNG - use .off().on() for all handlers
       const dropArea = document.getElementById('q2-drop-area');
       const fileInput = document.getElementById('q2-jpg-input');
       const previewDiv = document.getElementById('q2-jpg-preview');
-      let jpgFile = null;
-      dropArea.addEventListener('click', () => fileInput.click());
-      dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.style.background = '#e3e7ea'; });
-      dropArea.addEventListener('dragleave', e => { e.preventDefault(); dropArea.style.background = '#fafbfc'; });
-      dropArea.addEventListener('drop', e => {
+      // Clear previous file if any
+      window.q2_jpgFile = null;
+      $q2JpgPreview.html('');
+      $q2JpgInput.val('');
+
+      $(dropArea).off('click').on('click', () => fileInput.click());
+      $(dropArea).off('dragover').on('dragover', e => { e.preventDefault(); dropArea.style.background = '#e3e7ea'; });
+      $(dropArea).off('dragleave').on('dragleave', e => { e.preventDefault(); dropArea.style.background = '#fafbfc'; });
+      $(dropArea).off('drop').on('drop', e => {
         e.preventDefault();
         dropArea.style.background = '#fafbfc';
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
           handleImageFile(e.dataTransfer.files[0], true);
         }
       });
-      fileInput.addEventListener('change', e => {
+      $(fileInput).off('change').on('change', e => {
         if (fileInput.files && fileInput.files[0]) {
           handleImageFile(fileInput.files[0], false);
         }
       });
+
       // --- Add paste (Ctrl+V) support for JPG/PNG image ---
       const rightFrame = document.getElementById('right-frame');
-      function handlePasteEvent(e) {
+      // Remove previous paste handler before adding a new one
+      if (window.handlePasteEvent) {
+         $(rightFrame).off('paste', window.handlePasteEvent);
+      }
+      window.handlePasteEvent = function(e) {
         if (document.getElementById('q2-drop-area')) {
           if (e.clipboardData && e.clipboardData.items) {
             for (let i = 0; i < e.clipboardData.items.length; i++) {
@@ -916,61 +1072,8 @@ function showQuotationCreateForm2() {
             }
           }
         }
-      }
-      rightFrame.addEventListener('paste', handlePasteEvent);
-      $(rightFrame).one('DOMNodeRemoved', function() {
-        rightFrame.removeEventListener('paste', handlePasteEvent);
-      });
-      // --- End paste support ---
-      async function handleImageFile(file, fromDrop) {
-        if (!(file.type === 'image/jpeg' || file.type === 'image/png')) {
-          previewDiv.innerHTML = '<span style="color:red;">Only JPG or PNG files are allowed.</span>';
-          jpgFile = null;
-          return;
-        }
-        // If PNG, convert to JPG using canvas
-        if (file.type === 'image/png') {
-          const img = new Image();
-          img.onload = function() {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob(function(blob) {
-              if (!blob) {
-                previewDiv.innerHTML = '<span style="color:red;">Failed to convert PNG to JPG.</span>';
-                jpgFile = null;
-                return;
-              }
-              const jpg = new File([blob], 'artwork.jpg', { type: 'image/jpeg' });
-              setJpgFile(jpg, fromDrop, canvas.toDataURL('image/jpeg'));
-            }, 'image/jpeg', 0.92);
-          };
-          img.onerror = function() {
-            previewDiv.innerHTML = '<span style="color:red;">Failed to load PNG image.</span>';
-            jpgFile = null;
-          };
-          img.src = URL.createObjectURL(file);
-        } else {
-          // JPG: preview and set
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            setJpgFile(file, fromDrop, e.target.result);
-          };
-          reader.readAsDataURL(file);
-        }
-      }
-      function setJpgFile(file, fromDrop, dataUrl) {
-        jpgFile = file;
-        if ((fromDrop || fileInput) && fileInput) {
-          const dataTransfer = new DataTransfer();
-          dataTransfer.items.add(file);
-          fileInput.files = dataTransfer.files;
-        }
-        previewDiv.innerHTML = `<img src="${dataUrl}" style="max-width:180px;max-height:120px;border:1px solid #ccc;border-radius:6px;" />`;
-      }
-      window.q2_jpgFile = jpgFile;
+      };
+      $(rightFrame).on('paste', window.handlePasteEvent);
 
       // --- Dynamic Color Names logic for # of Colors ---
       function renderColorNames(num, prevVals) {
@@ -988,41 +1091,40 @@ function showQuotationCreateForm2() {
         });
         return prev;
       }
-      // Set default # of Colors to 1 on form load
-      $('#ht-num-colors').val(1);
-      // Render color name fields on # of Colors change
-      $('#quotation2-dynamic-fields').on('input', '#ht-num-colors', function() {
+      // Set default # of Colors to 1 on form load (or keep existing if loading record)
+      if (!quotationId) {
+         $numColors.val(1);
+         $colorNamesGroup.html(renderColorNames(1, {}));
+      } else {
+        // If loading a record, trigger input to render the correct number of color name fields
+        // This will be done after fetching and setting the value of $numColors
+      }
+      // Render color name fields on # of Colors change - use .off().on()
+      $('#quotation2-dynamic-fields').off('input', '#ht-num-colors').on('input', '#ht-num-colors', function() {
         const prevVals = getPrevColorNames();
         let num = parseInt($(this).val(), 10) || 0;
         if (num < 1) num = 1;
         let html = renderColorNames(num, prevVals);
         $('#color-names-group').html(html);
       });
-      // Initial render (preserve on reload)
-      setTimeout(function() {
-        $('#ht-num-colors').val(1); // Always default to 1
-        const prevVals = getPrevColorNames();
-        let num = 1;
-        $('#color-names-group').html(renderColorNames(num, prevVals));
-      }, 0);
-      // Dummy Fill Button Handler
+
+      // Dummy Fill Button Handler - use .off().on()
       $('#dummy-fill-btn').off('click').on('click', function() {
         // Reset all color name fields to blank and # of Colors to 1
-        $('#ht-num-colors').val(1);
-        $('#color-names-group').html(renderColorNames(1, {}));
+        $numColors.val(1);
+        $colorNamesGroup.html(renderColorNames(1, {}));
         // Random dummy data
         const qualities = ['PU', 'Silicon'];
-        const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Purple', 'Orange', 'Pink', 'Brown'];
+        const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Purple', 'Orange', 'Pink', 'Pink', 'Brown']; // Added duplicate Pink for testing
         const numColors = Math.floor(Math.random() * 3) + 1; // 1-3 colors
-        const width = Math.floor(Math.random() * 200) + 50; // 50-250
-        const length = Math.floor(Math.random() * 300) + 100; // 100-400
+        const width = (Math.random() * 100 + 50).toFixed(2); // 50-150
+        const length = (Math.random() * 150 + 100).toFixed(2); // 100-250
         // Select a random company and key person if customers data is available
         if (typeof customers !== 'undefined' && customers.length > 0) {
           const randomCompany = customers[Math.floor(Math.random() * customers.length)];
           // Set company
-          $('#quotation2-company-input').val(randomCompany.company);
+          $('#quotation2-company-input').val(randomCompany.company).attr('data-selected', 'true');
           $('#quotation2-company-id').val(randomCompany.id);
-          $('#quotation2-company-input').attr('data-selected', 'true');
           // Populate key people
           let kpOpts = '<option value="">-- Select Key Person --</option>';
           if (Array.isArray(randomCompany.keyPeople)) {
@@ -1039,104 +1141,133 @@ function showQuotationCreateForm2() {
         fetch('/quotation/generate_code')
           .then(response => response.json())
           .then(data => {
-            $('#customer-item-code').val(data.code);
+            $customerItemCode.val(data.code);
           });
         // --- L1, L2, L3, L4 logic ---
         // 1. L1: Quality
         const randomQuality = qualities[Math.floor(Math.random() * qualities.length)];
-        $('#ht-quality').val(randomQuality).trigger('change');
+        $quality.val(randomQuality).trigger('change');
         setTimeout(function() {
           // 2. L2: Flat or Raised
           if (randomQuality === 'PU') {
-            $('#ht-flat-or-raised').val('Flat').trigger('change');
+            $flatOrRaised.val('Flat').trigger('change');
             // L3: Direct (disabled), L4: disabled
-            $('#ht-direct-or-reverse').val('Direct').prop('disabled', true);
-            $('#ht-thickness').val('').prop('disabled', true);
+            $directOrReverse.val('Direct').prop('disabled', true);
+            $thickness.val('').prop('disabled', true);
           } else if (randomQuality === 'Silicon') {
             const flatOrRaised = ['Flat', 'Raised'][Math.floor(Math.random() * 2)];
-            $('#ht-flat-or-raised').val(flatOrRaised).trigger('change');
+            $flatOrRaised.val(flatOrRaised).trigger('change');
             setTimeout(function() {
               if (flatOrRaised === 'Flat') {
                 // L3: Direct (disabled), L4: disabled
-                $('#ht-direct-or-reverse').val('Direct').prop('disabled', true);
-                $('#ht-thickness').val('').prop('disabled', true);
+                $directOrReverse.val('Direct').prop('disabled', true);
+                $thickness.val('').prop('disabled', true);
               } else if (flatOrRaised === 'Raised') {
                 // L3: Direct or Reverse (enabled)
                 const directOrReverse = ['Direct', 'Reverse'][Math.floor(Math.random() * 2)];
-                $('#ht-direct-or-reverse').val(directOrReverse).prop('disabled', false).trigger('change');
+                $directOrReverse.val(directOrReverse).prop('disabled', false).trigger('change');
                 // L4: Enabled (0.1-1.5)
                 const thickness = (Math.random() * 1.4 + 0.1).toFixed(1); // 0.1-1.5
-                $('#ht-thickness').val(thickness).prop('disabled', false);
+                $thickness.val(thickness).prop('disabled', false);
               }
             }, 100);
           }
         }, 100);
         // Fill Number of Colors
-        $('#ht-num-colors').val(numColors).trigger('input');
-        setTimeout(function() {
-          // Fill Color Names (after input boxes are rendered)
-          const shuffledColors = [...colors].sort(() => 0.5 - Math.random());
-          $('#color-names-group input[type="text"]').each(function(i) {
-            $(this).val(shuffledColors[i % shuffledColors.length]);
-          });
-        }, 200);
+        $numColors.val(numColors);
+        // Trigger input AFTER setting the value to ensure color name fields are rendered
+        setTimeout(() => {
+             $numColors.trigger('input');
+            // Fill Color Names (after input boxes are rendered)
+            const shuffledColors = [...colors].sort(() => 0.5 - Math.random());
+            $colorNamesGroup.find('input[type="text"]').each(function(i) {
+              if (i < numColors) { // Only fill up to the number of colors
+                 $(this).val(shuffledColors[i % shuffledColors.length]);
+              }
+            });
+        }, 0); // Use 0 or small delay
         // Fill Width and Length
-        $('#ht-width').val(width);
-        $('#ht-length').val(length);
+        $htWidth.val(width);
+        $htLength.val(length);
       });
 
-      // Add JS logic for multi-artwork upload after DOM is ready
-      setTimeout(function() {
-        const multiDropArea = document.getElementById('multi-artwork-drop-area');
-        const multiInput = document.getElementById('multi-artwork-input');
-        const multiList = document.getElementById('multi-artwork-list');
-        let multiFiles = [];
-        function renderMultiList() {
-          multiList.innerHTML = '';
-          multiFiles.forEach((file, idx) => {
-            const li = document.createElement('li');
-            li.style.display = 'flex';
-            li.style.alignItems = 'center';
-            li.style.justifyContent = 'space-between';
-            li.style.padding = '4px 0';
-            li.innerHTML = `<span style='font-size:14px;'>${file.name}</span> <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
-            multiList.appendChild(li);
-          });
-          // Remove handler
-          multiList.querySelectorAll('button[data-idx]').forEach(btn => {
-            btn.onclick = function() {
-              const idx = parseInt(this.getAttribute('data-idx'));
-              multiFiles.splice(idx, 1);
-              renderMultiList();
-              window.multiArtworkFiles = multiFiles;
-            };
-          });
-          window.multiArtworkFiles = multiFiles;
+      // Add JS logic for multi-artwork upload after DOM is ready - use .off().on()
+      const multiDropArea = document.getElementById('multi-artwork-drop-area');
+      const multiInput = document.getElementById('multi-artwork-input');
+      const multiList = document.getElementById('multi-artwork-list');
+      // Clear previous files if any (only for new quotation form, handled by resetFields)
+      // For editing, we will populate this list from the backend data
+      if (!quotationId) {
+         window.multiArtworkFiles = [];
+         $multiArtworkList.html('');
+      }
+
+      function renderMultiList() {
+        multiList.innerHTML = '';
+        window.multiArtworkFiles.forEach((file, idx) => {
+          const ext = file.name.split('.').pop().toLowerCase();
+          let li = document.createElement('li');
+          li.style.display = 'flex';
+          li.style.alignItems = 'center';
+          li.style.justifyContent = 'space-between';
+          li.style.padding = '4px 0';
+          let content = '';
+
+          // Check if the file type is viewable/downloadable (image, pdf, common document types)
+          const isViewableOrDownloadable = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'ai', 'psd', 'svg'].includes(ext); // Added AI, PSD, SVG
+
+          if (isViewableOrDownloadable) {
+            // For viewable/downloadable files, show a hyperlink to open in a new tab
+            const url = URL.createObjectURL(file);
+            content = `<a href="${url}" target="_blank" style="color:#007bff;text-decoration:underline;">${file.name}</a>`;
+          } else {
+            // For other file types, just show the name
+            content = `<span>${file.name}</span>`;
+          }
+
+          li.innerHTML = `<span style='font-size:14px;'>${content}</span> <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
+          multiList.appendChild(li);
+        });
+        // Remove handler - use .off().on()
+        $(multiList).off('click', 'button[data-idx]').on('click', 'button[data-idx]', function() {
+          const idx = parseInt(this.getAttribute('data-idx'));
+          window.multiArtworkFiles.splice(idx, 1);
+          renderMultiList();
+          // No need to update window.multiArtworkFiles again here as splice modifies in place
+        });
+      }
+
+      $(multiDropArea).off('click').on('click', () => multiInput.click());
+      $(multiDropArea).off('dragover').on('dragover', e => { e.preventDefault(); multiDropArea.style.background = '#e3e7ea'; });
+      $(multiDropArea).off('dragleave').on('dragleave', e => { e.preventDefault(); multiDropArea.style.background = '#fafbfc'; });
+      $(multiDropArea).off('drop').on('drop', e => {
+        e.preventDefault();
+        multiDropArea.style.background = '#fafbfc';
+        if (e.dataTransfer.files && e.dataTransfer.files.length) {
+          for (let i = 0; i < e.dataTransfer.files.length; i++) {
+            window.multiArtworkFiles.push(e.dataTransfer.files[i]);
+          }
+          renderMultiList();
         }
-        multiDropArea.addEventListener('click', () => multiInput.click());
-        multiDropArea.addEventListener('dragover', e => { e.preventDefault(); multiDropArea.style.background = '#e3e7ea'; });
-        multiDropArea.addEventListener('dragleave', e => { e.preventDefault(); multiDropArea.style.background = '#fafbfc'; });
-        multiDropArea.addEventListener('drop', e => {
-          e.preventDefault();
-          multiDropArea.style.background = '#fafbfc';
-          if (e.dataTransfer.files && e.dataTransfer.files.length) {
-            for (let i = 0; i < e.dataTransfer.files.length; i++) {
-              multiFiles.push(e.dataTransfer.files[i]);
-            }
-            renderMultiList();
+      });
+      $(multiInput).off('change').on('change', e => {
+        if (multiInput.files && multiInput.files.length) {
+          for (let i = 0; i < multiInput.files.length; i++) {
+            window.multiArtworkFiles.push(multiInput.files[i]);
           }
-        });
-        multiInput.addEventListener('change', e => {
-          if (multiInput.files && multiInput.files.length) {
-            for (let i = 0; i < multiInput.files.length; i++) {
-              multiFiles.push(multiInput.files[i]);
-            }
-            renderMultiList();
-          }
-        });
-      }, 0);
-    });
-  });
+          renderMultiList();
+        }
+      });
+
+      // Initial render on form load (will be empty for new, or populated from backend for edit)
+      // This needs to be called after multiArtworkFiles is potentially populated from the backend.
+      // Putting this call inside the if(quotationId) block and the else block ensures this.
+      if (!quotationId) {
+         renderMultiList(); // Call initially for a new form
+      }
+
+    }); // End of $.get('/check_permission')
+  }); // End of fetchCustomers
 }
 
 function renderQuotationBlock(latestRecord) {

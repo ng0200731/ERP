@@ -1,4 +1,4 @@
-// Version v1.3.04
+// Version v1.3.05
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -551,7 +551,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.04</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.05</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -1099,7 +1099,13 @@ function showQuotationCreateForm2() {
             li.style.alignItems = 'center';
             li.style.justifyContent = 'space-between';
             li.style.padding = '4px 0';
-            li.innerHTML = `<span style='font-size:14px;'>${file.name}</span> <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
+            const icon = getFileIcon(file.type, file.name);
+            const size = (file.size/1024).toFixed(1) + ' KB';
+            let previewLink = '';
+            if (isPreviewable(file.type, file.name)) {
+              previewLink = `<div><a href="#" class="file-preview-link" data-idx="${idx}" style="font-size:13px; color:#007bff; text-decoration:underline;">Preview</a></div>`;
+            }
+            li.innerHTML = `<span style='font-size:18px;margin-right:8px;'>${icon}</span><span style='font-size:14px;'>${file.name} <span style='color:#888;font-size:12px;'>(${size})</span></span> ${previewLink} <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
             multiList.appendChild(li);
           });
           // Remove handler
@@ -1108,7 +1114,15 @@ function showQuotationCreateForm2() {
               const idx = parseInt(this.getAttribute('data-idx'));
               multiFiles.splice(idx, 1);
               renderMultiList();
-              window.multiArtworkFiles = multiFiles;
+            };
+          });
+          // Preview handler
+          multiList.querySelectorAll('.file-preview-link').forEach(link => {
+            link.onclick = function(e) {
+              e.preventDefault();
+              const idx = parseInt(this.getAttribute('data-idx'));
+              const file = multiFiles[idx];
+              showFilePreviewModal(file);
             };
           });
           window.multiArtworkFiles = multiFiles;
@@ -1228,3 +1242,108 @@ function renderQuotationBlock(latestRecord) {
   html += `</tbody></table>`;
   $('#quotation-block-content').html(html);
 }
+
+// --- Enhanced Multi-Artwork Upload Logic ---
+function getFileIcon(type, name) {
+  if (type.startsWith('image/')) return '🖼️';
+  if (type === 'application/pdf') return '📄';
+  if (name.endsWith('.ai')) return '🎨';
+  if (name.endsWith('.psd')) return '🅿️';
+  if (name.endsWith('.svg')) return '🔷';
+  if (type.startsWith('text/')) return '📄';
+  return '📎';
+}
+function isPreviewable(type, name) {
+  return (
+    type.startsWith('image/') ||
+    type === 'application/pdf' ||
+    type.startsWith('text/') ||
+    name.endsWith('.svg')
+  );
+}
+function ensureFilePreviewModal() {
+  let modal = document.getElementById('file-preview-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'file-preview-modal';
+    modal.className = 'modal';
+    modal.tabIndex = -1;
+    modal.role = 'dialog';
+    modal.style.display = 'none';
+    modal.style.position = 'fixed';
+    modal.style.zIndex = '9999';
+    modal.style.left = '0';
+    modal.style.top = '0';
+    modal.style.width = '100vw';
+    modal.style.height = '100vh';
+    modal.style.background = 'rgba(0,0,0,0.5)';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.innerHTML = `
+      <div class="modal-dialog" style="max-width:90vw; max-height:90vh; background:#fff; border-radius:8px; overflow:auto; position:relative;">
+        <button type="button" id="close-preview-modal" style="position:absolute; top:8px; right:12px; background:none; border:none; font-size:2rem; color:#888; cursor:pointer;">&times;</button>
+        <div id="file-preview-content" style="padding:24px; min-width:300px; min-height:200px; max-width:80vw; max-height:80vh; overflow:auto;"></div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('close-preview-modal').onclick = function() {
+      modal.style.display = 'none';
+      document.getElementById('file-preview-content').innerHTML = '';
+    };
+    modal.onclick = function(e) {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+        document.getElementById('file-preview-content').innerHTML = '';
+      }
+    };
+  }
+  return modal;
+}
+function showFilePreviewModal(file) {
+  const modal = ensureFilePreviewModal();
+  const content = document.getElementById('file-preview-content');
+  content.innerHTML = '<span style="color:#888;">Loading preview...</span>';
+  modal.style.display = 'flex';
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      content.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:70vh;" />`;
+    };
+    reader.readAsDataURL(file);
+  } else if (file.type === 'application/pdf') {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      content.innerHTML = `<embed src="${e.target.result}" type="application/pdf" width="100%" height="600px" style="max-width:80vw;max-height:70vh;" />`;
+    };
+    reader.readAsDataURL(file);
+  } else if (file.type.startsWith('text/') || file.name.endsWith('.svg')) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      content.innerHTML = `<pre style="max-width:80vw;max-height:70vh;overflow:auto;">${escapeHtml(e.target.result)}</pre>`;
+    };
+    reader.readAsText(file);
+  } else {
+    content.innerHTML = '<span style="color:#d00;">Preview not available for this file type.</span>';
+  }
+}
+function escapeHtml(text) {
+  var map = {
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+document.addEventListener('DOMContentLoaded', function() {
+  // Modal close logic
+  const modal = document.getElementById('file-preview-modal');
+  if (modal) {
+    document.getElementById('close-preview-modal').onclick = function() {
+      modal.style.display = 'none';
+      document.getElementById('file-preview-content').innerHTML = '';
+    };
+    modal.onclick = function(e) {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+        document.getElementById('file-preview-content').innerHTML = '';
+      }
+    };
+  }
+});

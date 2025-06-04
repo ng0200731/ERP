@@ -1,4 +1,4 @@
-// Version v1.3.06
+// Version v1.3.08
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -551,7 +551,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.06</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.07</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -1094,22 +1094,23 @@ function showQuotationCreateForm2() {
         function renderMultiList() {
           multiList.innerHTML = '';
           multiFiles.forEach((file, idx) => {
-            const li = document.createElement('li');
-            li.style.display = 'flex';
-            li.style.alignItems = 'center';
-            li.style.justifyContent = 'space-between';
-            li.style.padding = '4px 0';
             const icon = getFileIcon(file.type, file.name);
             const size = (file.size/1024).toFixed(1) + ' KB';
-            let previewLink = '';
-            let tooltip = '';
+            let previewCell = '';
             if (isPreviewable(file.type, file.name)) {
-              previewLink = `<div><a href="#" class="file-preview-link" data-idx="${idx}" style="font-size:13px; color:#007bff; text-decoration:underline;">Preview</a></div>`;
+              previewCell = `<a href="#" class="file-preview-link" data-idx="${idx}" style="font-size:13px; color:#007bff; text-decoration:underline;">Preview</a>`;
             } else {
-              tooltip = `<span class="no-preview-tooltip" style="font-size:11px;color:#888;margin-left:8px;cursor:help;" title="Preview not supported. Only images, PDF, and text files can be previewed.">No preview</span>`;
+              previewCell = `<span class="no-preview-tooltip" title="Preview not supported. Only images, PDF, and text files can be previewed." style="font-size:11px;color:#888;">No preview</span>`;
             }
-            li.innerHTML = `<span style='font-size:18px;margin-right:8px;'>${icon}</span><span style='font-size:14px;'>${file.name} <span style='color:#888;font-size:12px;'>(${size})</span></span> ${previewLink}${tooltip} <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
-            multiList.appendChild(li);
+            multiList.innerHTML += `
+              <li class="attachment-row">
+                <span class="attachment-icon">${icon}</span>
+                <span class="attachment-name">${file.name}</span>
+                <span class="attachment-size">${size}</span>
+                <span class="attachment-preview">${previewCell}</span>
+                <span class="attachment-delete"><button data-idx="${idx}" style="background:none;border:none;color:#d00;font-size:16px;cursor:pointer;">×</button></span>
+              </li>
+            `;
           });
           // Remove handler with confirm
           multiList.querySelectorAll('button[data-idx]').forEach(btn => {
@@ -1352,3 +1353,31 @@ document.addEventListener('DOMContentLoaded', function() {
     };
   }
 });
+
+// Add CSS for invisible table layout (each li is a grid row)
+(function addAttachmentListStyles() {
+  if (!document.getElementById('attachment-list-style')) {
+    const style = document.createElement('style');
+    style.id = 'attachment-list-style';
+    style.innerHTML = `
+      .attachment-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .attachment-row {
+        display: grid;
+        grid-template-columns: 32px 1fr 80px 90px 32px;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 2px;
+      }
+      .attachment-icon { text-align: center; }
+      .attachment-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .attachment-size { color: #888; font-size: 12px; text-align: right; }
+      .attachment-preview { text-align: center; }
+      .attachment-delete { text-align: center; }
+    `;
+    document.head.appendChild(style);
+  }
+})();

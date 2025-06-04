@@ -1,4 +1,4 @@
-// Version v1.3.08
+// Version v1.3.09
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -1295,12 +1295,6 @@ function ensureFilePreviewModal() {
       modal.style.display = 'none';
       document.getElementById('file-preview-content').innerHTML = '';
     };
-    modal.onclick = function(e) {
-      if (e.target === modal) {
-        modal.style.display = 'none';
-        document.getElementById('file-preview-content').innerHTML = '';
-      }
-    };
   }
   return modal;
 }
@@ -1344,12 +1338,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('close-preview-modal').onclick = function() {
       modal.style.display = 'none';
       document.getElementById('file-preview-content').innerHTML = '';
-    };
-    modal.onclick = function(e) {
-      if (e.target === modal) {
-        modal.style.display = 'none';
-        document.getElementById('file-preview-content').innerHTML = '';
-      }
     };
   }
 });

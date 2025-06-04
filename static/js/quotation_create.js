@@ -1,4 +1,4 @@
-// Version v1.3.05
+// Version v1.3.06
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -551,7 +551,7 @@ function showQuotationCreateForm2() {
       
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.05</span></h2>
+          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.06</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 ? `
@@ -1102,18 +1102,23 @@ function showQuotationCreateForm2() {
             const icon = getFileIcon(file.type, file.name);
             const size = (file.size/1024).toFixed(1) + ' KB';
             let previewLink = '';
+            let tooltip = '';
             if (isPreviewable(file.type, file.name)) {
               previewLink = `<div><a href="#" class="file-preview-link" data-idx="${idx}" style="font-size:13px; color:#007bff; text-decoration:underline;">Preview</a></div>`;
+            } else {
+              tooltip = `<span class="no-preview-tooltip" style="font-size:11px;color:#888;margin-left:8px;cursor:help;" title="Preview not supported. Only images, PDF, and text files can be previewed.">No preview</span>`;
             }
-            li.innerHTML = `<span style='font-size:18px;margin-right:8px;'>${icon}</span><span style='font-size:14px;'>${file.name} <span style='color:#888;font-size:12px;'>(${size})</span></span> ${previewLink} <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
+            li.innerHTML = `<span style='font-size:18px;margin-right:8px;'>${icon}</span><span style='font-size:14px;'>${file.name} <span style='color:#888;font-size:12px;'>(${size})</span></span> ${previewLink}${tooltip} <button data-idx='${idx}' style='background:none;border:none;color:#d00;font-size:16px;cursor:pointer;margin-left:8px;'>×</button>`;
             multiList.appendChild(li);
           });
-          // Remove handler
+          // Remove handler with confirm
           multiList.querySelectorAll('button[data-idx]').forEach(btn => {
             btn.onclick = function() {
               const idx = parseInt(this.getAttribute('data-idx'));
-              multiFiles.splice(idx, 1);
-              renderMultiList();
+              if (window.confirm('Are you sure you want to delete this attachment?')) {
+                multiFiles.splice(idx, 1);
+                renderMultiList();
+              }
             };
           });
           // Preview handler
@@ -1280,7 +1285,7 @@ function ensureFilePreviewModal() {
     modal.style.alignItems = 'center';
     modal.style.justifyContent = 'center';
     modal.innerHTML = `
-      <div class="modal-dialog" style="max-width:90vw; max-height:90vh; background:#fff; border-radius:8px; overflow:auto; position:relative;">
+      <div class="modal-dialog resizable-modal" style="resize:both;overflow:auto;max-width:90vw; max-height:90vh; background:#fff; border-radius:8px; position:relative; min-width:300px; min-height:200px;">
         <button type="button" id="close-preview-modal" style="position:absolute; top:8px; right:12px; background:none; border:none; font-size:2rem; color:#888; cursor:pointer;">&times;</button>
         <div id="file-preview-content" style="padding:24px; min-width:300px; min-height:200px; max-width:80vw; max-height:80vh; overflow:auto;"></div>
       </div>`;

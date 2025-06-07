@@ -115,6 +115,7 @@
         .sticky-itemcode { left: 450px; z-index: 104; max-width: 160px; min-width: 140px; overflow: hidden; white-space: nowrap; background: #fff !important; }
         .sticky-artwork { left: 610px; z-index: 105; max-width: 140px; min-width: 120px; overflow: hidden; background: #fff !important; }
         .sticky-status { left: 750px; z-index: 106; max-width: 100px; min-width: 80px; overflow: hidden; white-space: nowrap; background: #fff !important; box-shadow: 2px 0 6px -2px #bbb; }
+        .sticky-action { left: 850px; z-index: 107; max-width: 100px; min-width: 80px; overflow: hidden; white-space: nowrap; background: #fff !important; box-shadow: 2px 0 6px -2px #bbb; }
 
         .quotation-table th {
             position: sticky;
@@ -150,7 +151,7 @@
                     <th class="sticky sticky-itemcode" style="left:450px;top:0;z-index:204;background:#fff;">Item Code</th>
                     <th class="sticky sticky-artwork" style="left:610px;top:0;z-index:205;background:#fff;">Artwork</th>
                     <th class="sticky sticky-status" style="left:750px;top:0;z-index:206;background:#fff;box-shadow:2px 0 6px -2px #bbb;">Status</th>
-                    <th class="sticky sticky-status" style="left:850px;top:0;z-index:207;background:#fff;box-shadow:2px 0 6px -2px #bbb;">Action</th>
+                    <th class="sticky sticky-action" style="left:850px;top:0;z-index:207;background:#fff;box-shadow:2px 0 6px -2px #bbb;">Action</th>
                     <th>Creator</th>
                     <th>Quality</th>
                     <th>Flat/Raised</th>
@@ -203,7 +204,7 @@
                     <td class="sticky sticky-itemcode" style="font-family: monospace;">${row.customer_item_code || ''}</td>
                     <td class="sticky sticky-artwork">${row.artwork_image ? `<img src="/${row.artwork_image.replace(/^uploads\//, 'uploads/')}" style="max-width:100%;max-height:60px;object-fit:contain;display:block;margin:auto;border:1px solid #ccc;border-radius:4px;" loading="lazy">` : ''}</td>
                     <td class="sticky sticky-status">${row.status || '-'}</td>
-                    <td>${row.action ? `<button class='action-btn' data-id='${row.id}'>Action</button>` : '-'}</td>
+                    <td class="sticky sticky-action">${row.action ? `<button class='action-btn' data-id='${row.id}'>Action</button>` : '-'}</td>
                     <td class="creator-email">${formatCreatorEmail(row.creator_email) || ''}</td>
                     <td>${row.quality || ''}</td>
                     <td>${row.flat_or_raised || ''}</td>

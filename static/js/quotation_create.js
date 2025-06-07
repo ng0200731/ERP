@@ -1310,11 +1310,13 @@ function showFilePreviewModal(file) {
     };
     reader.readAsDataURL(file);
   } else if (file.type === 'application/pdf') {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      content.innerHTML = `<embed src="${e.target.result}" type="application/pdf" width="100%" height="600px" style="max-width:80vw;max-height:70vh;" />`;
+    const blobUrl = URL.createObjectURL(file);
+    content.innerHTML = `<embed src="${blobUrl}" type="application/pdf" width="100%" height="600px" style="max-width:80vw;max-height:70vh;" />`;
+    document.getElementById('close-preview-modal').onclick = function() {
+      modal.style.display = 'none';
+      content.innerHTML = '';
+      URL.revokeObjectURL(blobUrl);
     };
-    reader.readAsDataURL(file);
   } else if (file.type.startsWith('text/') || file.name.endsWith('.svg')) {
     const reader = new FileReader();
     reader.onload = function(e) {

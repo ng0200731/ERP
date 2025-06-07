@@ -49,7 +49,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>Quotation Records <span class="version">v1.2.79</span></h1>
+        <h1>Quotation Records <span class="version">v1.3.09</span></h1>
         <pre>{{ data }}</pre>
     </div>
 </body>

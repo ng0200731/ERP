@@ -130,7 +130,7 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.2.80</span>
+            <span class="version-tag">v1.3.09</span>
         </div>
         <button class="refresh-btn" onclick="loadData()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -150,6 +150,7 @@
                     <th class="sticky sticky-itemcode" style="left:450px;top:0;z-index:204;background:#fff;">Item Code</th>
                     <th class="sticky sticky-artwork" style="left:610px;top:0;z-index:205;background:#fff;">Artwork</th>
                     <th class="sticky sticky-status" style="left:750px;top:0;z-index:206;background:#fff;box-shadow:2px 0 6px -2px #bbb;">Status</th>
+                    <th class="sticky sticky-status" style="left:850px;top:0;z-index:207;background:#fff;box-shadow:2px 0 6px -2px #bbb;">Action</th>
                     <th>Creator</th>
                     <th>Quality</th>
                     <th>Flat/Raised</th>
@@ -191,7 +192,7 @@
 
         function createTableRows(data) {
             if (!data || data.length === 0) {
-                return '<tr><td colspan="15" style="text-align: center;">No quotation records found.</td></tr>';
+                return '<tr><td colspan="16" style="text-align: center;">No quotation records found.</td></tr>';
             }
 
             return data.map(row => `
@@ -202,6 +203,7 @@
                     <td class="sticky sticky-itemcode" style="font-family: monospace;">${row.customer_item_code || ''}</td>
                     <td class="sticky sticky-artwork">${row.artwork_image ? `<img src="/${row.artwork_image.replace(/^uploads\//, 'uploads/')}" style="max-width:100%;max-height:60px;object-fit:contain;display:block;margin:auto;border:1px solid #ccc;border-radius:4px;" loading="lazy">` : ''}</td>
                     <td class="sticky sticky-status">${row.status || '-'}</td>
+                    <td>${row.action || '-'}</td>
                     <td class="creator-email">${formatCreatorEmail(row.creator_email) || ''}</td>
                     <td>${row.quality || ''}</td>
                     <td>${row.flat_or_raised || ''}</td>
@@ -234,7 +236,7 @@
                 .catch(error => {
                     console.error('Error loading data:', error);
                     document.getElementById('quotation-table-body').innerHTML = 
-                        `<tr><td colspan="15" style="text-align: center; color: red;">Error loading data: ${error.message}</td></tr>`;
+                        `<tr><td colspan="16" style="text-align: center; color: red;">Error loading data: ${error.message}</td></tr>`;
                 });
         }
 

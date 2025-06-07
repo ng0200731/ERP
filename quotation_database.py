@@ -46,6 +46,8 @@ class Quotation(Base):
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     artwork_image = Column(String(255))
     status = Column(String(50), nullable=True, default='-')  # Quotation status
+    quotation_block = Column(String, nullable=True)  # Stores the full quotation block as text
+    action = Column(String(50), nullable=True, default='-')  # Action column v1.3.09
 
 def get_db():
     try:

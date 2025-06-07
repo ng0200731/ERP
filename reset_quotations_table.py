@@ -1,4 +1,4 @@
-# Version v1.2.80
+# Version v1.3.09
 from quotation_database import Base, Quotation, get_db
 import sqlite3
 
@@ -15,7 +15,14 @@ def reset_quotations_table():
     print("Quotations table has been reset with the latest schema (including artwork_image and status).")
 
     conn = sqlite3.connect('database.db')
-    conn.execute("ALTER TABLE quotations ADD COLUMN artwork_image VARCHAR(255)")
+    try:
+        conn.execute("ALTER TABLE quotations ADD COLUMN artwork_image VARCHAR(255)")
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE quotations ADD COLUMN action VARCHAR(50) DEFAULT '-'")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 

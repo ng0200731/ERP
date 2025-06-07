@@ -904,7 +904,62 @@ def save_quotation():
             # Begin transaction
             db_session.begin()
             current_time = datetime.utcnow()
-            # Always create a new Quotation object (no duplicate check)
+            # --- Build Quotation Block (with dimming logic) ---
+            def fmt(val, decimals=2):
+                if val == '-' or val is None:
+                    return '-'
+                return f"{float(val):.{decimals}f}"
+            xVal = fmt(db_length, 2) if db_length is not None else '-'
+            yVal = fmt(db_width, 2) if db_width is not None else '-'
+            inputSummary = f"({quality}, {flat_or_raised}, {direct_or_reverse}, {thickness if thickness else '-'}, {num_colors})"
+            # Combination calculations
+            user_length = safe_float(data.get('length'))
+            user_width = safe_float(data.get('width'))
+            mPlus6 = user_length + 6 if user_length else None
+            nPlus6 = user_width + 6 if user_width else None
+            combA = combB = combAeq = combBeq = '-'
+            if db_length and db_width and user_length and user_width:
+                xDivM = int(db_length // mPlus6)
+                yDivN = int(db_width // nPlus6)
+                yDivM = int(db_width // mPlus6)
+                xDivN = int(db_length // nPlus6)
+                combA = xDivM * yDivN
+                combB = yDivM * xDivN
+                combAeq = f"({fmt(db_length,2)} / ({fmt(user_length,2)}+6)) × ({fmt(db_width,2)} / ({fmt(user_width,2)}+6)) = {xDivM} × {yDivN} = {combA} (# per 1 pet)"
+                combBeq = f"({fmt(db_width,2)} / ({fmt(user_length,2)}+6)) × ({fmt(db_length,2)} / ({fmt(user_width,2)}+6)) = {yDivM} × {xDivN} = {combB} (# per 1 pet)"
+            # Dimming logic
+            combAColor = combBColor = ''
+            if isinstance(combA, int) and isinstance(combB, int):
+                if combA < combB:
+                    combAColor = '[dim]'
+                elif combA > combB:
+                    combBColor = '[dim]'
+            # Cost per label
+            costPerLabel = '-'
+            if price != '-' and isinstance(combA, int) and isinstance(combB, int):
+                maxComb = max(combA, combB)
+                if maxComb > 0:
+                    costPerLabel = float(price) / maxComb
+            # Tier quotation
+            tiers = [
+                (1000, 1.10), (3000, 1.05), (5000, 1.03), (10000, 1.00),
+                (30000, 0.95), (50000, 0.90), (100000, 0.85)
+            ]
+            tier_lines = []
+            for qty, factor in tiers:
+                tprice = '-'
+                if costPerLabel != '-' and isinstance(costPerLabel, float):
+                    tprice = f"{costPerLabel * factor * 1000:.2f}"
+                tier_lines.append(f"{qty:,}\t{tprice}")
+            # Build block as plain text, using [dim] to mark dimmed lines
+            block = f"Quotation\n"
+            block += f"1) Cost of PET ({xVal} × {yVal}): {inputSummary} = {fmt(price)}\n"
+            block += f"2) Combination A: {'[dim] ' if combAColor=='[dim]' else ''}{combAeq}\n"
+            block += f"   Combination B: {'[dim] ' if combBColor=='[dim]' else ''}{combBeq}\n"
+            block += f"3) Cost per 1 label: {fmt(costPerLabel)}\n"
+            block += f"4) Tier quotation\nQty\tPrice\n"
+            block += '\n'.join(tier_lines)
+            # --- END Quotation Block ---
             quotation = Quotation(
                 customer_name=data.get('customer_name', ''),
                 key_person_name=data.get('key_person_name', ''),
@@ -920,7 +975,9 @@ def save_quotation():
                 price=price if price != '-' else None,
                 created_at=current_time,
                 last_updated=current_time,
-                artwork_image=artwork_image_path
+                artwork_image=artwork_image_path,
+                quotation_block=block,
+                action='created'
             )
             db_session.add(quotation)
             db_session.commit()
@@ -965,7 +1022,8 @@ def list_quotations():
                 'price': float(q.price) if q.price else None,
                 'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S') if q.created_at else None,
                 'last_updated': q.last_updated.strftime('%Y-%m-%d %H:%M:%S') if q.last_updated else None,
-                'artwork_image': q.artwork_image if q.artwork_image else None
+                'artwork_image': q.artwork_image if q.artwork_image else None,
+                'action': q.action if hasattr(q, 'action') else '-'
             }
             records.append(record)
         

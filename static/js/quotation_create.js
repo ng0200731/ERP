@@ -542,19 +542,20 @@ function renderDynamicFieldsBlank(productTypeFields) {
   });
 }
 
-function showQuotationCreateForm2() {
+function showQuotationCreateForm2(viewMode = false) {
   // First fetch customers for company search and check permission level
   fetchCustomers(function() {
     // Get the user permission level
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
-      
+      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT)';
+      let version = viewMode ? 'v1.0.0' : 'v1.3.07';
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.07</span></h2>
+          <h2>${headerTitle} <span style='font-size:1rem;color:#888;'>${version}</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
-              ${userLevel >= 3 ? `
+              ${userLevel >= 3 && !viewMode ? `
               <!-- DATABASE BUTTON - ONLY FOR LEVEL 3 USERS -->
               <div style="background-color: #f0f8ff; border: 2px solid #4a90e2; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center;">
                 <button id="btn-ht-database" type="button" style="background-color: #4a90e2; color: white; font-size: 18px; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">

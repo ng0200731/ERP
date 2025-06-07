@@ -200,6 +200,14 @@ $(function() {
   $('#btn-quotation2-create2').click(function() {
     showQuotationCreateForm2();
   });
+  // Handle Quotation 2 Create (HT) button click
+  $('#btn-quotation2-create2').on('click', function() {
+    showQuotationCreateForm2();
+  });
+  // Handle Quotation 2 View (HT) button click
+  $('#btn-quotation2-view2').on('click', function() {
+    showQuotationCreateForm2(true); // pass viewMode=true
+  });
   $('#btn-view-quotations').click(function() {
     $('#right-frame').load('/view_quotations_simple');
   });

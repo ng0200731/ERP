@@ -1301,22 +1301,110 @@ function ensureFilePreviewModal() {
 function showFilePreviewModal(file) {
   const modal = ensureFilePreviewModal();
   const content = document.getElementById('file-preview-content');
-  content.innerHTML = '<span style="color:#888;">Loading preview...</span>';
+  content.innerHTML = `
+    <div id="pdfjs-controls" style="text-align:center; margin-bottom:8px;">
+      <button id="pdfjs-prev">Prev</button>
+      <span id="pdfjs-page-info">Page <span id="pdfjs-page-num"></span> / <span id="pdfjs-page-count"></span></span>
+      <button id="pdfjs-next">Next</button>
+      <button id="pdfjs-zoom-out">-</button>
+      <span>Zoom</span>
+      <button id="pdfjs-zoom-in">+</button>
+      <button id="pdfjs-print">Print</button>
+      <button id="pdfjs-download">Download</button>
+    </div>
+    <div id="pdfjs-viewer" style="width:100%;height:600px;overflow:auto;background:#222;"></div>
+  `;
   modal.style.display = 'flex';
-  if (file.type.startsWith('image/')) {
+  if (file.type === 'application/pdf') {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const pdfData = new Uint8Array(e.target.result);
+      let pdfDoc = null;
+      let currentPage = 1;
+      let totalPages = 1;
+      let scale = 1.2;
+      let renderTask = null;
+      const viewer = document.getElementById('pdfjs-viewer');
+      function renderPage(num) {
+        if (renderTask) renderTask.cancel();
+        pdfDoc.getPage(num).then(function(page) {
+          const viewport = page.getViewport({ scale: scale });
+          viewer.innerHTML = '';
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          viewer.appendChild(canvas);
+          renderTask = page.render({canvasContext: context, viewport: viewport});
+          document.getElementById('pdfjs-page-num').textContent = num;
+          document.getElementById('pdfjs-page-count').textContent = totalPages;
+        });
+      }
+      pdfjsLib.getDocument({data: pdfData}).promise.then(function(pdf) {
+        pdfDoc = pdf;
+        totalPages = pdf.numPages;
+        renderPage(currentPage);
+      });
+      document.getElementById('pdfjs-prev').onclick = function() {
+        if (currentPage <= 1) return;
+        currentPage--;
+        renderPage(currentPage);
+      };
+      document.getElementById('pdfjs-next').onclick = function() {
+        if (currentPage >= totalPages) return;
+        currentPage++;
+        renderPage(currentPage);
+      };
+      document.getElementById('pdfjs-zoom-in').onclick = function() {
+        scale = Math.min(scale + 0.2, 3.0);
+        renderPage(currentPage);
+      };
+      document.getElementById('pdfjs-zoom-out').onclick = function() {
+        scale = Math.max(scale - 0.2, 0.4);
+        renderPage(currentPage);
+      };
+      document.getElementById('pdfjs-print').onclick = function() {
+        // Print current page as image
+        pdfDoc.getPage(currentPage).then(function(page) {
+          const viewport = page.getViewport({ scale: scale });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          page.render({canvasContext: context, viewport: viewport}).promise.then(function() {
+            const dataUrl = canvas.toDataURL();
+            const win = window.open('', '_blank');
+            win.document.write('<img src="' + dataUrl + '" style="width:100%">');
+            win.print();
+          });
+        });
+      };
+      document.getElementById('pdfjs-download').onclick = function() {
+        // Download the original file
+        const blob = new Blob([pdfData], {type: 'application/pdf'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name || 'document.pdf';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      };
+    };
+    reader.readAsArrayBuffer(file);
+    document.getElementById('close-preview-modal').onclick = function() {
+      modal.style.display = 'none';
+      content.innerHTML = '';
+    };
+  } else if (file.type.startsWith('image/')) {
     const reader = new FileReader();
     reader.onload = function(e) {
       content.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:70vh;" />`;
     };
     reader.readAsDataURL(file);
-  } else if (file.type === 'application/pdf') {
-    const blobUrl = URL.createObjectURL(file);
-    content.innerHTML = `<embed src="${blobUrl}" type="application/pdf" width="100%" height="600px" style="max-width:80vw;max-height:70vh;" />`;
-    document.getElementById('close-preview-modal').onclick = function() {
-      modal.style.display = 'none';
-      content.innerHTML = '';
-      URL.revokeObjectURL(blobUrl);
-    };
   } else if (file.type.startsWith('text/') || file.name.endsWith('.svg')) {
     const reader = new FileReader();
     reader.onload = function(e) {

@@ -1043,7 +1043,8 @@ def save_quotation():
                     # Make a relative URL for the image
                     artwork_image_url = request.url_root.rstrip('/') + '/uploads/artwork_images/' + os.path.basename(artwork_image_path)
                 quotation_block = block
-                # HTML email body (2-column layout)
+                # Prepare for inline image embedding
+                img_cid = 'artwork_image'
                 html_body = f'''
 <table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; background: #f6f8fa; padding: 32px;">
   <tr>
@@ -1080,7 +1081,7 @@ def save_quotation():
           <td valign="top" width="50%" style="padding-left: 16px;">
             <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px;">Artwork Image</h3>
             <div style="padding: 12px 0;">
-              {f'<img src="{artwork_image_url}" alt="Artwork Image" style="max-width: 320px; border-radius: 6px; border: 1px solid #e9ecef;">' if artwork_image_url else '<span style="color:#888;">(No image uploaded)</span>'}
+              {f'<img src="cid:{img_cid}" alt="Artwork Image" style="max-width: 320px; border-radius: 6px; border: 1px solid #e9ecef;">' if artwork_image_path else '<span style="color:#888;">(No image uploaded)</span>'}
             </div>
             <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-top: 24px;">Quotation</h3>
             <pre style="background: #f8f9fa; color: #333; padding: 16px; border-radius: 6px; font-size: 15px; white-space: pre-wrap;">{quotation_block}</pre>
@@ -1102,6 +1103,14 @@ def save_quotation():
 '''
                 msg = Message('Your Quotation Submission – Confirmation & Details', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
                 msg.html = html_body
+                # Attach the artwork image inline if present
+                if artwork_image_path and os.path.exists(artwork_image_path):
+                    with open(artwork_image_path, 'rb') as img_file:
+                        msg.attach(filename=os.path.basename(artwork_image_path),
+                                   content_type='image/jpeg',
+                                   data=img_file.read(),
+                                   disposition='inline',
+                                   headers={'Content-ID': f'<{img_cid}>'})
                 mail.send(msg)
                 print(f"[INFO] Quotation email sent to {user_email}")
             except Exception as e:

@@ -1046,53 +1046,53 @@ def save_quotation():
                 # Prepare for inline image embedding
                 img_cid = 'artwork_image'
                 html_body = f'''
-<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; background: #f6f8fa; padding: 32px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 15px; background: #f6f8fa; padding: 32px;">
   <tr>
     <td align="center">
-      <table width="700" cellpadding="0" cellspacing="0" style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; padding: 32px;">
+      <table width="700" cellpadding="0" cellspacing="0" style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; padding: 32px; font-family: Arial, sans-serif; font-size: 15px;">
         <tr>
-          <td colspan="2" align="center" style="padding-bottom: 24px;">
-            <h2 style="color: #2c3e50; margin: 0;">Quotation Submitted Successfully</h2>
-            <p style="color: #888; margin: 8px 0 0 0;">Thank you for your submission. Here are your quotation details:</p>
+          <td colspan="2" align="center" style="padding-bottom: 24px; font-family: Arial, sans-serif; font-size: 15px;">
+            <h2 style="color: #2c3e50; margin: 0; font-family: Arial, sans-serif; font-size: 15px;">Quotation Submitted Successfully</h2>
+            <p style="color: #888; margin: 8px 0 0 0; font-family: Arial, sans-serif; font-size: 15px;">Thank you for your submission. Here are your quotation details:</p>
           </td>
         </tr>
         <tr>
           <!-- Column 1 -->
-          <td valign="top" width="50%" style="padding-right: 16px;">
-            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px;">Customer Details</h3>
-            <table width="100%" cellpadding="4" cellspacing="0" style="color: #333;">
-              <tr><td width="120" style="font-weight: bold;">Company:</td><td>{company}</td></tr>
-              <tr><td style="font-weight: bold;">Key Person:</td><td>{key_person_name} ({key_person_position})</td></tr>
-              <tr><td style="font-weight: bold;">Email:</td><td>{key_person_email}</td></tr>
+          <td valign="top" width="50%" style="padding-right: 16px; font-family: Arial, sans-serif; font-size: 15px;">
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; font-family: Arial, sans-serif; font-size: 15px;">Customer Details</h3>
+            <table width="100%" cellpadding="4" cellspacing="0" style="color: #333; font-family: Arial, sans-serif; font-size: 15px;">
+              <tr><td width="120" style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Company:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{company}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Key Person:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{key_person_name} ({key_person_position})</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Email:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{key_person_email}</td></tr>
             </table>
-            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-top: 24px;">Item Information</h3>
-            <table width="100%" cellpadding="4" cellspacing="0" style="color: #333;">
-              <tr><td width="120" style="font-weight: bold;">Item Code:</td><td>{item_code}</td></tr>
-              <tr><td style="font-weight: bold;">Product:</td><td>{product_name}</td></tr>
-              <tr><td style="font-weight: bold;">Quality:</td><td>{quality}</td></tr>
-              <tr><td style="font-weight: bold;">Style:</td><td>{flat_or_raised}</td></tr>
-              <tr><td style="font-weight: bold;">Print Type:</td><td>{direct_or_reverse}</td></tr>
-              <tr><td style="font-weight: bold;">Thickness:</td><td>{thickness} mm</td></tr>
-              <tr><td style="font-weight: bold;"># of Colors:</td><td>{num_colors} ({', '.join(color_names)})</td></tr>
-              <tr><td style="font-weight: bold;">Dimensions:</td><td>{width} mm × {length} mm</td></tr>
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-top: 24px; font-family: Arial, sans-serif; font-size: 15px;">Item Information</h3>
+            <table width="100%" cellpadding="4" cellspacing="0" style="color: #333; font-family: Arial, sans-serif; font-size: 15px;">
+              <tr><td width="120" style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Item Code:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{item_code}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Product:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{product_name}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Quality:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{quality}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Style:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{flat_or_raised}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Print Type:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{direct_or_reverse}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Thickness:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{thickness} mm</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;"># of Colors:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{num_colors} ({', '.join(color_names)})</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Dimensions:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{width} mm × {length} mm</td></tr>
             </table>
           </td>
           <!-- Column 2 -->
-          <td valign="top" width="50%" style="padding-left: 16px;">
-            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px;">Artwork Image</h3>
-            <div style="padding: 12px 0;">
-              {f'<img src="cid:{img_cid}" alt="Artwork Image" style="max-width: 320px; border-radius: 6px; border: 1px solid #e9ecef;">' if artwork_image_path else '<span style="color:#888;">(No image uploaded)</span>'}
+          <td valign="top" width="50%" style="padding-left: 16px; font-family: Arial, sans-serif; font-size: 15px;">
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; font-family: Arial, sans-serif; font-size: 15px;">Artwork Image</h3>
+            <div style="padding: 12px 0; font-family: Arial, sans-serif; font-size: 15px;">
+              {f'<img src="cid:{img_cid}" alt="Artwork Image" style="max-width: 320px; border-radius: 6px; border: 1px solid #e9ecef; font-family: Arial, sans-serif; font-size: 15px;">' if artwork_image_path else '<span style="color:#888; font-family: Arial, sans-serif; font-size: 15px;">(No image uploaded)</span>'}
             </div>
-            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-top: 24px;">Quotation</h3>
-            <pre style="background: #f8f9fa; color: #333; padding: 16px; border-radius: 6px; font-size: 15px; white-space: pre-wrap;">{quotation_block}</pre>
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-top: 24px; font-family: Arial, sans-serif; font-size: 15px;">Quotation</h3>
+            <pre style="background: #f8f9fa; color: #333; padding: 16px; border-radius: 6px; font-size: 15px; white-space: pre-wrap; font-family: Arial, sans-serif;">{quotation_block}</pre>
           </td>
         </tr>
         <tr>
-          <td colspan="2" align="center" style="padding-top: 32px; color: #888; font-size: 13px;">
+          <td colspan="2" align="center" style="padding-top: 32px; color: #888; font-size: 15px; font-family: Arial, sans-serif;">
             <hr style="border: none; border-top: 1px solid #e9ecef; margin: 24px 0;">
-            <div>
+            <div style="font-family: Arial, sans-serif; font-size: 15px;">
               <span>Thank you for choosing <b>Your Company Name</b>.</span><br>
-              <span style="font-size: 12px;">This is an automated message. Please do not reply directly to this email.</span>
+              <span style="font-size: 13px;">This is an automated message. Please do not reply directly to this email.</span>
             </div>
           </td>
         </tr>

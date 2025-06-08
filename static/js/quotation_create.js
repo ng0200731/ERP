@@ -1466,7 +1466,7 @@ function showQuotationViewForm2(quotationId) {
   // Use the same layout as create, but all fields are disabled/read-only
   $('#right-frame').html(`
     <div style="padding:32px;max-width:900px; min-height:100vh;">
-      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.2</span></h2>
+      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.2 [quotation_create.js]</span></h2>
       <div style="display:flex; gap:32px; align-items:flex-start;">
         <div style="flex:2; min-width:340px;">
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
@@ -1600,6 +1600,17 @@ function showQuotationViewForm2(quotationId) {
           $('#view-multi-artwork-list').html('<li style="color:#888;">No additional artworks uploaded.</li>');
         }
         $('#view-quotation-block').text(data.quotation_block ?? '-');
+        // Show color names as separate read-only input fields and as JSON
+        $('#view-color-names').remove();
+        if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
+          let colorInputs = '<div id="view-color-names" style="margin-top:4px;">';
+          data.color_names.forEach((c, i) => {
+            colorInputs += `<input type='text' value='${c}' readonly style='width:90%;margin-bottom:2px;background:#f8f9fa;border:1px solid #ccc;'>`;
+          });
+          colorInputs += `<div style='font-size:12px;color:#888;margin-top:2px;'>JSON: ${JSON.stringify(data.color_names)}</div>`;
+          colorInputs += '</div>';
+          $('#view-num-colors').parent().append(colorInputs);
+        }
       })
       .catch(err => {
         $('#view-company').val('Error loading quotation.');

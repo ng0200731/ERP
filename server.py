@@ -1017,6 +1017,96 @@ def save_quotation():
                         )
                         db_session.add(attachment)
                 db_session.commit()
+            # --- Send HTML email to user ---
+            try:
+                # Prepare data for email
+                company = data.get('customer_name', '-')
+                key_person_name = data.get('key_person_name', '-')
+                key_person_position = data.get('key_person_position', '-')
+                key_person_email = user_email
+                item_code = data.get('customer_item_code', '-')
+                product_name = data.get('product_name', '-')
+                quality = quality or '-'
+                flat_or_raised = flat_or_raised or '-'
+                direct_or_reverse = direct_or_reverse or '-'
+                thickness = thickness or '-'
+                num_colors = num_colors or '-'
+                color_names = []
+                try:
+                    color_names = json.loads(data.get('color_names', '[]')) if isinstance(data.get('color_names'), str) else data.get('color_names', [])
+                except Exception:
+                    color_names = []
+                width = data.get('width', '-')
+                length = data.get('length', '-')
+                artwork_image_url = ''
+                if artwork_image_path:
+                    # Make a relative URL for the image
+                    artwork_image_url = request.url_root.rstrip('/') + '/uploads/artwork_images/' + os.path.basename(artwork_image_path)
+                quotation_block = block
+                # HTML email body (2-column layout)
+                html_body = f'''
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; background: #f6f8fa; padding: 32px;">
+  <tr>
+    <td align="center">
+      <table width="700" cellpadding="0" cellspacing="0" style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; padding: 32px;">
+        <tr>
+          <td colspan="2" align="center" style="padding-bottom: 24px;">
+            <h2 style="color: #2c3e50; margin: 0;">Quotation Submitted Successfully</h2>
+            <p style="color: #888; margin: 8px 0 0 0;">Thank you for your submission. Here are your quotation details:</p>
+          </td>
+        </tr>
+        <tr>
+          <!-- Column 1 -->
+          <td valign="top" width="50%" style="padding-right: 16px;">
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px;">Customer Details</h3>
+            <table width="100%" cellpadding="4" cellspacing="0" style="color: #333;">
+              <tr><td width="120" style="font-weight: bold;">Company:</td><td>{company}</td></tr>
+              <tr><td style="font-weight: bold;">Key Person:</td><td>{key_person_name} ({key_person_position})</td></tr>
+              <tr><td style="font-weight: bold;">Email:</td><td>{key_person_email}</td></tr>
+            </table>
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-top: 24px;">Item Information</h3>
+            <table width="100%" cellpadding="4" cellspacing="0" style="color: #333;">
+              <tr><td width="120" style="font-weight: bold;">Item Code:</td><td>{item_code}</td></tr>
+              <tr><td style="font-weight: bold;">Product:</td><td>{product_name}</td></tr>
+              <tr><td style="font-weight: bold;">Quality:</td><td>{quality}</td></tr>
+              <tr><td style="font-weight: bold;">Style:</td><td>{flat_or_raised}</td></tr>
+              <tr><td style="font-weight: bold;">Print Type:</td><td>{direct_or_reverse}</td></tr>
+              <tr><td style="font-weight: bold;">Thickness:</td><td>{thickness} mm</td></tr>
+              <tr><td style="font-weight: bold;"># of Colors:</td><td>{num_colors} ({', '.join(color_names)})</td></tr>
+              <tr><td style="font-weight: bold;">Dimensions:</td><td>{width} mm × {length} mm</td></tr>
+            </table>
+          </td>
+          <!-- Column 2 -->
+          <td valign="top" width="50%" style="padding-left: 16px;">
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px;">Artwork Image</h3>
+            <div style="padding: 12px 0;">
+              {f'<img src="{artwork_image_url}" alt="Artwork Image" style="max-width: 320px; border-radius: 6px; border: 1px solid #e9ecef;">' if artwork_image_url else '<span style="color:#888;">(No image uploaded)</span>'}
+            </div>
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-top: 24px;">Quotation</h3>
+            <pre style="background: #f8f9fa; color: #333; padding: 16px; border-radius: 6px; font-size: 15px; white-space: pre-wrap;">{quotation_block}</pre>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" align="center" style="padding-top: 32px; color: #888; font-size: 13px;">
+            <hr style="border: none; border-top: 1px solid #e9ecef; margin: 24px 0;">
+            <div>
+              <span>Thank you for choosing <b>Your Company Name</b>.</span><br>
+              <span style="font-size: 12px;">This is an automated message. Please do not reply directly to this email.</span>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+'''
+                msg = Message('Your Quotation Submission – Confirmation & Details', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
+                msg.html = html_body
+                mail.send(msg)
+                print(f"[INFO] Quotation email sent to {user_email}")
+            except Exception as e:
+                print(f"[ERROR] Failed to send quotation email: {e}")
+            # --- End email logic ---
             return jsonify({'message': 'Quotation saved successfully', 'action': 'created', 'price': price, 'length': db_length, 'width': db_width}), 200
         except Exception as e:
             db_session.rollback()

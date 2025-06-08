@@ -1,0 +1,7 @@
+newapi
+https://newsapi.org/register/success
+52692c2490044f5da607e13d07b062e1
+
+
+openwrouter
+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

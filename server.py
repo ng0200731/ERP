@@ -1092,6 +1092,10 @@ def view_quotations_simple():
 def uploaded_artwork_image(filename):
     return send_from_directory('uploads/artwork_images', filename)
 
+@app.route('/uploads/attachments/<filename>')
+def uploaded_attachment(filename):
+    return send_from_directory('uploads/attachments', filename)
+
 @app.route('/quotation/api/<int:quotation_id>')
 def api_get_quotation(quotation_id):
     from sqlalchemy.orm import sessionmaker

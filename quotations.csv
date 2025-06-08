@@ -55,3 +55,17 @@ Qty	Price
 30,000	2850.00
 50,000	2700.00
 100,000	2550.00",created
+5,(dummy) Stark Industries,(dummy) Eve 6,RUK-99529,eric.brilliant@gmail.com,Silicon,Flat,Direct,0.0,3,390.0,540.0,26.0,2025-06-08 09:10:57.230071,2025-06-08 09:10:57.230071,uploads\artwork_images\20250608091057_artwork.jpg,-,"Quotation
+1) Cost of PET (390.00 × 540.00): (Silicon, Flat, Direct, -, 3) = 26.00
+2) Combination A: (390.00 / (180.00+6)) × (540.00 / (188.00+6)) = 2 × 2 = 4 (# per 1 pet)
+   Combination B: (540.00 / (180.00+6)) × (390.00 / (188.00+6)) = 2 × 2 = 4 (# per 1 pet)
+3) Cost per 1 label: 6.50
+4) Tier quotation
+Qty	Price
+1,000	7150.00
+3,000	6825.00
+5,000	6695.00
+10,000	6500.00
+30,000	6175.00
+50,000	5850.00
+100,000	5525.00",created

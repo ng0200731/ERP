@@ -1578,6 +1578,10 @@ function showQuotationViewForm2(quotationId) {
             }
           } catch (e) {}
         }
+        // Show only the number of colors, not the color names in parentheses
+        if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
+          $('#view-num-colors').val(data.color_names.length);
+        }
         $('#view-length').val(data.length ?? '-');
         $('#view-width').val(data.width ?? '-');
         $('#view-price').val(data.price ?? '-');
@@ -1604,8 +1608,27 @@ function showQuotationViewForm2(quotationId) {
         $('#view-color-names').remove();
         if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
           let colorInputs = '<div id="view-color-names" style="margin-top:4px;">';
+          // Get computed style from #view-num-colors for consistency
+          const numColorsInput = document.getElementById('view-num-colors');
+          let colorInputStyle = '';
+          if (numColorsInput) {
+            const computed = window.getComputedStyle(numColorsInput);
+            colorInputStyle = [
+              'width:' + computed.width,
+              'padding:' + computed.padding,
+              'background:' + computed.backgroundColor,
+              'border:' + computed.border,
+              'border-radius:' + computed.borderRadius,
+              'color:' + computed.color,
+              'margin-bottom:' + computed.marginBottom,
+              'font:' + computed.font,
+              'box-sizing:' + computed.boxSizing
+            ].join(';');
+          } else {
+            colorInputStyle = 'width:100%;padding:8px;background:#e9ecef;border:1px solid #e9ecef;border-radius:4px;color:#495057;margin-bottom:2px;';
+          }
           data.color_names.forEach((c, i) => {
-            colorInputs += `<input type='text' value='${c}' readonly style='width:90%;margin-bottom:2px;background:#f8f9fa;border:1px solid #ccc;'>`;
+            colorInputs += `<input type='text' value='${c}' disabled id='view-color-name-${i+1}' style='${colorInputStyle};margin-left:24px;width:calc(100% - 24px);'>`;
           });
           colorInputs += `<div style='font-size:12px;color:#888;margin-top:2px;'>JSON: ${JSON.stringify(data.color_names)}</div>`;
           colorInputs += '</div>';

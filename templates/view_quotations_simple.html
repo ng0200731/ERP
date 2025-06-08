@@ -289,6 +289,21 @@
                     e.stopPropagation();
                 }
             });
+            // Add handler for View action
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('action-dropdown-item')) {
+                    const action = e.target.getAttribute('data-action');
+                    const id = e.target.getAttribute('data-id');
+                    if (action === 'view') {
+                        if (typeof showQuotationViewForm2 === 'function') {
+                            showQuotationViewForm2(id);
+                        } else {
+                            window.open(`/quotation2_view_select?id=${id}`, '_blank');
+                        }
+                        closeDropdown();
+                    }
+                }
+            });
         })();
     </script>
 </body>

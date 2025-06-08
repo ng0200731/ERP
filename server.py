@@ -1,3 +1,6 @@
+import os
+print('!!! TEST MARKER 123 !!!')
+print('server.py absolute path:', os.path.abspath(__file__))
 print('STARTING SERVER.PY')
 from flask import Flask, request, jsonify, send_from_directory, render_template, session, redirect, url_for
 from flask_cors import CORS
@@ -24,6 +27,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
+import os
+try:
+    with open('template_debug.txt', 'w') as f:
+        f.write('TEMPLATE FOLDER: ' + str(app.template_folder) + '\n')
+        f.write('TEMPLATES DIR EXISTS: ' + str(os.path.exists(app.template_folder)) + '\n')
+        f.write('quotation2_view_select.html EXISTS: ' + str(os.path.exists(os.path.join(app.template_folder, 'quotation2_view_select.html'))) + '\n')
+except Exception as e:
+    with open('template_debug_error.txt', 'w') as ef:
+        ef.write('ERROR: ' + str(e) + '\n')
 # Enhance CORS configuration to support credentials
 CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True}})
 app.secret_key = 'your-very-secret-key-2025-04-16'  # Set a unique, secret value for session support
@@ -487,7 +499,8 @@ def before_request_func():
     allowed = (
         'login', 'verify_code', 'static', 'admin_page', 'admin_approve',
         'get_option_databases', 'get_customers', 'add_customer', 'update_customer',
-        'list_users', 'add_user', 'edit_user', 'delete_user'
+        'list_users', 'add_user', 'edit_user', 'delete_user',
+        'serve_quotation2_view_select'  # Allow unauthenticated access to this endpoint
     )
     # Only allow admin page for level 3
     if request.endpoint == 'admin_page' and session.get('permission_level', 1) < 3:
@@ -1061,6 +1074,48 @@ def view_quotations_simple():
 def uploaded_artwork_image(filename):
     return send_from_directory('uploads/artwork_images', filename)
 
+@app.route('/quotation/api/<int:quotation_id>')
+def api_get_quotation(quotation_id):
+    from sqlalchemy.orm import sessionmaker
+    engine = create_engine('sqlite:///database.db')
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    quotation = session.query(Quotation).filter_by(id=quotation_id).first()
+    session.close()
+    if not quotation:
+        return jsonify({'error': 'Quotation not found'}), 404
+    q = quotation
+    quotation_data = {
+        'id': q.id,
+        'company': getattr(q, 'customer_name', ''),
+        'key_person_name': getattr(q, 'key_person_name', ''),
+        'customer_item_code': getattr(q, 'customer_item_code', ''),
+        'quality': getattr(q, 'quality', ''),
+        'flat_or_raised': getattr(q, 'flat_or_raised', ''),
+        'direct_or_reverse': getattr(q, 'direct_or_reverse', ''),
+        'thickness': q.thickness,
+        'num_colors': q.num_colors,
+        'length': q.length,
+        'width': q.width,
+        'price': q.price,
+        'status': getattr(q, 'status', ''),
+        'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S') if q.created_at else '',
+        'updated_at': q.last_updated.strftime('%Y-%m-%d %H:%M:%S') if q.last_updated else '',
+        'artwork_image': getattr(q, 'artwork_image', ''),
+        'quotation_block': getattr(q, 'quotation_block', ''),
+        'action': getattr(q, 'action', '-')
+    }
+    return jsonify(quotation_data)
+
+@app.route('/quotation2_create2')
+def serve_quotation2_create2():
+    return render_template('quotation2_create2.html')
+
+@app.route('/quotation2_view_select')
+def serve_quotation2_view_select():
+    print('=== /quotation2_view_select ROUTE ACCESSED ===')
+    return render_template('quotation2_view_select.html')
+
 # Register blueprints
 app.register_blueprint(ht_database_bp)
 app.register_blueprint(quotation_bp)
@@ -1077,6 +1132,15 @@ if __name__ == '__main__':
         # Remove duplicate blueprint registrations
         app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
         app.config['SESSION_COOKIE_SECURE'] = False  # Only True if using HTTPS
+        print("=== TEST ROUTE PRINT ===")
+        print("=== ROUTES ===")
+        for rule in app.url_map.iter_rules():
+            print(rule)
+        print("==============")
+        # Debug print for template folder and file existence
+        print('TEMPLATE FOLDER:', app.template_folder)
+        print('TEMPLATES DIR EXISTS:', os.path.exists(app.template_folder))
+        print('quotation2_view_select.html EXISTS:', os.path.exists(os.path.join(app.template_folder, 'quotation2_view_select.html')))
         app.run(host='0.0.0.0', port=5000, debug=True)
     except Exception as e:
         print('ERROR STARTING SERVER:', e) 

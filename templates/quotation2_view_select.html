@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>View Quotation</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .readonly-label { font-weight: bold; margin-top: 10px; }
+        .readonly-value { margin-bottom: 10px; display: block; }
+        .version { color: #888; font-size: 0.9em; margin-top: 20px; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 20px; background: #fff; border-radius: 8px; }
+        .readonly-box { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+        .readonly-row { margin-bottom: 10px; }
+        .readonly-title { font-size: 1.1em; color: #495057; margin-bottom: 16px; font-weight: bold; }
+        .readonly-artwork { margin-top: 10px; }
+        .readonly-block { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 24px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 style="margin-bottom: 24px;">View Quotation <span class="version" style="float:right;">v1.3.09</span></h2>
+        <div style="display:flex; gap:32px; align-items:flex-start;">
+            <div style="flex:2; min-width:340px;">
+                <div class="readonly-box">
+                    <div class="readonly-title">Customer Details</div>
+                    <div class="readonly-row"><span class="readonly-label">Company:</span> <span id="company"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Key Person Name:</span> <span id="key_person_name"></span></div>
+                </div>
+                <div class="readonly-box">
+                    <div class="readonly-title">Item Information</div>
+                    <div class="readonly-row"><span class="readonly-label">Customer Item Code:</span> <span id="customer_item_code"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Quality:</span> <span id="quality"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Flat or Raised:</span> <span id="flat_or_raised"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Direct or Reverse:</span> <span id="direct_or_reverse"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Thickness:</span> <span id="thickness"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Number of Colors:</span> <span id="num_colors"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Length:</span> <span id="length"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Width:</span> <span id="width"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Price:</span> <span id="price"></span></div>
+                </div>
+                <div class="readonly-box">
+                    <div class="readonly-title">Status & Timestamps</div>
+                    <div class="readonly-row"><span class="readonly-label">Status:</span> <span id="status"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Created At:</span> <span id="created_at"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Updated At:</span> <span id="updated_at"></span></div>
+                    <div class="readonly-row"><span class="readonly-label">Action:</span> <span id="action"></span></div>
+                </div>
+            </div>
+            <div style="flex:1; min-width:220px; max-width:320px; margin-top:0;">
+                <div class="readonly-box">
+                    <div class="readonly-title">Artwork Image</div>
+                    <div id="artwork_image" class="readonly-artwork"></div>
+                </div>
+                <div class="readonly-block">
+                    <div class="readonly-title">Quotation</div>
+                    <pre id="quotation_block" style="background:#eee;padding:10px;border-radius:4px;white-space:pre-wrap;"></pre>
+                </div>
+            </div>
+        </div>
+        <button onclick="window.history.back()" style="margin-top: 16px;">Back</button>
+    </div>
+    <script>
+    function getQueryParam(name) {
+        const url = new URL(window.location.href);
+        return url.searchParams.get(name);
+    }
+    const quotationId = getQueryParam('id');
+    if (quotationId) {
+        fetch(`/quotation/api/${quotationId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('company').textContent = data.error;
+                    return;
+                }
+                document.getElementById('company').textContent = data.company ?? '-';
+                document.getElementById('key_person_name').textContent = data.key_person_name ?? '-';
+                document.getElementById('customer_item_code').textContent = data.customer_item_code ?? '-';
+                document.getElementById('quality').textContent = data.quality ?? '-';
+                document.getElementById('flat_or_raised').textContent = data.flat_or_raised ?? '-';
+                document.getElementById('direct_or_reverse').textContent = data.direct_or_reverse ?? '-';
+                document.getElementById('thickness').textContent = data.thickness ?? '-';
+                document.getElementById('num_colors').textContent = data.num_colors ?? '-';
+                document.getElementById('length').textContent = data.length ?? '-';
+                document.getElementById('width').textContent = data.width ?? '-';
+                document.getElementById('price').textContent = data.price ?? '-';
+                document.getElementById('status').textContent = data.status ?? '-';
+                document.getElementById('created_at').textContent = data.created_at ?? '-';
+                document.getElementById('updated_at').textContent = data.updated_at ?? '-';
+                document.getElementById('action').textContent = data.action ?? '-';
+                if (data.artwork_image) {
+                    document.getElementById('artwork_image').innerHTML = `<img src="/uploads/artwork_images/${data.artwork_image}" alt="Artwork Image" style="max-width:200px;">`;
+                } else {
+                    document.getElementById('artwork_image').innerHTML = '-';
+                }
+                document.getElementById('quotation_block').textContent = data.quotation_block ?? '-';
+            })
+            .catch(err => {
+                document.getElementById('company').textContent = 'Error loading quotation.';
+            });
+    } else {
+        document.getElementById('company').textContent = 'No quotation ID provided.';
+    }
+    </script>
+</body>
+</html> 

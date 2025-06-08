@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>View Quotation</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .readonly-label { font-weight: bold; margin-top: 10px; }
+        .readonly-value { margin-bottom: 10px; display: block; }
+        .version { color: #888; font-size: 0.9em; margin-top: 20px; }
+        .container { max-width: 700px; margin: 30px auto; padding: 20px; background: #f9f9f9; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>View Quotation</h2>
+        <div id="quotation-details">
+            <!-- Quotation details will be loaded here -->
+        </div>
+        <div class="version">v1.0.0</div>
+        <button onclick="window.history.back()">Back</button>
+    </div>
+    <script>
+    // Fetch quotation data by ID from URL
+    function getQueryParam(name) {
+        const url = new URL(window.location.href);
+        return url.searchParams.get(name);
+    }
+    const quotationId = getQueryParam('id');
+    if (quotationId) {
+        fetch(`/quotation/api/${quotationId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('quotation-details').innerHTML = `<div style='color:red;'>${data.error}</div>`;
+                    return;
+                }
+                const fields = [
+                    {label: 'Company', value: data.company},
+                    {label: 'Key Person Name', value: data.key_person_name},
+                    {label: 'Customer Item Code', value: data.customer_item_code},
+                    {label: 'Quality', value: data.quality},
+                    {label: 'Flat or Raised', value: data.flat_or_raised},
+                    {label: 'Direct or Reverse', value: data.direct_or_reverse},
+                    {label: 'Thickness', value: data.thickness},
+                    {label: 'Number of Colors', value: data.num_colors},
+                    {label: 'Length', value: data.length},
+                    {label: 'Width', value: data.width},
+                    {label: 'Price', value: data.price},
+                    {label: 'Status', value: data.status},
+                    {label: 'Created At', value: data.created_at},
+                    {label: 'Updated At', value: data.updated_at},
+                    {label: 'Action', value: data.action},
+                ];
+                let html = '';
+                fields.forEach(f => {
+                    html += `<div class='readonly-label'>${f.label}:</div><div class='readonly-value'>${f.value ?? '-'}</div>`;
+                });
+                if (data.artwork_image) {
+                    html += `<div class='readonly-label'>Artwork Image:</div><div class='readonly-value'><img src="/uploads/artwork_images/${data.artwork_image}" alt="Artwork Image" style="max-width:200px;"></div>`;
+                }
+                if (data.quotation_block) {
+                    html += `<div class='readonly-label'>Quotation Block:</div><pre class='readonly-value' style='background:#eee;padding:10px;border-radius:4px;'>${data.quotation_block}</pre>`;
+                }
+                document.getElementById('quotation-details').innerHTML = html;
+            })
+            .catch(err => {
+                document.getElementById('quotation-details').innerHTML = `<div style='color:red;'>Error loading quotation.</div>`;
+            });
+    } else {
+        document.getElementById('quotation-details').innerHTML = '<div style="color:red;">No quotation ID provided.</div>';
+    }
+    </script>
+</body>
+</html> 

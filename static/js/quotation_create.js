@@ -1460,3 +1460,126 @@ document.addEventListener('DOMContentLoaded', function() {
     document.head.appendChild(style);
   }
 })();
+
+function showQuotationViewForm2(quotationId) {
+  // Use the same layout as create, but all fields are disabled/read-only
+  $('#right-frame').html(`
+    <div style="padding:32px;max-width:900px; min-height:100vh;">
+      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.09</span></h2>
+      <div style="display:flex; gap:32px; align-items:flex-start;">
+        <div style="flex:2; min-width:340px;">
+          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Customer Details</h3>
+            <label>Company:<br>
+              <input type="text" id="view-company" style="width: 100%; padding: 8px; margin-bottom: 4px;" disabled>
+            </label><br><br>
+            <label>Key Person Name:<br>
+              <input type="text" id="view-key-person" style="width: 100%; padding: 8px;" disabled>
+            </label>
+          </div>
+          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
+            <label>Item Code:<br>
+              <input type="text" id="view-item-code" style="width: 100%; padding: 8px;" disabled>
+            </label><br>
+            <div style="display: flex; gap: 32px; align-items: flex-end; margin-bottom: 16px;">
+              <label style="flex:1;">Width:<br>
+                <input type="text" id="view-width" style="width: 100%; padding: 8px;" disabled>
+              </label>
+              <label style="flex:1;">Length:<br>
+                <input type="text" id="view-length" style="width: 100%; padding: 8px;" disabled>
+              </label>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px;">
+              <label style="flex:1;">Quality:<br>
+                <input type="text" id="view-quality" style="width: 100%; padding: 8px;" disabled>
+              </label>
+              <label style="flex:1;">Flat or Raised:<br>
+                <input type="text" id="view-flat-or-raised" style="width: 100%; padding: 8px;" disabled>
+              </label>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px;">
+              <label style="flex:1;">Direct or Reverse:<br>
+                <input type="text" id="view-direct-or-reverse" style="width: 100%; padding: 8px;" disabled>
+              </label>
+              <label style="flex:1;">Thickness 0.1-1.5:<br>
+                <input type="text" id="view-thickness" style="width: 100%; padding: 8px;" disabled>
+              </label>
+            </div>
+            <div style="margin-bottom: 16px;">
+              <label># of Colors:<br>
+                <input type="text" id="view-num-colors" style="width: 100%; padding: 8px;" disabled>
+              </label>
+            </div>
+            <label>Price:<br>
+              <input type="text" id="view-price" style="width: 100%; padding: 8px;" disabled>
+            </label>
+          </div>
+          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Status & Timestamps</h3>
+            <label>Status:<br>
+              <input type="text" id="view-status" style="width: 100%; padding: 8px;" disabled>
+            </label><br>
+            <label>Created At:<br>
+              <input type="text" id="view-created-at" style="width: 100%; padding: 8px;" disabled>
+            </label><br>
+            <label>Updated At:<br>
+              <input type="text" id="view-updated-at" style="width: 100%; padding: 8px;" disabled>
+            </label><br>
+            <label>Action:<br>
+              <input type="text" id="view-action" style="width: 100%; padding: 8px;" disabled>
+            </label>
+          </div>
+        </div>
+        <div style="flex:1; min-width:220px; max-width:320px; margin-top:0;">
+          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px;">
+            <label style="font-weight:bold;">Artwork Image</label>
+            <div id="view-artwork-image" style="margin-top:10px;"></div>
+          </div>
+          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 24px;">
+            <label style="font-weight:bold;">Quotation</label>
+            <pre id="view-quotation-block" style="background:#eee;padding:10px;border-radius:4px;white-space:pre-wrap;"></pre>
+          </div>
+        </div>
+      </div>
+      <button onclick="window.history.back()" style="margin-top: 16px;">Back</button>
+    </div>
+  `);
+  // Fetch and fill data
+  if (quotationId) {
+    fetch(`/quotation/api/${quotationId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          $('#view-company').val(data.error);
+          return;
+        }
+        $('#view-company').val(data.company ?? '-');
+        $('#view-key-person').val(data.key_person_name ?? '-');
+        $('#view-item-code').val(data.customer_item_code ?? '-');
+        $('#view-quality').val(data.quality ?? '-');
+        $('#view-flat-or-raised').val(data.flat_or_raised ?? '-');
+        $('#view-direct-or-reverse').val(data.direct_or_reverse ?? '-');
+        $('#view-thickness').val(data.thickness ?? '-');
+        $('#view-num-colors').val(data.num_colors ?? '-');
+        $('#view-length').val(data.length ?? '-');
+        $('#view-width').val(data.width ?? '-');
+        $('#view-price').val(data.price ?? '-');
+        $('#view-status').val(data.status ?? '-');
+        $('#view-created-at').val(data.created_at ?? '-');
+        $('#view-updated-at').val(data.updated_at ?? '-');
+        $('#view-action').val(data.action ?? '-');
+        if (data.artwork_image) {
+          $('#view-artwork-image').html(`<img src="/uploads/artwork_images/${data.artwork_image}" alt="Artwork Image" style="max-width:200px;">`);
+        } else {
+          $('#view-artwork-image').html('-');
+        }
+        $('#view-quotation-block').text(data.quotation_block ?? '-');
+      })
+      .catch(err => {
+        $('#view-company').val('Error loading quotation.');
+      });
+  } else {
+    $('#view-company').val('No quotation ID provided.');
+  }
+}

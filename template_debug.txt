@@ -1,0 +1,3 @@
+TEMPLATE FOLDER: templates
+TEMPLATES DIR EXISTS: True
+quotation2_view_select.html EXISTS: True

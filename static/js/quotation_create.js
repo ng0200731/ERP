@@ -550,9 +550,10 @@ function showQuotationCreateForm2(viewMode = false) {
       const userLevel = response.level || 0;
       let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT)';
       let version = viewMode ? 'v1.0.0' : 'v1.3.07';
+      let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>${headerTitle} <span style='font-size:1rem;color:#888;'>${version}</span></h2>
+          <h2>${headerTitle} <span style='font-size:1rem;color:#888;'>${version} [${jsFile}]</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 && !viewMode ? `
@@ -1466,7 +1467,6 @@ function showQuotationViewForm2(quotationId) {
   $('#right-frame').html(`
     <div style="padding:32px;max-width:900px; min-height:100vh;">
       <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.1</span></h2>
-      <script>window.setTimeout(function(){alert('You are on: Quotation 2 > View Records > Action Menu > View');}, 100);</script>
       <div style="display:flex; gap:32px; align-items:flex-start;">
         <div style="flex:2; min-width:340px;">
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">

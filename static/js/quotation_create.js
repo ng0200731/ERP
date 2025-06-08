@@ -548,8 +548,8 @@ function showQuotationCreateForm2(viewMode = false) {
     // Get the user permission level
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
-      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT)';
-      let version = viewMode ? 'v1.0.0' : 'v1.3.12';
+      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.3.14 [quotation_create.js]</span>';
+      let version = viewMode ? 'v1.0.0' : 'v1.3.13';
       let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
@@ -970,7 +970,10 @@ function showQuotationCreateForm2(viewMode = false) {
           dataTransfer.items.add(file);
           fileInput.files = dataTransfer.files;
         }
-        previewDiv.innerHTML = `<img src="${dataUrl}" style="max-width:180px;max-height:120px;border:1px solid #ccc;border-radius:6px;" />`;
+        // Show image in a fixed 300x200px box, centered, with aspect ratio preserved
+        previewDiv.innerHTML = `<div style="width:300px;height:200px;display:flex;align-items:center;justify-content:center;background:#fff;border:1.5px solid #ccc;border-radius:8px;margin:0 auto;overflow:hidden;">
+          <img src="${dataUrl}" style="max-width:100%;max-height:100%;object-fit:contain;object-position:center;" />
+        </div>`;
       }
       window.q2_jpgFile = jpgFile;
 

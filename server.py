@@ -1101,7 +1101,9 @@ def save_quotation():
   </tr>
 </table>
 '''
-                msg = Message('Your Quotation Submission – Confirmation & Details', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
+                # Change email subject to new format (item code)
+                subject = f'FCL / HT Quotation / {item_code}'
+                msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
                 msg.html = html_body
                 # Attach the artwork image inline if present
                 if artwork_image_path and os.path.exists(artwork_image_path):

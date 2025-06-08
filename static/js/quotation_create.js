@@ -1465,7 +1465,7 @@ function showQuotationViewForm2(quotationId) {
   // Use the same layout as create, but all fields are disabled/read-only
   $('#right-frame').html(`
     <div style="padding:32px;max-width:900px; min-height:100vh;">
-      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.09</span></h2>
+      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.0</span></h2>
       <div style="display:flex; gap:32px; align-items:flex-start;">
         <div style="flex:2; min-width:340px;">
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
@@ -1537,6 +1537,10 @@ function showQuotationViewForm2(quotationId) {
             <div id="view-artwork-image" style="margin-top:10px;"></div>
           </div>
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 24px;">
+            <label style="font-weight:bold;">Upload Additional Artwork(s):<br><span style='font-weight:normal;font-size:13px;color:#888;'>(Read-only, uploaded files listed below)</span></label>
+            <ul id="view-multi-artwork-list" style="list-style:none; padding:0; margin:0;"></ul>
+          </div>
+          <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 24px;">
             <label style="font-weight:bold;">Quotation</label>
             <pre id="view-quotation-block" style="background:#eee;padding:10px;border-radius:4px;white-space:pre-wrap;"></pre>
           </div>
@@ -1573,6 +1577,14 @@ function showQuotationViewForm2(quotationId) {
           $('#view-artwork-image').html(`<img src="/uploads/artwork_images/${data.artwork_image}" alt="Artwork Image" style="max-width:200px;">`);
         } else {
           $('#view-artwork-image').html('-');
+        }
+        // Display additional artworks if available (assume data.additional_artworks is an array of filenames)
+        if (Array.isArray(data.additional_artworks) && data.additional_artworks.length > 0) {
+          $('#view-multi-artwork-list').html(
+            data.additional_artworks.map(f => `<li><a href="/uploads/artwork_images/${f}" target="_blank">${f}</a></li>`).join('')
+          );
+        } else {
+          $('#view-multi-artwork-list').html('<li style="color:#888;">No additional artworks uploaded.</li>');
         }
         $('#view-quotation-block').text(data.quotation_block ?? '-');
       })

@@ -18,7 +18,12 @@
 </head>
 <body>
     <div class="container">
-        <h2 style="margin-bottom: 24px;">View Quotation <span class="version" style="float:right;">v1.3.09</span></h2>
+        <h2 style="margin-bottom: 24px;">View Quotation <span class="version" style="float:right;">v1.0.2</span></h2>
+        <script>
+          window.onload = function() {
+            alert('You are on: Quotation 2 > View Records > Action Menu > View');
+          };
+        </script>
         <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
                 <div class="readonly-box">
@@ -57,7 +62,6 @@
                 </div>
             </div>
         </div>
-        <button onclick="window.history.back()" style="margin-top: 16px;">Back</button>
     </div>
     <script>
     function getQueryParam(name) {

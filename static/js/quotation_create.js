@@ -1465,7 +1465,8 @@ function showQuotationViewForm2(quotationId) {
   // Use the same layout as create, but all fields are disabled/read-only
   $('#right-frame').html(`
     <div style="padding:32px;max-width:900px; min-height:100vh;">
-      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.0</span></h2>
+      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.1</span></h2>
+      <script>window.setTimeout(function(){alert('You are on: Quotation 2 > View Records > Action Menu > View');}, 100);</script>
       <div style="display:flex; gap:32px; align-items:flex-start;">
         <div style="flex:2; min-width:340px;">
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
@@ -1546,7 +1547,7 @@ function showQuotationViewForm2(quotationId) {
           </div>
         </div>
       </div>
-      <button onclick="window.history.back()" style="margin-top: 16px;">Back</button>
+      <!-- Back button removed for v1.0.1 -->
     </div>
   `);
   // Fetch and fill data

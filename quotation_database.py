@@ -49,6 +49,7 @@ class Quotation(Base):
     status = Column(String(50), nullable=True, default='-')  # Quotation status
     quotation_block = Column(String, nullable=True)  # Stores the full quotation block as text
     action = Column(String(50), nullable=True, default='-')  # Action column v1.3.09
+    color_names = Column(String, nullable=True)  # Stores all color names as JSON string
 
 class Attachment(Base):
     __tablename__ = 'attachments'

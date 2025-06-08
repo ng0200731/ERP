@@ -17,6 +17,7 @@ from sqlalchemy import create_engine
 import pandas as pd
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import json
 
 # Set up logging
 logging.basicConfig(
@@ -973,6 +974,9 @@ def save_quotation():
             block += f"4) Tier quotation\nQty\tPrice\n"
             block += '\n'.join(tier_lines)
             # --- END Quotation Block ---
+            color_names_json = data.get('color_names')
+            if isinstance(color_names_json, list):
+                color_names_json = json.dumps(color_names_json)
             quotation = Quotation(
                 customer_name=data.get('customer_name', ''),
                 key_person_name=data.get('key_person_name', ''),
@@ -990,7 +994,8 @@ def save_quotation():
                 last_updated=current_time,
                 artwork_image=artwork_image_path,
                 quotation_block=block,
-                action='created'
+                action='created',
+                color_names=color_names_json
             )
             db_session.add(quotation)
             db_session.commit()
@@ -1109,6 +1114,13 @@ def api_get_quotation(quotation_id):
     if not quotation:
         return jsonify({'error': 'Quotation not found'}), 404
     q = quotation
+    color_names = getattr(q, 'color_names', None)
+    color_names_list = []
+    if color_names:
+        try:
+            color_names_list = json.loads(color_names) if isinstance(color_names, str) else color_names
+        except Exception:
+            color_names_list = []
     quotation_data = {
         'id': q.id,
         'company': getattr(q, 'customer_name', ''),
@@ -1134,7 +1146,8 @@ def api_get_quotation(quotation_id):
                 'original_filename': a.original_filename,
                 'uploaded_at': a.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') if a.uploaded_at else ''
             } for a in attachments
-        ]
+        ],
+        'color_names': color_names_list
     }
     return jsonify(quotation_data)
 

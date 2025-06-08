@@ -1466,7 +1466,7 @@ function showQuotationViewForm2(quotationId) {
   // Use the same layout as create, but all fields are disabled/read-only
   $('#right-frame').html(`
     <div style="padding:32px;max-width:900px; min-height:100vh;">
-      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.1</span></h2>
+      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.2</span></h2>
       <div style="display:flex; gap:32px; align-items:flex-start;">
         <div style="flex:2; min-width:340px;">
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
@@ -1567,6 +1567,17 @@ function showQuotationViewForm2(quotationId) {
         $('#view-direct-or-reverse').val(data.direct_or_reverse ?? '-');
         $('#view-thickness').val(data.thickness ?? '-');
         $('#view-num-colors').val(data.num_colors ?? '-');
+        // Show color names if present
+        if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
+          $('#view-num-colors').val(`${data.num_colors} (${data.color_names.join(', ')})`);
+        } else if (data.color_names && typeof data.color_names === 'string' && data.color_names.length > 0) {
+          try {
+            const colorArr = JSON.parse(data.color_names);
+            if (Array.isArray(colorArr) && colorArr.length > 0) {
+              $('#view-num-colors').val(`${data.num_colors} (${colorArr.join(', ')})`);
+            }
+          } catch (e) {}
+        }
         $('#view-length').val(data.length ?? '-');
         $('#view-width').val(data.width ?? '-');
         $('#view-price').val(data.price ?? '-');

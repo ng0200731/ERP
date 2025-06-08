@@ -1,13 +1,14 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
 import pandas as pd
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, UniqueConstraint, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import os
 import logging
 import random
 import string
+from sqlalchemy.orm import relationship
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,15 @@ class Quotation(Base):
     status = Column(String(50), nullable=True, default='-')  # Quotation status
     quotation_block = Column(String, nullable=True)  # Stores the full quotation block as text
     action = Column(String(50), nullable=True, default='-')  # Action column v1.3.09
+
+class Attachment(Base):
+    __tablename__ = 'attachments'
+    id = Column(Integer, primary_key=True)
+    quotation_id = Column(Integer, ForeignKey('quotations.id'), nullable=False)
+    filename = Column(String, nullable=False)
+    original_filename = Column(String, nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    quotation = relationship('Quotation', backref='attachments')
 
 def get_db():
     try:

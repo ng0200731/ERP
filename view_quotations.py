@@ -30,6 +30,17 @@ try:
     except sqlite3.OperationalError as e:
         print(f"\nError reading quotations table: {e}")
     
+    # Print attachments for quotation_id = 4
+    try:
+        cursor.execute('SELECT * FROM attachments WHERE quotation_id = 4')
+        rows = cursor.fetchall()
+        print('\nAttachments for quotation_id = 4:')
+        for row in rows:
+            row_dict = {key: row[key] for key in row.keys()}
+            print(row_dict)
+    except sqlite3.OperationalError as e:
+        print(f"\nError reading attachments table: {e}")
+    
     conn.close()
     print("\nDatabase connection closed")
 except Exception as e:

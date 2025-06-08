@@ -23,6 +23,19 @@ def reset_quotations_table():
         conn.execute("ALTER TABLE quotations ADD COLUMN action VARCHAR(50) DEFAULT '-'")
     except Exception:
         pass
+    try:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS attachments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                quotation_id INTEGER NOT NULL,
+                filename TEXT NOT NULL,
+                original_filename TEXT,
+                uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+            )
+        ''')
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 

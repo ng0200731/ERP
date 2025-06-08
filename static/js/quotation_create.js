@@ -1579,10 +1579,11 @@ function showQuotationViewForm2(quotationId) {
           $('#view-artwork-image').html('-');
         }
         // Display additional artworks if available (assume data.additional_artworks is an array of filenames)
-        if (Array.isArray(data.additional_artworks) && data.additional_artworks.length > 0) {
-          $('#view-multi-artwork-list').html(
-            data.additional_artworks.map(f => `<li><a href="/uploads/artwork_images/${f}" target="_blank">${f}</a></li>`).join('')
-          );
+        if (data.attachments && data.attachments.length > 0) {
+          let attachmentsHtml = data.attachments.map(att =>
+            `<li><a href="/uploads/attachments/${att.filename}" target="_blank">${att.original_filename || att.filename}</a></li>`
+          ).join('');
+          $('#view-multi-artwork-list').html(attachmentsHtml);
         } else {
           $('#view-multi-artwork-list').html('<li style="color:#888;">No additional artworks uploaded.</li>');
         }

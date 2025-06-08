@@ -12,7 +12,7 @@ import os
 import logging
 from ht_database import ht_database_bp
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
-from quotation_database import quotation_bp, Base, Quotation, get_db
+from quotation_database import quotation_bp, Base, Quotation, get_db, Attachment
 from sqlalchemy import create_engine
 import pandas as pd
 from sqlalchemy.ext.declarative import declarative_base
@@ -994,6 +994,24 @@ def save_quotation():
             )
             db_session.add(quotation)
             db_session.commit()
+            # Save attachments
+            if 'attachments' in request.files:
+                files = request.files.getlist('attachments')
+                uploads_dir = os.path.join('uploads', 'attachments')
+                os.makedirs(uploads_dir, exist_ok=True)
+                for file in files:
+                    if file and file.filename:
+                        timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+                        safe_name = f"{timestamp}_{file.filename.replace(' ', '_')}"
+                        file_path = os.path.join(uploads_dir, safe_name)
+                        file.save(file_path)
+                        attachment = Attachment(
+                            quotation_id=quotation.id,
+                            filename=safe_name,
+                            original_filename=file.filename
+                        )
+                        db_session.add(attachment)
+                db_session.commit()
             return jsonify({'message': 'Quotation saved successfully', 'action': 'created', 'price': price, 'length': db_length, 'width': db_width}), 200
         except Exception as e:
             db_session.rollback()
@@ -1081,6 +1099,8 @@ def api_get_quotation(quotation_id):
     Session = sessionmaker(bind=engine)
     session = Session()
     quotation = session.query(Quotation).filter_by(id=quotation_id).first()
+    # Fetch attachments
+    attachments = session.query(Attachment).filter_by(quotation_id=quotation_id).all()
     session.close()
     if not quotation:
         return jsonify({'error': 'Quotation not found'}), 404
@@ -1103,7 +1123,14 @@ def api_get_quotation(quotation_id):
         'updated_at': q.last_updated.strftime('%Y-%m-%d %H:%M:%S') if q.last_updated else '',
         'artwork_image': getattr(q, 'artwork_image', ''),
         'quotation_block': getattr(q, 'quotation_block', ''),
-        'action': getattr(q, 'action', '-')
+        'action': getattr(q, 'action', '-'),
+        'attachments': [
+            {
+                'filename': a.filename,
+                'original_filename': a.original_filename,
+                'uploaded_at': a.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') if a.uploaded_at else ''
+            } for a in attachments
+        ]
     }
     return jsonify(quotation_data)
 

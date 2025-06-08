@@ -1574,7 +1574,7 @@ function showQuotationViewForm2(quotationId) {
         $('#view-updated-at').val(data.updated_at ?? '-');
         $('#view-action').val(data.action ?? '-');
         if (data.artwork_image) {
-          $('#view-artwork-image').html(`<img src="/uploads/artwork_images/${data.artwork_image}" alt="Artwork Image" style="max-width:200px;">`);
+          $('#view-artwork-image').html(`<img src="/${data.artwork_image}" alt="Artwork Image" style="max-width:200px;">`);
         } else {
           $('#view-artwork-image').html('-');
         }

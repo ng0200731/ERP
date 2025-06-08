@@ -1125,12 +1125,12 @@ def api_get_quotation(quotation_id):
         'status': getattr(q, 'status', ''),
         'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S') if q.created_at else '',
         'updated_at': q.last_updated.strftime('%Y-%m-%d %H:%M:%S') if q.last_updated else '',
-        'artwork_image': getattr(q, 'artwork_image', ''),
+        'artwork_image': getattr(q, 'artwork_image', '').replace('\\', '/'),
         'quotation_block': getattr(q, 'quotation_block', ''),
         'action': getattr(q, 'action', '-'),
         'attachments': [
             {
-                'filename': a.filename,
+                'filename': a.filename.replace('\\', '/'),
                 'original_filename': a.original_filename,
                 'uploaded_at': a.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') if a.uploaded_at else ''
             } for a in attachments

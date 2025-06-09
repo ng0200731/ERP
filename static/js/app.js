@@ -2161,3 +2161,51 @@ function showQuotationCreateForm2() {
 function showQuotationCreateForm2() {
   // ... existing code ...
 }
+
+function createCustomer(customer, callback) {
+  $('#right-frame').append(`
+    <div id="create-loading-indicator" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;">
+      <div style="text-align: center; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <p>Creating customer... <span class="spinner" style="display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #3498db; animation: spin 1s linear infinite;"></span></p>
+      </div>
+    </div>
+  `);
+  
+  $.ajax({
+    url: '/customers',
+    type: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify(customer),
+    success: function(response) {
+      $('#create-loading-indicator').remove();
+      // Show email status message if present
+      if (response && response.email_message) {
+        showCustomPopup(response.email_message, response.email_status !== 'success');
+      }
+      
+      // Explicitly fetch customers again to ensure we have the latest data
+      fetchCustomers(function() {
+        console.log('[DEBUG] Customers refreshed after create:', customers.length);
+        if (callback) callback();
+      });
+    },
+    error: function(xhr, status, error) {
+      $('#create-loading-indicator').remove();
+      console.error('[ERROR] Failed to create customer:', status, error, xhr.responseText);
+      let errorMsg = 'Failed to create customer.';
+      
+      // Try to extract more detailed error message from response if possible
+      try {
+        const response = JSON.parse(xhr.responseText);
+        if (response && response.error) {
+          errorMsg += ' ' + response.error;
+        }
+      } catch (e) {
+        // Ignore JSON parse errors
+      }
+      
+      showCustomPopup(errorMsg, true);
+      if (callback) callback(false);
+    }
+  });
+}

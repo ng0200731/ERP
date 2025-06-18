@@ -1,0 +1,11 @@
+i need to bring a web page, please use jquery
+1) for user to upload image
+2) after upload image, it shows in the web page immediately
+3) user can use mouse to drop and drag and become a rectangle (rectangle color is light green)
+4) there is pop up to show a drop down list (variable : alphabet, variable : numeric, graphic, others) and with remark for user to input
+5) after confirm, there is red circle with sequential number in the middle of the circel
+6) right side : it will show the sequential number and remark, and cross at the end of remark, when click the cross, it will pop if you want to remove
+7) after remove the sequential will regenerate from 1 
+7) there is a pen icon for user to change the drop list and remark
+7) if confirm to remove, the green rectangle and the right hand side corresponding remark, will remove
+8) the green rectangle is generated, it is allowed user to drag to new place and resize

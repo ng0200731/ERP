@@ -548,8 +548,8 @@ function showQuotationCreateForm2(viewMode = false) {
     // Get the user permission level
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
-      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.3.14 [quotation_create.js]</span>';
-      let version = viewMode ? 'v1.0.0' : 'v1.3.13';
+      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.0.5 [quotation_create.js]</span>';
+      let version = viewMode ? 'v1.0.5' : 'v1.0.5';
       let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
@@ -1469,7 +1469,10 @@ function showQuotationViewForm2(quotationId) {
   // Use the same layout as create, but all fields are disabled/read-only
   $('#right-frame').html(`
     <div style="padding:32px;max-width:900px; min-height:100vh;">
-      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.2 [quotation_create.js]</span></h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.5 [quotation_create.js]</span></h2>
+        <button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
+      </div>
       <div style="display:flex; gap:32px; align-items:flex-start;">
         <div style="flex:2; min-width:340px;">
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
@@ -1553,6 +1556,134 @@ function showQuotationViewForm2(quotationId) {
       <!-- Back button removed for v1.0.1 -->
     </div>
   `);
+
+  // Add edit toggle functionality
+  let isEditMode = false;
+  let originalValues = {}; // Store original field values
+  const editBtn = document.getElementById('edit-toggle-btn');
+  const editableFields = [
+    'view-item-code', 'view-width', 'view-length',
+    'view-quality', 'view-flat-or-raised', 'view-direct-or-reverse', 'view-thickness',
+    'view-num-colors', 'view-price'
+  ];
+
+  // Function to check if any fields have changed
+  function checkForChanges() {
+    const saveBtn = document.getElementById('save-btn');
+    if (!saveBtn) return;
+    
+    let hasChanges = false;
+    editableFields.forEach(fieldId => {
+      const field = document.getElementById(fieldId);
+      if (field && originalValues[fieldId] !== field.value) {
+        hasChanges = true;
+      }
+    });
+    
+    // Enable/disable save button based on changes
+    saveBtn.disabled = !hasChanges;
+    saveBtn.style.background = hasChanges ? '#28a745' : '#6c757d';
+    saveBtn.style.cursor = hasChanges ? 'pointer' : 'not-allowed';
+  }
+
+  editBtn.addEventListener('click', function() {
+    isEditMode = !isEditMode;
+    
+    if (isEditMode) {
+      // Enter edit mode
+      editBtn.textContent = 'Cancel Editing';
+      editBtn.style.background = '#dc3545';
+      
+      // Store original values
+      editableFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          originalValues[fieldId] = field.value;
+        }
+      });
+      
+      // Create Save button if it doesn't exist
+      if (!document.getElementById('save-btn')) {
+        const saveBtn = document.createElement('button');
+        saveBtn.id = 'save-btn';
+        saveBtn.textContent = 'Save';
+        saveBtn.style.cssText = 'background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:not-allowed; margin-left:8px;';
+        saveBtn.disabled = true;
+        
+        // Add Save button click handler
+        saveBtn.addEventListener('click', function() {
+          // TODO: Add save functionality in Milestone 3
+          console.log('Save button clicked - save functionality will be implemented in Milestone 3');
+          
+          // Exit edit mode after save
+          isEditMode = false;
+          editBtn.textContent = 'Edit';
+          editBtn.style.background = '#007bff';
+          
+          // Remove Save button
+          saveBtn.remove();
+          
+          // Clear original values
+          originalValues = {};
+          
+          // Disable all fields and remove event listeners
+          editableFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+              field.disabled = true;
+              field.style.background = '#e9ecef';
+              field.style.color = '#6c757d';
+              
+              // Remove change event listener
+              field.removeEventListener('input', checkForChanges);
+            }
+          });
+        });
+        
+        editBtn.parentNode.appendChild(saveBtn);
+      }
+      
+      // Enable all editable fields
+      editableFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          field.disabled = false;
+          field.style.background = '#ffffff';
+          field.style.color = '#495057';
+          
+          // Add change event listener
+          field.addEventListener('input', checkForChanges);
+        }
+      });
+    } else {
+      // Exit edit mode
+      editBtn.textContent = 'Edit';
+      editBtn.style.background = '#007bff';
+      
+      // Remove Save button
+      const saveBtn = document.getElementById('save-btn');
+      if (saveBtn) {
+        saveBtn.remove();
+      }
+      
+      // Clear original values
+      originalValues = {};
+      
+      // Disable all fields and remove event listeners
+      editableFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          field.disabled = true;
+          field.style.background = '#e9ecef';
+          field.style.color = '#6c757d';
+          
+          // Remove change event listener
+          field.removeEventListener('input', checkForChanges);
+        }
+      });
+    }
+  });
+
   // Fetch and fill data
   if (quotationId) {
     fetch(`/quotation/api/${quotationId}`)

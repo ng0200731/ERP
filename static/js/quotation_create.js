@@ -1,4 +1,4 @@
-// Version v1.3.09
+// Version v1.3.12
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -697,19 +697,18 @@ function showQuotationCreateForm2(viewMode = false) {
 
       // L1 (Quality) change handler
       $quality.on('change', function() {
-        const selectedQuality = $(this).val();
-        // Reset lower levels
+        const q = $quality.val();
+        // Always reset lower fields first
         $flatOrRaised.val('').prop('disabled', true);
         $directOrReverse.val('').prop('disabled', true);
         $thickness.val('').prop('disabled', true);
 
-        if (selectedQuality === 'PU') {
-          // For PU: Force Flat and Direct
+        if (q === 'PU') {
           $flatOrRaised.val('Flat').prop('disabled', true);
           $directOrReverse.val('Direct').prop('disabled', true);
-        } else if (selectedQuality === 'Silicon') {
-          // For Silicon: Enable Flat or Raised selection
-          $flatOrRaised.val('').prop('disabled', false);
+          $thickness.val('').prop('disabled', true);
+        } else if (q === 'Silicon') {
+          $flatOrRaised.val('').prop('disabled', false).trigger('change');
           $directOrReverse.val('').prop('disabled', true);
           $thickness.val('').prop('disabled', true);
         }
@@ -1854,12 +1853,17 @@ function applyViewFieldCorrelation() {
   // Quality change
   $quality.on('change', function() {
     const q = $quality.val();
+    // Always reset lower fields first
+    $flatOrRaised.val('').prop('disabled', true);
+    $directOrReverse.val('').prop('disabled', true);
+    $thickness.val('').prop('disabled', true);
+
     if (q === 'PU') {
       $flatOrRaised.val('Flat').prop('disabled', true);
       $directOrReverse.val('Direct').prop('disabled', true);
       $thickness.val('').prop('disabled', true);
     } else if (q === 'Silicon') {
-      $flatOrRaised.prop('disabled', false);
+      $flatOrRaised.val('').prop('disabled', false).trigger('change');
       $directOrReverse.val('').prop('disabled', true);
       $thickness.val('').prop('disabled', true);
     }

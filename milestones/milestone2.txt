@@ -1,0 +1,19 @@
+Milestone 2: Field Correlation Logic (View Quotation Edit Mode) - IN PROGRESS
+
+Requirements:
+- In View Quotation edit mode, the fields Quality, Flat or Raised, Direct or Reverse, and Thickness must have the same correlation logic as Create Quotation (HT).
+- All relevant fields must be dropdowns (not plain text).
+- Thickness validation: required only for Silicon+Raised, must be 0.1–1.5.
+- UI feedback and Save button enable/disable must match Create Quotation (HT).
+- Version number must be incremented and shown everywhere.
+- Edit log must accurately record changes, distinguishing [USER] and [COMPUTER] changes.
+
+Implementation Plan:
+- Refactor View Quotation edit mode to use dropdowns for all relevant fields.
+- Implement real-time field correlation logic (matching Create Quotation (HT)).
+- Add validation for Thickness (only for Silicon+Raised, 0.1–1.5).
+- Ensure Save button is only enabled when changes are valid and present.
+- Update version numbers in all relevant files.
+- Ensure edit log is accurate and persistent.
+
+Status: IN PROGRESS 

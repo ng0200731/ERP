@@ -1,0 +1,15 @@
+Milestone 1: Edit Functionality (View Quotation) - COMPLETE
+
+Features included:
+- Button state management (Edit, Cancel Editing, Save)
+- Only Item Information fields become editable
+- Save button only enabled when fields are changed
+- Cancel Editing reverts to view mode
+- Edit log UI section (always visible)
+- Edit log tracks all changes with timestamp, field, old value, new value
+- Edit log is saved in the database (edit_log column)
+- Edit log is loaded from the database and persists across sessions
+- All version numbers updated to v1.0.7
+- Database migration script provided to add edit_log column without data loss
+
+Tested and confirmed working as of this milestone. 

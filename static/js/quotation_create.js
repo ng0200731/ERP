@@ -1590,6 +1590,8 @@ function showQuotationViewForm2(quotationId) {
     isEditMode = !isEditMode;
     
     if (isEditMode) {
+      swapToEditFields();
+      applyViewFieldCorrelation();
       // Enter edit mode
       editBtn.textContent = 'Cancel Editing';
       editBtn.style.background = '#dc3545';
@@ -1656,6 +1658,7 @@ function showQuotationViewForm2(quotationId) {
         }
       });
     } else {
+      swapToReadOnlyFields();
       // Exit edit mode
       editBtn.textContent = 'Edit';
       editBtn.style.background = '#007bff';
@@ -1775,4 +1778,138 @@ function showQuotationViewForm2(quotationId) {
   } else {
     $('#view-company').val('No quotation ID provided.');
   }
+}
+
+// --- VIEW QUOTATION EDIT MODE LOGIC ---
+// All event handlers and DOM selectors for Edit mode use #view-... IDs
+// Do NOT use or attach these handlers in Create mode
+// This block ensures the 4 fields are swapped to <select>/<input type=number> in edit mode, and restored to read-only on exit
+
+function swapToEditFields() {
+  // Quality
+  const qualityVal = $('#view-quality').val();
+  $('#view-quality').replaceWith(`
+    <select id="view-quality" style="width: 100%; padding: 8px;">
+      <option value="PU"${qualityVal === 'PU' ? ' selected' : ''}>PU</option>
+      <option value="Silicon"${qualityVal === 'Silicon' ? ' selected' : ''}>Silicon</option>
+    </select>
+  `);
+  // Flat or Raised
+  const frVal = $('#view-flat-or-raised').val();
+  $('#view-flat-or-raised').replaceWith(`
+    <select id="view-flat-or-raised" style="width: 100%; padding: 8px;">
+      <option value="Flat"${frVal === 'Flat' ? ' selected' : ''}>Flat</option>
+      <option value="Raised"${frVal === 'Raised' ? ' selected' : ''}>Raised</option>
+    </select>
+  `);
+  // Direct or Reverse
+  const drVal = $('#view-direct-or-reverse').val();
+  $('#view-direct-or-reverse').replaceWith(`
+    <select id="view-direct-or-reverse" style="width: 100%; padding: 8px;">
+      <option value="Direct"${drVal === 'Direct' ? ' selected' : ''}>Direct</option>
+      <option value="Reverse"${drVal === 'Reverse' ? ' selected' : ''}>Reverse</option>
+    </select>
+  `);
+  // Thickness
+  const thickVal = $('#view-thickness').val();
+  $('#view-thickness').replaceWith(`
+    <input type="number" id="view-thickness" style="width: 100%; padding: 8px;" min="0.1" max="1.5" step="0.1" value="${thickVal}">
+  `);
+}
+
+function swapToReadOnlyFields() {
+  // Quality
+  const qualityVal = $('#view-quality').val();
+  $('#view-quality').replaceWith(`<input type="text" id="view-quality" style="width: 100%; padding: 8px;" value="${qualityVal}" disabled>`);
+  // Flat or Raised
+  const frVal = $('#view-flat-or-raised').val();
+  $('#view-flat-or-raised').replaceWith(`<input type="text" id="view-flat-or-raised" style="width: 100%; padding: 8px;" value="${frVal}" disabled>`);
+  // Direct or Reverse
+  const drVal = $('#view-direct-or-reverse').val();
+  $('#view-direct-or-reverse').replaceWith(`<input type="text" id="view-direct-or-reverse" style="width: 100%; padding: 8px;" value="${drVal}" disabled>`);
+  // Thickness
+  const thickVal = $('#view-thickness').val();
+  $('#view-thickness').replaceWith(`<input type="text" id="view-thickness" style="width: 100%; padding: 8px;" value="${thickVal}" disabled>`);
+}
+
+// In editBtn.addEventListener('click', ...)
+// ...
+if (isEditMode) {
+  swapToEditFields();
+  applyViewFieldCorrelation();
+  // ... rest of edit mode logic ...
+} else {
+  swapToReadOnlyFields();
+  // ... rest of exit edit mode logic ...
+}
+// ...
+
+// --- VIEW QUOTATION EDIT MODE FIELD CORRELATION LOGIC ---
+function applyViewFieldCorrelation() {
+  const $quality = $('#view-quality');
+  const $flatOrRaised = $('#view-flat-or-raised');
+  const $directOrReverse = $('#view-direct-or-reverse');
+  const $thickness = $('#view-thickness');
+
+  // Quality change
+  $quality.on('change', function() {
+    const q = $quality.val();
+    if (q === 'PU') {
+      $flatOrRaised.val('Flat').prop('disabled', true);
+      $directOrReverse.val('Direct').prop('disabled', true);
+      $thickness.val('').prop('disabled', true);
+    } else if (q === 'Silicon') {
+      $flatOrRaised.prop('disabled', false);
+      $directOrReverse.val('').prop('disabled', true);
+      $thickness.val('').prop('disabled', true);
+    }
+  });
+
+  // Flat or Raised change
+  $flatOrRaised.on('change', function() {
+    const q = $quality.val();
+    const fr = $flatOrRaised.val();
+    if (q === 'Silicon') {
+      if (fr === 'Flat') {
+        $directOrReverse.val('Direct').prop('disabled', true);
+        $thickness.val('').prop('disabled', true);
+      } else if (fr === 'Raised') {
+        $directOrReverse.val('').prop('disabled', false);
+        $thickness.val('').prop('disabled', false);
+      } else {
+        $directOrReverse.val('').prop('disabled', true);
+        $thickness.val('').prop('disabled', true);
+      }
+    } else if (q === 'PU') {
+      $directOrReverse.val('Direct').prop('disabled', true);
+      $thickness.val('').prop('disabled', true);
+    }
+  });
+
+  // Direct or Reverse change
+  $directOrReverse.on('change', function() {
+    const q = $quality.val();
+    const fr = $flatOrRaised.val();
+    if (q === 'Silicon' && fr === 'Raised') {
+      $thickness.prop('disabled', false);
+    } else {
+      $thickness.val('').prop('disabled', true);
+    }
+  });
+
+  // Thickness validation
+  $thickness.on('input', function() {
+    const q = $quality.val();
+    const fr = $flatOrRaised.val();
+    const val = parseFloat($thickness.val());
+    if (q === 'Silicon' && fr === 'Raised') {
+      if (isNaN(val) || val < 0.1 || val > 1.5) {
+        $thickness.css('border-color', 'red');
+      } else {
+        $thickness.css('border-color', '');
+      }
+    } else {
+      $thickness.css('border-color', '');
+    }
+  });
 }

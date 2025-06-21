@@ -548,7 +548,7 @@ function showQuotationCreateForm2(viewMode = false) {
     // Get the user permission level
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
-      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.1.9 [quotation_create.js]</span>';
+      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.2.0 [quotation_create.js]</span>';
       let version = viewMode ? 'v1.0.0' : 'v1.3.13';
       let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
@@ -1499,8 +1499,14 @@ function swapToEditFields() {
   $('#view-quality').on('change', updateFieldCorrelations);
   $('#view-flat-or-raised').on('change', updateFieldCorrelations);
   
-  // Set initial state
+  // --- Milestone 3: Add event listeners for validation ---
+  $('#view-num-colors').on('change', updateColorFields);
+  $('.item-info-field-view').on('change input', validateAndUpdateSaveButton);
+  
+  // Set initial states
   updateFieldCorrelations();
+  updateColorFields();
+  validateAndUpdateSaveButton();
 }
 
 // --- Milestone 2: Complete Field Correlation Logic ---
@@ -1561,6 +1567,96 @@ function updateFieldCorrelations() {
       thicknessField.prop('disabled', false);
     }
   }
+  
+  // Re-validate after field correlations change
+  validateAndUpdateSaveButton();
+}
+
+// --- Milestone 3: Dynamic Color Fields ---
+function updateColorFields() {
+  const numColors = parseInt($('#view-num-colors').val()) || 0;
+  const colorContainer = $('#view-color-names');
+  
+  // Remove existing color fields
+  colorContainer.empty();
+  
+  if (numColors > 0) {
+    // Create color name input fields
+    for (let i = 1; i <= numColors; i++) {
+      const colorField = $(`
+        <div style="margin-bottom: 8px;">
+          <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #495057;">Color ${i}:</label>
+          <input type="text" id="view-color-name-${i}" class="item-info-field-view color-name-field" 
+                 style="width: 100%; padding: 8px; margin-left: 24px;" placeholder="Enter color name">
+        </div>
+      `);
+      colorContainer.append(colorField);
+    }
+    
+    // Add event listeners to new color fields
+    $('.color-name-field').on('change input', validateAndUpdateSaveButton);
+  }
+  
+  // Re-validate after color fields change
+  validateAndUpdateSaveButton();
+}
+
+// --- Milestone 3: Validation Logic ---
+function validateFields() {
+  const requiredFields = [
+    'view-item-code',
+    'view-width', 
+    'view-length',
+    'view-quality',
+    'view-flat-or-raised',
+    'view-direct-or-reverse',
+    'view-num-colors'
+  ];
+  
+  // Check if thickness is required (enabled)
+  const thicknessField = $('#view-thickness');
+  if (!thicknessField.prop('disabled')) {
+    requiredFields.push('view-thickness');
+  }
+  
+  // Check all required fields
+  for (const fieldId of requiredFields) {
+    const field = $(`#${fieldId}`);
+    const value = field.val().trim();
+    
+    if (!value || value === '') {
+      return false;
+    }
+  }
+  
+  // Check color name fields if they exist
+  const colorFields = $('.color-name-field');
+  for (let i = 0; i < colorFields.length; i++) {
+    const colorValue = $(colorFields[i]).val().trim();
+    if (!colorValue || colorValue === '') {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// --- Milestone 3: Update Save Button State ---
+function validateAndUpdateSaveButton() {
+  const isValid = validateFields();
+  const saveBtn = $('#save-btn');
+  
+  if (isValid) {
+    saveBtn.prop('disabled', false);
+    saveBtn.css('background-color', '#28a745');
+    saveBtn.css('cursor', 'pointer');
+    saveBtn.text('Save');
+  } else {
+    saveBtn.prop('disabled', true);
+    saveBtn.css('background-color', '#6c757d');
+    saveBtn.css('cursor', 'not-allowed');
+    saveBtn.text('Save');
+  }
 }
 
 function swapToReadOnlyFields() {
@@ -1581,7 +1677,7 @@ function showQuotationViewForm2(quotationId) {
   $('#right-frame').html(`
     <div style="padding:32px;max-width:900px; min-height:100vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.1.9 [quotation_create.js]</span></h2>
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.2.0 [quotation_create.js]</span></h2>
         <div id="view-mode-buttons">
           <button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
         </div>
@@ -1630,6 +1726,7 @@ function showQuotationViewForm2(quotationId) {
               <label># of Colors:<br>
                 <input type="text" id="view-num-colors" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
               </label>
+              <div id="view-color-names"></div>
             </div>
             <label>Price:<br>
               <input type="text" id="view-price" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
@@ -1802,6 +1899,6 @@ function showQuotationViewForm2(quotationId) {
 
 function showQuotationCreateForm2(viewMode = false) {
   // ... (existing code) ...
-  let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.1.9 [quotation_create.js]</span>';
+  let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.2.0 [quotation_create.js]</span>';
   // ... (rest of the function) ...
 }

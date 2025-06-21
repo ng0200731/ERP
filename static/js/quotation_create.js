@@ -548,7 +548,7 @@ function showQuotationCreateForm2(viewMode = false) {
     // Get the user permission level
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
-      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.3.14 [quotation_create.js]</span>';
+      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.1.8 [quotation_create.js]</span>';
       let version = viewMode ? 'v1.0.0' : 'v1.3.13';
       let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
@@ -1465,11 +1465,60 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 })();
 
+// --- Milestone 1: Field Swapping Functions ---
+function swapToEditFields() {
+  const fields = [
+    { id: 'view-item-code', type: 'text' },
+    { id: 'view-width', type: 'number' },
+    { id: 'view-length', type: 'number' },
+    { id: 'view-price', type: 'number' },
+    { id: 'view-num-colors', type: 'number', props: 'min="1"' },
+    { id: 'view-thickness', type: 'number', props: 'min="0.1" max="1.5" step="0.1"' },
+  ];
+
+  fields.forEach(f => {
+    const el = $(`#${f.id}`);
+    const val = el.val();
+    el.replaceWith(`<input type="${f.type}" id="${f.id}" value="${val}" class="item-info-field-view" style="width: 100%; padding: 8px;" ${f.props || ''}>`);
+  });
+
+  const selectFields = [
+    { id: 'view-quality', options: ['PU', 'Silicon'] },
+    { id: 'view-flat-or-raised', options: ['Flat', 'Raised'] },
+    { id: 'view-direct-or-reverse', options: ['Direct', 'Reverse'] },
+  ];
+
+  selectFields.forEach(f => {
+    const el = $(`#${f.id}`);
+    const val = el.val();
+    let optionsHTML = f.options.map(opt => `<option value="${opt}"${val === opt ? ' selected' : ''}>${opt}</option>`).join('');
+    el.replaceWith(`<select id="${f.id}" class="item-info-field-view" style="width: 100%; padding: 8px;"><option value="">-- Select --</option>${optionsHTML}</select>`);
+  });
+}
+
+function swapToReadOnlyFields() {
+    const fields = [
+        'view-item-code', 'view-width', 'view-length', 'view-price',
+        'view-num-colors', 'view-thickness', 'view-quality',
+        'view-flat-or-raised', 'view-direct-or-reverse'
+    ];
+    fields.forEach(id => {
+        const el = $(`#${id}`);
+        const val = el.val();
+        el.replaceWith(`<input type="text" id="${id}" class="item-info-field-view" value="${val}" style="width: 100%; padding: 8px;" disabled>`);
+    });
+}
+
 function showQuotationViewForm2(quotationId) {
   // Use the same layout as create, but all fields are disabled/read-only
   $('#right-frame').html(`
     <div style="padding:32px;max-width:900px; min-height:100vh;">
-      <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.0.2 [quotation_create.js]</span></h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.1.8 [quotation_create.js]</span></h2>
+        <div id="view-mode-buttons">
+          <button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
+        </div>
+      </div>
       <div style="display:flex; gap:32px; align-items:flex-start;">
         <div style="flex:2; min-width:340px;">
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
@@ -1484,39 +1533,39 @@ function showQuotationViewForm2(quotationId) {
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
             <h3 style="margin: 0 0 16px 0; color: #495057; font-size: 1.1em;">Item Information</h3>
             <label>Item Code:<br>
-              <input type="text" id="view-item-code" style="width: 100%; padding: 8px;" disabled>
+              <input type="text" id="view-item-code" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
             </label><br>
             <div style="display: flex; gap: 32px; align-items: flex-end; margin-bottom: 16px;">
               <label style="flex:1;">Width:<br>
-                <input type="text" id="view-width" style="width: 100%; padding: 8px;" disabled>
+                <input type="text" id="view-width" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
               </label>
               <label style="flex:1;">Length:<br>
-                <input type="text" id="view-length" style="width: 100%; padding: 8px;" disabled>
+                <input type="text" id="view-length" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
               </label>
             </div>
             <div style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px;">
               <label style="flex:1;">Quality:<br>
-                <input type="text" id="view-quality" style="width: 100%; padding: 8px;" disabled>
+                <input type="text" id="view-quality" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
               </label>
               <label style="flex:1;">Flat or Raised:<br>
-                <input type="text" id="view-flat-or-raised" style="width: 100%; padding: 8px;" disabled>
+                <input type="text" id="view-flat-or-raised" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
               </label>
             </div>
             <div style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px;">
               <label style="flex:1;">Direct or Reverse:<br>
-                <input type="text" id="view-direct-or-reverse" style="width: 100%; padding: 8px;" disabled>
+                <input type="text" id="view-direct-or-reverse" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
               </label>
               <label style="flex:1;">Thickness 0.1-1.5:<br>
-                <input type="text" id="view-thickness" style="width: 100%; padding: 8px;" disabled>
+                <input type="text" id="view-thickness" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
               </label>
             </div>
             <div style="margin-bottom: 16px;">
               <label># of Colors:<br>
-                <input type="text" id="view-num-colors" style="width: 100%; padding: 8px;" disabled>
+                <input type="text" id="view-num-colors" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
               </label>
             </div>
             <label>Price:<br>
-              <input type="text" id="view-price" style="width: 100%; padding: 8px;" disabled>
+              <input type="text" id="view-price" class="item-info-field-view" style="width: 100%; padding: 8px;" disabled>
             </label>
           </div>
           <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
@@ -1553,95 +1602,139 @@ function showQuotationViewForm2(quotationId) {
       <!-- Back button removed for v1.0.1 -->
     </div>
   `);
-  // Fetch and fill data
-  if (quotationId) {
-    fetch(`/quotation/api/${quotationId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) {
-          $('#view-company').val(data.error);
-          return;
-        }
-        $('#view-company').val(data.company ?? '-');
-        $('#view-key-person').val(data.key_person_name ?? '-');
-        $('#view-item-code').val(data.customer_item_code ?? '-');
-        $('#view-quality').val(data.quality ?? '-');
-        $('#view-flat-or-raised').val(data.flat_or_raised ?? '-');
-        $('#view-direct-or-reverse').val(data.direct_or_reverse ?? '-');
-        $('#view-thickness').val(data.thickness ?? '-');
-        $('#view-num-colors').val(data.num_colors ?? '-');
-        // Show color names if present
-        if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
-          $('#view-num-colors').val(`${data.num_colors} (${data.color_names.join(', ')})`);
-        } else if (data.color_names && typeof data.color_names === 'string' && data.color_names.length > 0) {
-          try {
-            const colorArr = JSON.parse(data.color_names);
-            if (Array.isArray(colorArr) && colorArr.length > 0) {
-              $('#view-num-colors').val(`${data.num_colors} (${colorArr.join(', ')})`);
-            }
-          } catch (e) {}
-        }
-        // Show only the number of colors, not the color names in parentheses
-        if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
-          $('#view-num-colors').val(data.color_names.length);
-        }
-        $('#view-length').val(data.length ?? '-');
-        $('#view-width').val(data.width ?? '-');
-        $('#view-price').val(data.price ?? '-');
-        $('#view-status').val(data.status ?? '-');
-        $('#view-created-at').val(data.created_at ?? '-');
-        $('#view-updated-at').val(data.updated_at ?? '-');
-        $('#view-action').val(data.action ?? '-');
-        if (data.artwork_image) {
-          $('#view-artwork-image').html(`<img src="/${data.artwork_image}" alt="Artwork Image" style="max-width:200px;">`);
-        } else {
-          $('#view-artwork-image').html('-');
-        }
-        // Display additional artworks if available (assume data.additional_artworks is an array of filenames)
-        if (data.attachments && data.attachments.length > 0) {
-          let attachmentsHtml = data.attachments.map(att =>
-            `<li><a href="/uploads/attachments/${att.filename}" target="_blank">${att.original_filename || att.filename}</a></li>`
-          ).join('');
-          $('#view-multi-artwork-list').html(attachmentsHtml);
-        } else {
-          $('#view-multi-artwork-list').html('<li style="color:#888;">No additional artworks uploaded.</li>');
-        }
-        $('#view-quotation-block').text(data.quotation_block ?? '-');
-        // Show color names as separate read-only input fields and as JSON
-        $('#view-color-names').remove();
-        if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
-          let colorInputs = '<div id="view-color-names" style="margin-top:4px;">';
-          // Get computed style from #view-num-colors for consistency
-          const numColorsInput = document.getElementById('view-num-colors');
-          let colorInputStyle = '';
-          if (numColorsInput) {
-            const computed = window.getComputedStyle(numColorsInput);
-            colorInputStyle = [
-              'width:' + computed.width,
-              'padding:' + computed.padding,
-              'background:' + computed.backgroundColor,
-              'border:' + computed.border,
-              'border-radius:' + computed.borderRadius,
-              'color:' + computed.color,
-              'margin-bottom:' + computed.marginBottom,
-              'font:' + computed.font,
-              'box-sizing:' + computed.boxSizing
-            ].join(';');
-          } else {
-            colorInputStyle = 'width:100%;padding:8px;background:#e9ecef;border:1px solid #e9ecef;border-radius:4px;color:#495057;margin-bottom:2px;';
-          }
-          data.color_names.forEach((c, i) => {
-            colorInputs += `<input type='text' value='${c}' disabled id='view-color-name-${i+1}' style='${colorInputStyle};margin-left:24px;width:calc(100% - 24px);'>`;
-          });
-          colorInputs += `<div style='font-size:12px;color:#888;margin-top:2px;'>JSON: ${JSON.stringify(data.color_names)}</div>`;
-          colorInputs += '</div>';
-          $('#view-num-colors').parent().append(colorInputs);
-        }
-      })
-      .catch(err => {
-        $('#view-company').val('Error loading quotation.');
-      });
-  } else {
-    $('#view-company').val('No quotation ID provided.');
-  }
+
+  // --- Milestone 1: Edit/Cancel button logic ---
+  let isEditMode = false;
+  let originalValues = {}; // To store values before editing
+
+  $(document).on('click', '#edit-toggle-btn', function() {
+    isEditMode = true;
+    
+    // Store original values
+    $('.item-info-field-view').each(function() {
+      originalValues[this.id] = $(this).val();
+    });
+
+    swapToEditFields();
+
+    // Update buttons
+    $('#view-mode-buttons').html(`
+      <button id="cancel-edit-btn" style="background:#dc3545; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Cancel Editing</button>
+      <button id="save-btn" style="background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:not-allowed; margin-left:8px;" disabled>Save</button>
+    `);
+  });
+
+  $(document).on('click', '#cancel-edit-btn', function() {
+    isEditMode = false;
+    
+    // Restore original values before swapping back
+    for (const id in originalValues) {
+        $(`#${id}`).val(originalValues[id]);
+    }
+    
+    swapToReadOnlyFields();
+    
+    // Restore Edit button
+    $('#view-mode-buttons').html(
+      `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
+    );
+  });
+
+   // Fetch and fill data
+   if (quotationId) {
+     fetch(`/quotation/api/${quotationId}`)
+       .then(res => res.json())
+       .then(data => {
+         if (data.error) {
+           $('#view-company').val(data.error);
+           return;
+         }
+         $('#view-company').val(data.company ?? '-');
+         $('#view-key-person').val(data.key_person_name ?? '-');
+         $('#view-item-code').val(data.customer_item_code ?? '-');
+         $('#view-quality').val(data.quality ?? '-');
+         $('#view-flat-or-raised').val(data.flat_or_raised ?? '-');
+         $('#view-direct-or-reverse').val(data.direct_or_reverse ?? '-');
+         $('#view-thickness').val(data.thickness ?? '-');
+         $('#view-num-colors').val(data.num_colors ?? '-');
+         // Show color names if present
+         if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
+           $('#view-num-colors').val(`${data.num_colors} (${data.color_names.join(', ')})`);
+         } else if (data.color_names && typeof data.color_names === 'string' && data.color_names.length > 0) {
+           try {
+             const colorArr = JSON.parse(data.color_names);
+             if (Array.isArray(colorArr) && colorArr.length > 0) {
+               $('#view-num-colors').val(`${data.num_colors} (${colorArr.join(', ')})`);
+             }
+           } catch (e) {}
+         }
+         // Show only the number of colors, not the color names in parentheses
+         if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
+           $('#view-num-colors').val(data.color_names.length);
+         }
+         $('#view-length').val(data.length ?? '-');
+         $('#view-width').val(data.width ?? '-');
+         $('#view-price').val(data.price ?? '-');
+         $('#view-status').val(data.status ?? '-');
+         $('#view-created-at').val(data.created_at ?? '-');
+         $('#view-updated-at').val(data.updated_at ?? '-');
+         $('#view-action').val(data.action ?? '-');
+         if (data.artwork_image) {
+           $('#view-artwork-image').html(`<img src="/${data.artwork_image}" alt="Artwork Image" style="max-width:200px;">`);
+         } else {
+           $('#view-artwork-image').html('-');
+         }
+         // Display additional artworks if available (assume data.additional_artworks is an array of filenames)
+         if (data.attachments && data.attachments.length > 0) {
+           let attachmentsHtml = data.attachments.map(att =>
+             `<li><a href="/uploads/attachments/${att.filename}" target="_blank">${att.original_filename || att.filename}</a></li>`
+           ).join('');
+           $('#view-multi-artwork-list').html(attachmentsHtml);
+         } else {
+           $('#view-multi-artwork-list').html('<li style="color:#888;">No additional artworks uploaded.</li>');
+         }
+         $('#view-quotation-block').text(data.quotation_block ?? '-');
+         // Show color names as separate read-only input fields and as JSON
+         $('#view-color-names').remove();
+         if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
+           let colorInputs = '<div id="view-color-names" style="margin-top:4px;">';
+           // Get computed style from #view-num-colors for consistency
+           const numColorsInput = document.getElementById('view-num-colors');
+           let colorInputStyle = '';
+           if (numColorsInput) {
+             const computed = window.getComputedStyle(numColorsInput);
+             colorInputStyle = [
+               'width:' + computed.width,
+               'padding:' + computed.padding,
+               'background:' + computed.backgroundColor,
+               'border:' + computed.border,
+               'border-radius:' + computed.borderRadius,
+               'color:' + computed.color,
+               'margin-bottom:' + computed.marginBottom,
+               'font:' + computed.font,
+               'box-sizing:' + computed.boxSizing
+             ].join(';');
+           } else {
+             colorInputStyle = 'width:100%;padding:8px;background:#e9ecef;border:1px solid #e9ecef;border-radius:4px;color:#495057;margin-bottom:2px;';
+           }
+           data.color_names.forEach((c, i) => {
+             colorInputs += `<input type='text' value='${c}' disabled id='view-color-name-${i+1}' style='${colorInputStyle};margin-left:24px;width:calc(100% - 24px);'>`;
+           });
+           colorInputs += `<div style='font-size:12px;color:#888;margin-top:2px;'>JSON: ${JSON.stringify(data.color_names)}</div>`;
+           colorInputs += '</div>';
+           $('#view-num-colors').parent().append(colorInputs);
+         }
+       })
+       .catch(err => {
+         $('#view-company').val('Error loading quotation.');
+       });
+   } else {
+     $('#view-company').val('No quotation ID provided.');
+   }
+}
+
+function showQuotationCreateForm2(viewMode = false) {
+  // ... (existing code) ...
+  let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.1.8 [quotation_create.js]</span>';
+  // ... (rest of the function) ...
 }

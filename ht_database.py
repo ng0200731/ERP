@@ -174,4 +174,82 @@ def update_ht_database():
 
     expected_columns = ['quality', 'flat_or_raised', 'direct_or_reverse', 'thickness', 'num_colors', 'length', 'width', 'price']
     if list(df.columns) != expected_columns:
-        return jsonify({'error': f'Column headers do not match expected format. Required: {expected_columns}, got: {list(df.columns)}'}), 400 
+        return jsonify({'error': f'Column headers do not match expected format. Required: {expected_columns}, got: {list(df.columns)}'}), 400
+
+@ht_database_bp.route('/ht_database/price_lookup', methods=['POST'])
+def price_lookup():
+    try:
+        data = request.json
+        quality = data.get('quality', '')
+        flat_or_raised = data.get('flat_or_raised', '')
+        direct_or_reverse = data.get('direct_or_reverse', '')
+        num_colors = int(data.get('num_colors', 0))
+        thickness = float(data.get('thickness', 0.0))
+
+        conn = get_db_ht()
+        cursor = conn.cursor()
+
+        price = None
+        db_length = None
+        db_width = None
+
+        if flat_or_raised.lower() == 'flat':
+            sql = '''
+                SELECT length, width, price FROM ht_database
+                WHERE lower(quality)=lower(?)
+                  AND lower(flat_or_raised)=lower(?)
+                  AND lower(direct_or_reverse)=lower(?)
+                  AND num_colors=?
+            '''
+            params = (quality, flat_or_raised, direct_or_reverse, num_colors)
+            cursor.execute(sql, params)
+            row = cursor.fetchone()
+            if row:
+                db_length, db_width, price = row
+        elif flat_or_raised.lower() == 'raised':
+            sql = '''
+                SELECT length, width, price FROM ht_database
+                WHERE lower(quality)=lower(?)
+                  AND lower(flat_or_raised)=lower(?)
+                  AND lower(direct_or_reverse)=lower(?)
+                  AND num_colors=? AND thickness <= ?
+                ORDER BY thickness DESC
+                LIMIT 1
+            '''
+            params = (quality, flat_or_raised, direct_or_reverse, num_colors, thickness)
+            cursor.execute(sql, params)
+            row = cursor.fetchone()
+            if row:
+                db_length, db_width, price = row
+            else:
+                # Fallback to minimum thickness if no match
+                sql2 = '''
+                    SELECT length, width, price FROM ht_database
+                    WHERE lower(quality)=lower(?)
+                      AND lower(flat_or_raised)=lower(?)
+                      AND lower(direct_or_reverse)=lower(?)
+                      AND num_colors=?
+                    ORDER BY thickness ASC
+                    LIMIT 1
+                '''
+                params2 = (quality, flat_or_raised, direct_or_reverse, num_colors)
+                cursor.execute(sql2, params2)
+                row2 = cursor.fetchone()
+                if row2:
+                    db_length, db_width, price = row2
+        
+        conn.close()
+
+        if price is not None:
+            return jsonify({
+                'price': price,
+                'length': db_length,
+                'width': db_width
+            })
+        else:
+            return jsonify({'error': 'Price not found for the given combination'}), 404
+
+    except Exception as e:
+        import logging
+        logging.error(f"Error during price lookup: {str(e)}")
+        return jsonify({'error': str(e)}), 500 

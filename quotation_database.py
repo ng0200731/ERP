@@ -9,6 +9,7 @@ import logging
 import random
 import string
 from sqlalchemy.orm import relationship
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -305,4 +306,51 @@ def search_quotation():
 @quotation_bp.route('/quotation/generate_code')
 def generate_new_code():
     """API endpoint to generate a new item code"""
-    return jsonify({'code': generate_item_code()}) 
+    return jsonify({'code': generate_item_code()})
+
+@quotation_bp.route('/quotation/api/<int:quotation_id>', methods=['PUT'])
+def api_update_quotation(quotation_id):
+    try:
+        from sqlalchemy.orm import sessionmaker
+        engine = create_engine('sqlite:///database.db')
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        quotation = session.query(Quotation).filter_by(id=quotation_id).first()
+        if not quotation:
+            return jsonify({'error': 'Quotation not found'}), 404
+
+        data = request.json
+        
+        # Update fields
+        quotation.customer_item_code = data.get('customer_item_code')
+        quotation.quality = data.get('quality')
+        quotation.flat_or_raised = data.get('flat_or_raised')
+        quotation.direct_or_reverse = data.get('direct_or_reverse')
+        quotation.thickness = data.get('thickness')
+        quotation.num_colors = data.get('num_colors')
+        quotation.width = data.get('width')
+        quotation.length = data.get('length')
+        quotation.price = data.get('price')
+        quotation.quotation_block = data.get('quotation_block')
+        
+        # Handle color_names (assuming it's sent as a JSON string or list)
+        color_names = data.get('color_names')
+        if isinstance(color_names, list):
+            quotation.color_names = json.dumps(color_names)
+        else:
+            quotation.color_names = color_names
+
+        # Update timestamp
+        quotation.last_updated = datetime.utcnow()
+        
+        session.commit()
+        session.close()
+
+        return jsonify({'message': 'Quotation updated successfully'}), 200
+
+    except Exception as e:
+        # Proper logging
+        import logging
+        logging.error(f"Error updating quotation {quotation_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 500 

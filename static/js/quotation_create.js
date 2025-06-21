@@ -548,7 +548,7 @@ function showQuotationCreateForm2(viewMode = false) {
     // Get the user permission level
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
-      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.1.8 [quotation_create.js]</span>';
+      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.1.9 [quotation_create.js]</span>';
       let version = viewMode ? 'v1.0.0' : 'v1.3.13';
       let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
@@ -1494,6 +1494,73 @@ function swapToEditFields() {
     let optionsHTML = f.options.map(opt => `<option value="${opt}"${val === opt ? ' selected' : ''}>${opt}</option>`).join('');
     el.replaceWith(`<select id="${f.id}" class="item-info-field-view" style="width: 100%; padding: 8px;"><option value="">-- Select --</option>${optionsHTML}</select>`);
   });
+
+  // --- Milestone 2: Add event listeners for field correlations ---
+  $('#view-quality').on('change', updateFieldCorrelations);
+  $('#view-flat-or-raised').on('change', updateFieldCorrelations);
+  
+  // Set initial state
+  updateFieldCorrelations();
+}
+
+// --- Milestone 2: Complete Field Correlation Logic ---
+function updateFieldCorrelations() {
+  const quality = $('#view-quality').val();
+  const flatOrRaisedField = $('#view-flat-or-raised');
+  const directOrReverseField = $('#view-direct-or-reverse');
+  const thicknessField = $('#view-thickness');
+  
+  // Reset all fields to enabled state first
+  flatOrRaisedField.prop('disabled', false);
+  directOrReverseField.prop('disabled', false);
+  thicknessField.prop('disabled', false);
+  
+  // Remove disabled styling
+  flatOrRaisedField.css('background-color', '').css('color', '');
+  directOrReverseField.css('background-color', '').css('color', '');
+  thicknessField.css('background-color', '').css('color', '');
+  
+  if (quality === 'PU') {
+    // If "PU" is selected:
+    // "Flat or Raised" is set to "Flat" and disabled
+    flatOrRaisedField.val('Flat').prop('disabled', true);
+    flatOrRaisedField.css('background-color', '#e9ecef').css('color', '#6c757d');
+    
+    // "Direct or Reverse" is set to "Direct" and disabled
+    directOrReverseField.val('Direct').prop('disabled', true);
+    directOrReverseField.css('background-color', '#e9ecef').css('color', '#6c757d');
+    
+    // "Thickness" is cleared and disabled
+    thicknessField.val('').prop('disabled', true);
+    thicknessField.css('background-color', '#e9ecef').css('color', '#6c757d');
+    
+  } else if (quality === 'Silicon') {
+    // If "Silicon" is selected:
+    // "Flat or Raised" is enabled
+    flatOrRaisedField.prop('disabled', false);
+    
+    // Check current Flat or Raised selection
+    const flatOrRaised = flatOrRaisedField.val();
+    
+    if (flatOrRaised === 'Flat') {
+      // If "Flat" is selected:
+      // "Direct or Reverse" is set to "Direct" and disabled
+      directOrReverseField.val('Direct').prop('disabled', true);
+      directOrReverseField.css('background-color', '#e9ecef').css('color', '#6c757d');
+      
+      // "Thickness" is cleared and disabled
+      thicknessField.val('').prop('disabled', true);
+      thicknessField.css('background-color', '#e9ecef').css('color', '#6c757d');
+      
+    } else if (flatOrRaised === 'Raised') {
+      // If "Raised" is selected:
+      // "Direct or Reverse" is enabled
+      directOrReverseField.prop('disabled', false);
+      
+      // "Thickness" is enabled
+      thicknessField.prop('disabled', false);
+    }
+  }
 }
 
 function swapToReadOnlyFields() {
@@ -1514,7 +1581,7 @@ function showQuotationViewForm2(quotationId) {
   $('#right-frame').html(`
     <div style="padding:32px;max-width:900px; min-height:100vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.1.8 [quotation_create.js]</span></h2>
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.1.9 [quotation_create.js]</span></h2>
         <div id="view-mode-buttons">
           <button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
         </div>
@@ -1735,6 +1802,6 @@ function showQuotationViewForm2(quotationId) {
 
 function showQuotationCreateForm2(viewMode = false) {
   // ... (existing code) ...
-  let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.1.8 [quotation_create.js]</span>';
+  let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.1.9 [quotation_create.js]</span>';
   // ... (rest of the function) ...
 }

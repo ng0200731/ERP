@@ -183,10 +183,14 @@ def price_lookup():
         quality = data.get('quality', '')
         flat_or_raised = data.get('flat_or_raised', '')
         direct_or_reverse = data.get('direct_or_reverse', '')
-        num_colors = int(data.get('num_colors', 0))
-        thickness = float(data.get('thickness', 0.0))
+        
+        num_colors_val = data.get('num_colors')
+        num_colors = int(num_colors_val) if num_colors_val is not None else 0
+        
+        thickness_val = data.get('thickness')
+        thickness = float(thickness_val) if thickness_val is not None else 0.0
 
-        conn = get_db_ht()
+        conn = get_db()
         cursor = conn.cursor()
 
         price = None
@@ -196,9 +200,9 @@ def price_lookup():
         if flat_or_raised.lower() == 'flat':
             sql = '''
                 SELECT length, width, price FROM ht_database
-                WHERE lower(quality)=lower(?)
-                  AND lower(flat_or_raised)=lower(?)
-                  AND lower(direct_or_reverse)=lower(?)
+                WHERE trim(lower(quality))=trim(lower(?))
+                  AND trim(lower(flat_or_raised))=trim(lower(?))
+                  AND trim(lower(direct_or_reverse))=trim(lower(?))
                   AND num_colors=?
             '''
             params = (quality, flat_or_raised, direct_or_reverse, num_colors)
@@ -209,9 +213,9 @@ def price_lookup():
         elif flat_or_raised.lower() == 'raised':
             sql = '''
                 SELECT length, width, price FROM ht_database
-                WHERE lower(quality)=lower(?)
-                  AND lower(flat_or_raised)=lower(?)
-                  AND lower(direct_or_reverse)=lower(?)
+                WHERE trim(lower(quality))=trim(lower(?))
+                  AND trim(lower(flat_or_raised))=trim(lower(?))
+                  AND trim(lower(direct_or_reverse))=trim(lower(?))
                   AND num_colors=? AND thickness <= ?
                 ORDER BY thickness DESC
                 LIMIT 1
@@ -225,9 +229,9 @@ def price_lookup():
                 # Fallback to minimum thickness if no match
                 sql2 = '''
                     SELECT length, width, price FROM ht_database
-                    WHERE lower(quality)=lower(?)
-                      AND lower(flat_or_raised)=lower(?)
-                      AND lower(direct_or_reverse)=lower(?)
+                    WHERE trim(lower(quality))=trim(lower(?))
+                      AND trim(lower(flat_or_raised))=trim(lower(?))
+                      AND trim(lower(direct_or_reverse))=trim(lower(?))
                       AND num_colors=?
                     ORDER BY thickness ASC
                     LIMIT 1

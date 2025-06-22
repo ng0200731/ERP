@@ -548,12 +548,12 @@ function showQuotationCreateForm2(viewMode = false) {
     // Get the user permission level
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
-      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT) <span style="font-size:1rem;color:#888;">v1.2.7 [quotation_create.js]</span>';
-      let version = viewMode ? 'v1.0.0' : 'v1.3.13';
+      let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT)';
+      let version = '1.3.3'; // <-- Updated Version
       let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
-          <h2>${headerTitle} <span style='font-size:1rem;color:#888;'>${version} [${jsFile}]</span></h2>
+          <h2>${headerTitle} <span style='font-size:1rem;color:#888;'>v${version} [${jsFile}]</span></h2>
           <div style="display:flex; gap:32px; align-items:flex-start;">
             <div style="flex:2; min-width:340px;">
               ${userLevel >= 3 && !viewMode ? `
@@ -1576,6 +1576,10 @@ function updateFieldCorrelations() {
 function updateColorFields() {
   const numColors = parseInt($('#view-num-colors').val()) || 0;
   const colorContainer = $('#view-color-names');
+  const existingColorNames = [];
+  colorContainer.find('.color-name-field').each(function() {
+      existingColorNames.push($(this).val());
+  });
   
   // Remove existing color fields
   colorContainer.empty();
@@ -1583,11 +1587,12 @@ function updateColorFields() {
   if (numColors > 0) {
     // Create color name input fields
     for (let i = 1; i <= numColors; i++) {
+      const existingName = existingColorNames[i-1] || '';
       const colorField = $(`
         <div style="margin-bottom: 8px;">
           <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #495057;">Color ${i}:</label>
           <input type="text" id="view-color-name-${i}" class="item-info-field-view color-name-field" 
-                 style="width: 100%; padding: 8px; margin-left: 24px;" placeholder="Enter color name" autocomplete="off">
+                 style="width: calc(100% - 24px); padding: 8px; margin-left: 24px;" placeholder="Enter color name" autocomplete="off" value="${existingName}">
         </div>
       `);
       colorContainer.append(colorField);
@@ -1674,12 +1679,13 @@ function swapToReadOnlyFields() {
 
 function showQuotationViewForm2(quotationId) {
   // Use the same layout as create, but all fields are disabled/read-only
+  // Updated version to 1.3.7
   $('#right-frame').html(`
-    <div style="padding:32px;max-width:900px; min-height:100vh;">
+    <form id="view-quotation-form" style="padding:32px;max-width:900px; min-height:100vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.2.7 [quotation_create.js]</span></h2>
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.7 [quotation_create.js]</span></h2>
         <div id="view-mode-buttons">
-          <button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
+          <button id="edit-toggle-btn" type="button" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
         </div>
       </div>
       <div style="display:flex; gap:32px; align-items:flex-start;">
@@ -1763,8 +1769,11 @@ function showQuotationViewForm2(quotationId) {
           </div>
         </div>
       </div>
-    </div>
+    </form>
   `);
+
+  // Store the quotation ID on the form element for robust access
+  $('#view-quotation-form').data('quotation-id', quotationId);
 
   // --- Milestone 1: Edit/Cancel button logic ---
   let isEditMode = false;
@@ -1904,175 +1913,74 @@ $(document).on('click', '#save-btn', function() {
 });
 
 function saveQuotationChanges() {
-  const quotationId = window.location.hash.split('-')[1];
-  // Collect form data
-  const formData = {
-    customer_item_code: $('#view-item-code').val(),
-    quality: $('#view-quality').val(),
-    flat_or_raised: $('#view-flat-or-raised').val(),
-    direct_or_reverse: $('#view-direct-or-reverse').val(),
-    thickness: parseFloat($('#view-thickness').val()) || null,
-    num_colors: parseInt($('#view-num-colors').val()),
-    width: parseFloat($('#view-width').val()),
-    length: parseFloat($('#view-length').val()),
-    color_names: []
-  };
-
-  // Collect color names
-  $('.color-name-field').each(function() {
-    formData.color_names.push($(this).val().trim());
-  });
-
-  // Show loading state
-  const saveBtn = $('#save-btn');
-  saveBtn.prop('disabled', true);
-  saveBtn.text('Saving...');
-
-  // First, get price from ht_database using same logic as Create HT form
-  fetch('/ht_database/price_lookup', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      quality: formData.quality,
-      flat_or_raised: formData.flat_or_raised,
-      direct_or_reverse: formData.direct_or_reverse,
-      num_colors: formData.num_colors,
-      thickness: formData.thickness
-    })
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`Price lookup failed with status: ${response.status}`);
+    const quotationId = $('#view-quotation-form').data('quotation-id');
+    if (!quotationId) {
+        alert("Error: Quotation ID is missing. Please refresh the page and try again.");
+        return;
     }
-    return response.json();
-  })
-  .then(priceData => {
-    // Use the same quotation calculation logic as Create HT form
-    const quotationBlock = calculateQuotationBlock(formData, priceData);
-    
-    // Add calculated price and quotation block to formData
-    formData.price = priceData.price || null;
-    formData.quotation_block = quotationBlock;
-    
-    // Now, save the updated quotation data to the backend
-    return fetch(`/quotation/api/${quotationId}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
+
+    // Collect form data
+    const formData = {
+        company: $('#view-company').val(),
+        key_person_name: $('#view-key-person').val(),
+        customer_item_code: $('#view-item-code').val(),
+        quality: $('#view-quality').val(),
+        flat_or_raised: $('#view-flat-or-raised').val(),
+        direct_or_reverse: $('#view-direct-or-reverse').val(),
+        thickness: $('#view-thickness').val() ? parseFloat($('#view-thickness').val()) : null,
+        num_colors: $('#view-num-colors').val() ? parseInt($('#view-num-colors').val()) : null,
+        width: $('#view-width').val() ? parseFloat($('#view-width').val()) : null,
+        length: $('#view-length').val() ? parseFloat($('#view-length').val()) : null,
+        color_names: []
+    };
+
+    // Collect color names from dynamic fields
+    $('.color-name-field').each(function() {
+        formData.color_names.push($(this).val().trim());
     });
-  })
-  .then(updateResponse => {
-      if (!updateResponse.ok) {
-          throw new Error(`Quotation update failed with status: ${updateResponse.status}`);
-      }
-      return updateResponse.json();
-  })
-  .then(updateResult => {
-    // Update the UI with new values
-    $('#view-quotation-block').text(formData.quotation_block);
-    $('#view-price').val(formData.price || '-');
-    
-    const now = new Date();
-    const timestamp = now.toLocaleString(); // Use local time for display
-    $('#view-updated-at').val(timestamp);
-    
-    // Show success message
-    alert('Quotation updated successfully!');
-    
-    // Return to read-only mode
-    $('#cancel-edit-btn').click();
-  })
-  .catch(error => {
-    console.error('Error saving quotation:', error);
-    alert('Error updating quotation. Details: ' + error.message);
-    
-    // Reset save button
+
+    // Show loading state on the save button
     const saveBtn = $('#save-btn');
-    saveBtn.prop('disabled', false);
-    saveBtn.text('Save');
-  });
+    saveBtn.prop('disabled', true).text('Saving...');
+
+    // Call the single backend endpoint to update the quotation
+    fetch(`/quotation/api/${quotationId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            // If response is not OK, get the error message from the body
+            return response.json().then(err => {
+                throw new Error(err.error || 'Unknown server error');
+            });
+        }
+        return response.json();
+    })
+    .then(updateResult => {
+        // Update UI with the new quotation block returned from the server
+        $('#view-quotation-block').text(updateResult.quotation_block);
+        
+        const now = new Date().toLocaleString();
+        $('#view-updated-at').val(now);
+
+        // Show success message
+        alert('Quotation updated successfully!');
+        
+        // Restore buttons and switch to read-only mode
+        $('#cancel-edit-btn').click(); 
+    })
+    .catch(error => {
+        console.error('Error saving quotation:', error);
+        alert('Error updating quotation. Details: ' + error.message);
+        
+        // Restore the save button to its original state
+        saveBtn.prop('disabled', false).text('Save');
+    });
 }
 
-// --- Milestone 4: Quotation Calculation (Same as Create HT form) ---
-function calculateQuotationBlock(formData, priceData) {
-  // Same formatting function as Create HT form
-  function fmt(val, decimals = 2) {
-    if (val === '-' || val === null || val === undefined) {
-      return '-';
-    }
-    return parseFloat(val).toFixed(decimals);
-  }
-
-  const xVal = fmt(priceData.length, 2);
-  const yVal = fmt(priceData.width, 2);
-  const inputSummary = `(${formData.quality}, ${formData.flat_or_raised}, ${formData.direct_or_reverse}, ${formData.thickness || '-'}, ${formData.num_colors})`;
-
-  // Same combination calculations as Create HT form
-  const mPlus6 = formData.length + 6;
-  const nPlus6 = formData.width + 6;
-  let combA = combB = combAeq = combBeq = '-';
-
-  if (priceData.length && priceData.width && formData.length && formData.width) {
-    const xDivM = Math.floor(priceData.length / mPlus6);
-    const yDivN = Math.floor(priceData.width / nPlus6);
-    const yDivM = Math.floor(priceData.width / mPlus6);
-    const xDivN = Math.floor(priceData.length / nPlus6);
-    
-    combA = xDivM * yDivN;
-    combB = yDivM * xDivN;
-    
-    combAeq = `(${fmt(priceData.length, 2)} / (${fmt(formData.length, 2)}+6)) × (${fmt(priceData.width, 2)} / (${fmt(formData.width, 2)}+6)) = ${xDivM} × ${yDivN} = ${combA} (# per 1 pet)`;
-    combBeq = `(${fmt(priceData.width, 2)} / (${fmt(formData.length, 2)}+6)) × (${fmt(priceData.length, 2)} / (${fmt(formData.width, 2)}+6)) = ${yDivM} × ${xDivN} = ${combB} (# per 1 pet)`;
-  }
-
-  // Same dimming logic as Create HT form
-  let combAColor = combBColor = '';
-  if (typeof combA === 'number' && typeof combB === 'number') {
-    if (combA < combB) {
-      combAColor = '[dim]';
-    } else if (combA > combB) {
-      combBColor = '[dim]';
-    }
-  }
-
-  // Same cost per label calculation as Create HT form
-  let costPerLabel = '-';
-  if (priceData.price !== '-' && typeof combA === 'number' && typeof combB === 'number') {
-    const maxComb = Math.max(combA, combB);
-    if (maxComb > 0) {
-      costPerLabel = parseFloat(priceData.price) / maxComb;
-    }
-  }
-
-  // Same tier quotation as Create HT form
-  const tiers = [
-    [1000, 1.10], [3000, 1.05], [5000, 1.03], [10000, 1.00],
-    [30000, 0.95], [50000, 0.90], [100000, 0.85]
-  ];
-  
-  const tierLines = tiers.map(([qty, factor]) => {
-    let tprice = '-';
-    if (costPerLabel !== '-' && typeof costPerLabel === 'number') {
-      tprice = (costPerLabel * factor * 1000).toFixed(2);
-    }
-    return `${qty.toLocaleString()}\t${tprice}`;
-  });
-
-  // Same block format as Create HT form
-  let block = 'Quotation\n';
-  block += `1) Cost of PET (${xVal} × ${yVal}): ${inputSummary} = ${fmt(priceData.price)}\n`;
-  block += `2) Combination A: ${combAColor === '[dim]' ? '[dim] ' : ''}${combAeq}\n`;
-  block += `   Combination B: ${combBColor === '[dim]' ? '[dim] ' : ''}${combBeq}\n`;
-  block += `3) Cost per 1 label: ${fmt(costPerLabel)}\n`;
-  block += '4) Tier quotation\nQty\tPrice\n';
-  block += tierLines.join('\n');
-
-  return block;
-}
+// --- Milestone 4: Quotation Calculation (REMOVED - now on backend) ---
 
 function initQuotationApp() {
   const rightFrame = $('#right-frame');

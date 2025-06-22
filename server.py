@@ -1202,12 +1202,162 @@ def uploaded_artwork_image(filename):
 def uploaded_attachment(filename):
     return send_from_directory('uploads/attachments', filename)
 
-@app.route('/quotation/api/<int:quotation_id>')
+@app.route('/quotation/api/<int:quotation_id>', methods=['GET', 'PUT'])
 def api_get_quotation(quotation_id):
     from sqlalchemy.orm import sessionmaker
     engine = create_engine('sqlite:///database.db')
     Session = sessionmaker(bind=engine)
     session = Session()
+
+    if request.method == 'PUT':
+        try:
+            data = request.json
+            quotation = session.query(Quotation).filter_by(id=quotation_id).first()
+            if not quotation:
+                return jsonify({'error': 'Quotation not found'}), 404
+
+            # --- PRICE LOOKUP LOGIC (REFINED) ---
+            quality = data.get('quality', '')
+            flat_or_raised = data.get('flat_or_raised', '')
+            direct_or_reverse = data.get('direct_or_reverse', '')
+            num_colors_val = data.get('num_colors')
+            thickness_val = data.get('thickness')
+            
+            price = '-'
+            db_length = None
+            db_width = None
+
+            conn = engine.raw_connection()
+            cursor = conn.cursor()
+
+            if quality.upper() == 'PU':
+                sql = "SELECT length, width, price FROM ht_database WHERE trim(lower(quality)) = 'pu' LIMIT 1"
+                cursor.execute(sql)
+                row = cursor.fetchone()
+                if row:
+                    db_length, db_width, price = row
+            elif flat_or_raised and direct_or_reverse and num_colors_val is not None:
+                num_colors = int(num_colors_val)
+                if flat_or_raised.lower() == 'flat':
+                    sql = '''
+                        SELECT length, width, price FROM ht_database
+                        WHERE trim(lower(quality))=trim(lower(?))
+                          AND trim(lower(flat_or_raised))=trim(lower(?))
+                          AND trim(lower(direct_or_reverse))=trim(lower(?))
+                          AND num_colors=?
+                    '''
+                    params = (quality, flat_or_raised, direct_or_reverse, num_colors)
+                    cursor.execute(sql, params)
+                    row = cursor.fetchone()
+                    if row:
+                        db_length, db_width, price = row
+                elif flat_or_raised.lower() == 'raised' and thickness_val is not None:
+                    thickness = float(thickness_val)
+                    sql = '''
+                        SELECT length, width, price FROM ht_database
+                        WHERE trim(lower(quality))=trim(lower(?))
+                          AND trim(lower(flat_or_raised))=trim(lower(?))
+                          AND trim(lower(direct_or_reverse))=trim(lower(?))
+                          AND num_colors=? AND thickness <= ?
+                        ORDER BY thickness DESC
+                        LIMIT 1
+                    '''
+                    params = (quality, flat_or_raised, direct_or_reverse, num_colors, thickness)
+                    cursor.execute(sql, params)
+                    row = cursor.fetchone()
+                    if row:
+                        db_length, db_width, price = row
+            
+            conn.close()
+
+            if price == '-':
+                 return jsonify({'error': 'Price lookup failed'}), 500
+
+
+            # --- Recalculate Quotation Block ---
+            def fmt(val, decimals=2):
+                if val is None or val == '-': return '-'
+                try: return f"{float(val):.{decimals}f}"
+                except (ValueError, TypeError): return '-'
+
+            user_length = float(data.get('length')) if data.get('length') else 0
+            user_width = float(data.get('width')) if data.get('width') else 0
+            
+            xVal = fmt(db_length)
+            yVal = fmt(db_width)
+            
+            num_colors_str = str(num_colors_val) if num_colors_val is not None else '-'
+            thickness_str = str(thickness_val) if thickness_val is not None else '-'
+
+            inputSummary = f"({quality}, {flat_or_raised}, {direct_or_reverse}, {thickness_str}, {num_colors_str})"
+            
+            combA, combB, combAeq, combBeq = '-', '-', '-', '-'
+            if db_length and db_width and user_length and user_width:
+                mPlus6, nPlus6 = user_length + 6, user_width + 6
+                if mPlus6 > 0 and nPlus6 > 0:
+                    xDivM, yDivN = int(db_length // mPlus6), int(db_width // nPlus6)
+                    yDivM, xDivN = int(db_width // mPlus6), int(db_length // nPlus6)
+                    combA, combB = xDivM * yDivN, yDivM * xDivN
+                    combAeq = f"({fmt(db_length)}/({fmt(user_length)}+6))x({fmt(db_width)}/({fmt(user_width)}+6))={xDivM}x{yDivN}={combA}(# per 1 pet)"
+                    combBeq = f"({fmt(db_width)}/({fmt(user_length)}+6))x({fmt(db_length)}/({fmt(user_width)}+6))={yDivM}x{xDivN}={combB}(# per 1 pet)"
+
+            costPerLabel = '-'
+            if price != '-' and isinstance(combA, int) and isinstance(combB, int):
+                maxComb = max(combA, combB)
+                if maxComb > 0: costPerLabel = float(price) / maxComb
+
+            tiers = [(1000,1.1),(3000,1.05),(5000,1.03),(10000,1.00),(30000,0.95),(50000,0.9),(100000,0.85)]
+            tier_lines = []
+            for qty, factor in tiers:
+                tprice = '-'
+                if isinstance(costPerLabel, float): tprice = f"{costPerLabel*factor*1000:.2f}"
+                tier_lines.append(f"{qty:,}\t{tprice}")
+            
+            block = f"Quotation\n"
+            block += f"1) Cost of PET ({xVal} x {yVal}): {inputSummary} = {fmt(price)}\n"
+            block += f"2) Combination A: {combAeq}\n"
+            block += f"   Combination B: {combBeq}\n"
+            block += f"3) Cost per 1 label: {fmt(costPerLabel)}\n"
+            block += f"4) Tier quotation\nQty\tPrice\n" + '\n'.join(tier_lines)
+
+            # Update quotation fields
+            quotation.customer_name = data.get('company')
+            quotation.key_person_name = data.get('key_person_name')
+            quotation.customer_item_code = data.get('customer_item_code')
+            quotation.quality = quality
+            quotation.flat_or_raised = flat_or_raised
+            quotation.direct_or_reverse = direct_or_reverse
+            quotation.thickness = float(thickness_val) if thickness_val is not None else None
+            quotation.num_colors = int(num_colors_val) if num_colors_val is not None else None
+            quotation.length = user_length
+            quotation.width = user_width
+            quotation.price = float(price) if price != '-' else None
+            quotation.quotation_block = block
+            quotation.last_updated = datetime.utcnow()
+            quotation.action = 'updated'
+            
+            # --- Robust Color Names Handling ---
+            color_names_list = data.get('color_names', [])
+            # Filter out any non-string or empty string values
+            valid_color_names = [name for name in color_names_list if isinstance(name, str) and name.strip()]
+
+            if valid_color_names:
+                 quotation.color_names = json.dumps(valid_color_names)
+            else:
+                 # If no valid color names are provided, save as NULL
+                 quotation.color_names = None
+
+            session.commit()
+            return jsonify({'message': 'Quotation updated successfully', 'quotation_block': block}), 200
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error updating quotation: {str(e)}")
+            return jsonify({'error': f'Server error: {str(e)}'}), 500
+        finally:
+            session.close()
+
+    # --- Original GET method ---
     quotation = session.query(Quotation).filter_by(id=quotation_id).first()
     # Fetch attachments
     attachments = session.query(Attachment).filter_by(quotation_id=quotation_id).all()
@@ -1259,7 +1409,8 @@ def serve_quotation2_create2():
 @app.route('/quotation2_view_select')
 def serve_quotation2_view_select():
     print('=== /quotation2_view_select ROUTE ACCESSED ===')
-    return render_template('quotation2_view_select.html')
+    v = '1.3.2'
+    return render_template('quotation2_view_select.html', version=v)
 
 # Register blueprints
 app.register_blueprint(ht_database_bp)

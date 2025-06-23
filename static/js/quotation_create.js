@@ -1983,7 +1983,8 @@ function saveQuotationChanges() {
     fetch(`/quotation/api/${quotationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
+        credentials: 'include' // Ensure session/cookies are sent
     })
     .then(response => {
         if (!response.ok) {

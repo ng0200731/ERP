@@ -1378,14 +1378,25 @@ def api_get_quotation(quotation_id):
                  quotation.color_names = None
             session.commit()
             # --- Send email to logged-in user on edit ---
+            # Gather all needed fields before closing session
+            customer_item_code = quotation.customer_item_code
+            revision_count = quotation.revision_count
+            block_copy = block
             try:
-                user_email = session.get('user', None)
+                from flask_login import current_user
+                user_email = getattr(current_user, 'email', None)
+                if not user_email:
+                    from flask import session as flask_session
+                    user_email = flask_session.get('user', None)
+                print(f"[DEBUG] Edit email recipient: {user_email}")
                 if user_email:
-                    subject = f'Quotation Updated (ID: {quotation_id})'
+                    subject = f'FCL / HT Quotation / {customer_item_code} ({revision_count} revised)'
                     msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-                    msg.body = f'Your quotation (ID: {quotation_id}) has been updated.\n\nRevision: {quotation.revision_count}\n\n{block}'
+                    msg.body = f'Your quotation (ID: {quotation_id}) has been updated.\n\nRevision: {revision_count}\n\n{block_copy}'
                     mail.send(msg)
+                    print(f"[INFO] Quotation edit email sent to {user_email}")
             except Exception as e:
+                print(f"[ERROR] Exception in edit email send: {e}")
                 logger.error(f"Failed to send edit notification email: {e}")
             print(f"[DEBUG] Edit mode save values: quality={quality}, flat_or_raised={flat_or_raised}, direct_or_reverse={direct_or_reverse}, num_colors={num_colors_val}, thickness={thickness_val}, length={data.get('length')}, width={data.get('width')}, price={price}")
             return jsonify({'message': 'Quotation updated successfully', 'quotation_block': block}), 200

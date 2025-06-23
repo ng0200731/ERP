@@ -1927,7 +1927,7 @@ function saveQuotationChanges() {
         quality: $('#view-quality').val(),
         flat_or_raised: $('#view-flat-or-raised').val(),
         direct_or_reverse: $('#view-direct-or-reverse').val(),
-        thickness: $('#view-thickness').val() ? parseFloat($('#view-thickness').val()) : null,
+        thickness: parseFloat($('#view-thickness').val()) || 0,
         num_colors: $('#view-num-colors').val() ? parseInt($('#view-num-colors').val()) : null,
         width: $('#view-width').val() ? parseFloat($('#view-width').val()) : null,
         length: $('#view-length').val() ? parseFloat($('#view-length').val()) : null,

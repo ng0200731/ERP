@@ -1313,6 +1313,15 @@ def api_get_quotation(quotation_id):
                 if isinstance(costPerLabel, float): tprice = f"{costPerLabel*factor*1000:.2f}"
                 tier_lines.append(f"{qty:,}\t{tprice}")
             
+            # --- Add user-friendly message for zero combination ---
+            comb_zero_msg = ''
+            if (isinstance(combA, int) and combA == 0) or (isinstance(combB, int) and combB == 0):
+                comb_zero_msg = ' [Invalid: Combination is zero, please check your dimensions.]'
+                combAeq += comb_zero_msg
+                combBeq += comb_zero_msg
+                costPerLabel = '-'
+                tier_lines = [f'{qty:,}\t-' for qty, _ in tiers]
+
             block = f"Quotation\n"
             block += f"1) Cost of PET ({xVal} x {yVal}): {inputSummary} = {fmt(price)}\n"
             block += f"2) Combination A: {combAeq}\n"

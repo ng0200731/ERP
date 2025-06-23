@@ -1991,17 +1991,10 @@ function saveQuotationChanges() {
         return response.json();
     })
     .then(updateResult => {
-        // Update UI with the new quotation block returned from the server
-        $('#view-quotation-block').text(updateResult.quotation_block);
-        
-        const now = new Date().toLocaleString();
-        $('#view-updated-at').val(now);
-
         // Show success message
         alert('Quotation updated successfully!');
-        
-        // Restore buttons and switch to read-only mode
-        $('#cancel-edit-btn').click(); 
+        // Reload the form with updated data
+        showQuotationViewForm2(quotationId);
     })
     .catch(error => {
         console.error('Error saving quotation:', error);

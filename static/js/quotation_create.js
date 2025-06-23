@@ -585,7 +585,7 @@ function showQuotationCreateForm2(viewMode = false) {
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
       let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT)';
-      let version = '1.3.13'; // <-- Updated Version
+      let version = '1.3.14'; // <-- Updated Version
       let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">

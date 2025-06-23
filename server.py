@@ -916,7 +916,7 @@ def save_quotation():
             db_session.begin()
             current_time = datetime.utcnow()
             # --- Build Quotation Block (with PET sheet size from database) ---
-            version = 'v1.3.11'  # Incremented version
+            version = 'v1.3.14'  # Incremented version
             def fmt(val, decimals=2):
                 if val == '-' or val is None:
                     return '-'
@@ -930,6 +930,7 @@ def save_quotation():
             mPlus6 = user_length + 6 if user_length else None
             nPlus6 = user_width + 6 if user_width else None
             combA = combB = combAeq = combBeq = '-'
+            combA_more = combB_more = ''
             if db_length and db_width and user_length and user_width:
                 xDivM = int(db_length // mPlus6)
                 yDivN = int(db_width // nPlus6)
@@ -937,15 +938,14 @@ def save_quotation():
                 xDivN = int(db_length // nPlus6)
                 combA = xDivM * yDivN
                 combB = yDivM * xDivN
-                combAeq = f"({fmt(db_length,2)} / ({fmt(user_length,2)}+6)) × ({fmt(db_width,2)} / ({fmt(user_width,2)}+6)) = {xDivM} × {yDivN} = {combA}(# per 1 pet)"
-                combBeq = f"({fmt(db_width,2)} / ({fmt(user_length,2)}+6)) × ({fmt(db_length,2)} / ({fmt(user_width,2)}+6)) = {yDivM} × {xDivN} = {combB}(# per 1 pet)"
-            # Dimming logic
-            combAColor = combBColor = ''
-            if isinstance(combA, int) and isinstance(combB, int):
-                if combA < combB:
-                    combAColor = '[dim]'
-                elif combA > combB:
-                    combBColor = '[dim]'
+                # Mark which combination has more labels
+                if combA > combB:
+                    combA_more = ' (more # of label)'
+                elif combB > combA:
+                    combB_more = ' (more # of label)'
+                # Build calculation details with line breaks for readability
+                combAeq = f"Combination A: ({fmt(db_length,2)} / ({fmt(user_length,2)}+6))\n              × ({fmt(db_width,2)} / ({fmt(user_width,2)}+6))\n              = {xDivM} × {yDivN} = {combA} (# per 1 pet){combA_more}"
+                combBeq = f"Combination B: ({fmt(db_width,2)} / ({fmt(user_length,2)}+6))\n              × ({fmt(db_length,2)} / ({fmt(user_width,2)}+6))\n              = {yDivM} × {xDivN} = {combB} (# per 1 pet){combB_more}"
             # Cost per label
             costPerLabel = '-'
             if price != '-' and isinstance(combA, int) and isinstance(combB, int):
@@ -972,8 +972,8 @@ def save_quotation():
             else:
                 block = f"Quotation\n"
                 block += f"1) Cost of PET ({xVal} × {yVal}): {inputSummary} = {fmt(price)}\n"
-                block += f"2) Combination A: {'[dim] ' if combAColor=='[dim]' else ''}{combAeq}\n"
-                block += f"   Combination B: {'[dim] ' if combBColor=='[dim]' else ''}{combBeq}\n"
+                block += f"2) {combAeq}\n"
+                block += f"   {combBeq}\n"
                 block += f"3) Cost per 1 label: {fmt(costPerLabel)}\n"
                 block += f"4) Tier quotation\nQty\tPrice\n"
                 block += '\n'.join(tier_lines)

@@ -984,8 +984,8 @@ def save_quotation():
                 direct_or_reverse=direct_or_reverse,
                 thickness=thickness,
                 num_colors=num_colors,
-                length=db_length if db_length is not None else None,
-                width=db_width if db_width is not None else None,
+                length=user_length,  # <-- Save user input
+                width=user_width,    # <-- Save user input
                 price=price if price != '-' else None,
                 created_at=current_time,
                 last_updated=current_time,
@@ -1390,9 +1390,98 @@ def api_get_quotation(quotation_id):
                     user_email = flask_session.get('user', None)
                 print(f"[DEBUG] Edit email recipient: {user_email}")
                 if user_email:
-                    subject = f'FCL / HT Quotation / {customer_item_code} ({revision_count} revised)'
+                    # --- Prepare template A HTML email (reuse creation logic) ---
+                    company = quotation.customer_name or '-'
+                    key_person_name = quotation.key_person_name or '-'
+                    key_person_position = '-'  # If you have this field, use it
+                    key_person_email = user_email
+                    item_code = quotation.customer_item_code or '-'
+                    product_name = '-'  # If you have this field, use it
+                    quality = quotation.quality or '-'
+                    flat_or_raised = quotation.flat_or_raised or '-'
+                    direct_or_reverse = quotation.direct_or_reverse or '-'
+                    thickness = quotation.thickness or '-'
+                    num_colors = quotation.num_colors or '-'
+                    color_names = []
+                    try:
+                        color_names = json.loads(quotation.color_names) if quotation.color_names else []
+                    except Exception:
+                        color_names = []
+                    width = quotation.width or '-'
+                    length = quotation.length or '-'
+                    artwork_image_path = quotation.artwork_image if hasattr(quotation, 'artwork_image') else None
+                    artwork_image_url = ''
+                    if artwork_image_path:
+                        artwork_image_url = request.url_root.rstrip('/') + '/uploads/artwork_images/' + os.path.basename(artwork_image_path)
+                    quotation_block = block_copy
+                    img_cid = 'artwork_image'
+                    html_body = f'''
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 15px; background: #f6f8fa; padding: 32px;">
+  <tr>
+    <td align="center">
+      <table width="700" cellpadding="0" cellspacing="0" style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; padding: 32px; font-family: Arial, sans-serif; font-size: 15px;">
+        <tr>
+          <td colspan="2" align="center" style="padding-bottom: 24px; font-family: Arial, sans-serif; font-size: 15px;">
+            <h2 style="color: #2c3e50; margin: 0; font-family: Arial, sans-serif; font-size: 15px;">Quotation Submitted Successfully</h2>
+            <p style="color: #888; margin: 8px 0 0 0; font-family: Arial, sans-serif; font-size: 15px;">Thank you for your submission. Here are your quotation details:</p>
+          </td>
+        </tr>
+        <tr>
+          <!-- Column 1 -->
+          <td valign="top" width="50%" style="padding-right: 16px; font-family: Arial, sans-serif; font-size: 15px;">
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; font-family: Arial, sans-serif; font-size: 15px;">Customer Details</h3>
+            <table width="100%" cellpadding="4" cellspacing="0" style="color: #333; font-family: Arial, sans-serif; font-size: 15px;">
+              <tr><td width="120" style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Company:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{company}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Key Person:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{key_person_name} ({key_person_position})</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Email:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{key_person_email}</td></tr>
+            </table>
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-top: 24px; font-family: Arial, sans-serif; font-size: 15px;">Item Information</h3>
+            <table width="100%" cellpadding="4" cellspacing="0" style="color: #333; font-family: Arial, sans-serif; font-size: 15px;">
+              <tr><td width="120" style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Item Code:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{item_code}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Product:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{product_name}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Quality:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{quality}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Style:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{flat_or_raised}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Print Type:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{direct_or_reverse}</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Thickness:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{thickness} mm</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;"># of Colors:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{num_colors} ({', '.join(color_names)})</td></tr>
+              <tr><td style="font-weight: bold; font-family: Arial, sans-serif; font-size: 15px;">Dimensions:</td><td style="font-family: Arial, sans-serif; font-size: 15px;">{width} mm × {length} mm</td></tr>
+            </table>
+          </td>
+          <!-- Column 2 -->
+          <td valign="top" width="50%" style="padding-left: 16px; font-family: Arial, sans-serif; font-size: 15px;">
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; font-family: Arial, sans-serif; font-size: 15px;">Artwork Image</h3>
+            <div style="padding: 12px 0; font-family: Arial, sans-serif; font-size: 15px;">
+              {f'<img src="cid:{img_cid}" alt="Artwork Image" style="max-width: 320px; border-radius: 6px; border: 1px solid #e9ecef; font-family: Arial, sans-serif; font-size: 15px;">' if artwork_image_path else '<span style="color:#888; font-family: Arial, sans-serif; font-size: 15px;">(No image uploaded)</span>'}
+            </div>
+            <h3 style="color: #007bff; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-top: 24px; font-family: Arial, sans-serif; font-size: 15px;">Quotation</h3>
+            <pre style="background: #f8f9fa; color: #333; padding: 16px; border-radius: 6px; font-size: 15px; white-space: pre-wrap; font-family: Arial, sans-serif;">{quotation_block}</pre>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" align="center" style="padding-top: 32px; color: #888; font-size: 15px; font-family: Arial, sans-serif;">
+            <hr style="border: none; border-top: 1px solid #e9ecef; margin: 24px 0;">
+            <div style="font-family: Arial, sans-serif; font-size: 15px;">
+              <span>Thank you for choosing <b>Your Company Name</b>.</span><br>
+              <span style="font-size: 13px;">This is an automated message. Please do not reply directly to this email.</span>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+'''
+                    subject = f'FCL / HT Quotation / {item_code} ({revision_count} revised)'
                     msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-                    msg.body = f'Your quotation (ID: {quotation_id}) has been updated.\n\nRevision: {revision_count}\n\n{block_copy}'
+                    msg.html = html_body
+                    # Attach the artwork image inline if present
+                    if artwork_image_path and os.path.exists(artwork_image_path):
+                        with open(artwork_image_path, 'rb') as img_file:
+                            msg.attach(filename=os.path.basename(artwork_image_path),
+                                       content_type='image/jpeg',
+                                       data=img_file.read(),
+                                       disposition='inline',
+                                       headers={'Content-ID': f'<{img_cid}>'})
                     mail.send(msg)
                     print(f"[INFO] Quotation edit email sent to {user_email}")
             except Exception as e:

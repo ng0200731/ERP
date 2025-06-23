@@ -1996,27 +1996,27 @@ function saveQuotationChanges() {
     })
     .then(updateResult => {
         // Show success message
-        const formData = {
-            quality: $('#view-quality').val(),
-            flat_or_raised: $('#view-flat-or-raised').val(),
-            direct_or_reverse: $('#view-direct-or-reverse').val(),
-            num_colors: $('#view-num-colors').val(),
-            thickness: $('#view-thickness').val(),
-            length: $('#view-length').val(),
-            width: $('#view-width').val(),
-            price: $('#view-price').val()
-        };
-        alert(
-            'Saved values:' +
-            '\nQuality: ' + formData.quality +
-            '\nFlat or Raised: ' + formData.flat_or_raised +
-            '\nDirect or Reverse: ' + formData.direct_or_reverse +
-            '\n# of Colors: ' + formData.num_colors +
-            '\nThickness: ' + formData.thickness +
-            '\nLength: ' + formData.length +
-            '\nWidth: ' + formData.width +
-            '\nPrice: ' + formData.price
-        );
+        // const formData = {
+        //     quality: $('#view-quality').val(),
+        //     flat_or_raised: $('#view-flat-or-raised').val(),
+        //     direct_or_reverse: $('#view-direct-or-reverse').val(),
+        //     num_colors: $('#view-num-colors').val(),
+        //     thickness: $('#view-thickness').val(),
+        //     length: $('#view-length').val(),
+        //     width: $('#view-width').val(),
+        //     price: $('#view-price').val()
+        // };
+        // alert(
+        //     'Saved values:' +
+        //     '\nQuality: ' + formData.quality +
+        //     '\nFlat or Raised: ' + formData.flat_or_raised +
+        //     '\nDirect or Reverse: ' + formData.direct_or_reverse +
+        //     '\n# of Colors: ' + formData.num_colors +
+        //     '\nThickness: ' + formData.thickness +
+        //     '\nLength: ' + formData.length +
+        //     '\nWidth: ' + formData.width +
+        //     '\nPrice: ' + formData.price
+        // );
         // After successful save, reload the form and update the Price field
         showQuotationViewForm2(quotationId);
     })

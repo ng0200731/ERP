@@ -1872,7 +1872,7 @@ function showQuotationViewForm2(quotationId) {
          }
          $('#view-length').val(data.length ?? '-');
          $('#view-width').val(data.width ?? '-');
-         $('#view-price').val(data.price ?? '-');
+         $('#view-price').val(data.price !== undefined && data.price !== null ? data.price : '-');
          $('#view-status').val(data.status ?? '-');
          $('#view-created-at').val(data.created_at ?? '-');
          $('#view-updated-at').val(data.updated_at ?? '-');
@@ -1952,6 +1952,10 @@ function saveQuotationChanges() {
     }
 
     // Collect form data
+    let numColorsVal = $('#view-num-colors').val();
+    if (typeof numColorsVal === 'string' && numColorsVal.includes('(')) {
+        numColorsVal = numColorsVal.split('(')[0].trim();
+    }
     const formData = {
         company: $('#view-company').val(),
         key_person_name: $('#view-key-person').val(),
@@ -1960,7 +1964,7 @@ function saveQuotationChanges() {
         flat_or_raised: $('#view-flat-or-raised').val(),
         direct_or_reverse: $('#view-direct-or-reverse').val(),
         thickness: parseFloat($('#view-thickness').val()) || 0,
-        num_colors: $('#view-num-colors').val() ? parseInt($('#view-num-colors').val()) : null,
+        num_colors: numColorsVal ? parseInt(numColorsVal) : null,
         width: $('#view-width').val() ? parseFloat($('#view-width').val()) : null,
         length: $('#view-length').val() ? parseFloat($('#view-length').val()) : null,
         color_names: []
@@ -1992,8 +1996,28 @@ function saveQuotationChanges() {
     })
     .then(updateResult => {
         // Show success message
-        alert('Quotation updated successfully!');
-        // Reload the form with updated data
+        const formData = {
+            quality: $('#view-quality').val(),
+            flat_or_raised: $('#view-flat-or-raised').val(),
+            direct_or_reverse: $('#view-direct-or-reverse').val(),
+            num_colors: $('#view-num-colors').val(),
+            thickness: $('#view-thickness').val(),
+            length: $('#view-length').val(),
+            width: $('#view-width').val(),
+            price: $('#view-price').val()
+        };
+        alert(
+            'Saved values:' +
+            '\nQuality: ' + formData.quality +
+            '\nFlat or Raised: ' + formData.flat_or_raised +
+            '\nDirect or Reverse: ' + formData.direct_or_reverse +
+            '\n# of Colors: ' + formData.num_colors +
+            '\nThickness: ' + formData.thickness +
+            '\nLength: ' + formData.length +
+            '\nWidth: ' + formData.width +
+            '\nPrice: ' + formData.price
+        );
+        // After successful save, reload the form and update the Price field
         showQuotationViewForm2(quotationId);
     })
     .catch(error => {

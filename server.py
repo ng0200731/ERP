@@ -889,7 +889,7 @@ def save_quotation():
             if row:
                 db_length, db_width, price = row
             else:
-                # If not found, pick the minimum thickness for this combo
+                # Fallback: pick the minimum thickness for this combo
                 sql2 = '''
                     SELECT length, width, price FROM ht_database
                     WHERE trim(lower(quality))=trim(lower(?))
@@ -900,11 +900,8 @@ def save_quotation():
                     LIMIT 1
                 '''
                 params2 = (quality, flat_or_raised, direct_or_reverse, num_colors)
-                print(f'[DEBUG] Fallback SQL: {sql2.strip()}')
-                print(f'[DEBUG] Fallback Params: {params2}')
                 cursor.execute(sql2, params2)
                 row2 = cursor.fetchone()
-                print(f'[DEBUG] Fallback Result row: {row2}')
                 if row2:
                     db_length, db_width, price = row2
         conn.close()
@@ -1227,52 +1224,67 @@ def api_get_quotation(quotation_id):
             db_length = None
             db_width = None
 
-            conn = engine.raw_connection()
-            cursor = conn.cursor()
+            conn = None
+            cursor = None
+            try:
+                conn = engine.raw_connection()
+                cursor = conn.cursor()
 
-            if quality.upper() == 'PU':
-                sql = "SELECT length, width, price FROM ht_database WHERE trim(lower(quality)) = 'pu' LIMIT 1"
-                cursor.execute(sql)
-                row = cursor.fetchone()
-                if row:
-                    db_length, db_width, price = row
-            elif flat_or_raised and direct_or_reverse and num_colors_val is not None:
-                num_colors = int(num_colors_val)
-                if flat_or_raised.lower() == 'flat':
-                    sql = '''
-                        SELECT length, width, price FROM ht_database
-                        WHERE trim(lower(quality))=trim(lower(?))
-                          AND trim(lower(flat_or_raised))=trim(lower(?))
-                          AND trim(lower(direct_or_reverse))=trim(lower(?))
-                          AND num_colors=?
-                    '''
-                    params = (quality, flat_or_raised, direct_or_reverse, num_colors)
-                    cursor.execute(sql, params)
-                    row = cursor.fetchone()
-                    if row:
-                        db_length, db_width, price = row
-                elif flat_or_raised.lower() == 'raised' and thickness_val is not None:
-                    thickness = float(thickness_val)
-                    sql = '''
-                        SELECT length, width, price FROM ht_database
-                        WHERE trim(lower(quality))=trim(lower(?))
-                          AND trim(lower(flat_or_raised))=trim(lower(?))
-                          AND trim(lower(direct_or_reverse))=trim(lower(?))
-                          AND num_colors=? AND thickness <= ?
-                        ORDER BY thickness DESC
-                        LIMIT 1
-                    '''
-                    params = (quality, flat_or_raised, direct_or_reverse, num_colors, thickness)
-                    cursor.execute(sql, params)
-                    row = cursor.fetchone()
-                    if row:
-                        db_length, db_width, price = row
-            
-            conn.close()
+                if flat_or_raised and direct_or_reverse and num_colors_val is not None:
+                    num_colors = int(num_colors_val)
+                    if flat_or_raised.lower() == 'flat':
+                        sql = '''
+                            SELECT length, width, price FROM ht_database
+                            WHERE trim(lower(quality))=trim(lower(?))
+                              AND trim(lower(flat_or_raised))=trim(lower(?))
+                              AND trim(lower(direct_or_reverse))=trim(lower(?))
+                              AND num_colors=?
+                        '''
+                        params = (quality, flat_or_raised, direct_or_reverse, num_colors)
+                        cursor.execute(sql, params)
+                        row = cursor.fetchone()
+                        if row:
+                            db_length, db_width, price = row
+                    elif flat_or_raised.lower() == 'raised' and thickness_val is not None:
+                        thickness = float(thickness_val)
+                        sql = '''
+                            SELECT length, width, price FROM ht_database
+                            WHERE trim(lower(quality))=trim(lower(?))
+                              AND trim(lower(flat_or_raised))=trim(lower(?))
+                              AND trim(lower(direct_or_reverse))=trim(lower(?))
+                              AND num_colors=? AND thickness <= ?
+                            ORDER BY thickness DESC
+                            LIMIT 1
+                        '''
+                        params = (quality, flat_or_raised, direct_or_reverse, num_colors, thickness)
+                        cursor.execute(sql, params)
+                        row = cursor.fetchone()
+                        if row:
+                            db_length, db_width, price = row
+                        else:
+                            # Fallback: pick the minimum thickness for this combo
+                            sql2 = '''
+                                SELECT length, width, price FROM ht_database
+                                WHERE trim(lower(quality))=trim(lower(?))
+                                  AND trim(lower(flat_or_raised))=trim(lower(?))
+                                  AND trim(lower(direct_or_reverse))=trim(lower(?))
+                                  AND num_colors=?
+                                ORDER BY thickness ASC
+                                LIMIT 1
+                            '''
+                            params2 = (quality, flat_or_raised, direct_or_reverse, num_colors)
+                            cursor.execute(sql2, params2)
+                            row2 = cursor.fetchone()
+                            if row2:
+                                db_length, db_width, price = row2
+            finally:
+                if cursor is not None:
+                    cursor.close()
+                if conn is not None:
+                    conn.close()
 
             if price == '-':
                  return jsonify({'error': 'Price lookup failed'}), 500
-
 
             # --- Recalculate Quotation Block ---
             def fmt(val, decimals=2):
@@ -1357,6 +1369,7 @@ def api_get_quotation(quotation_id):
                  quotation.color_names = None
 
             session.commit()
+            print(f"[DEBUG] Edit mode save values: quality={quality}, flat_or_raised={flat_or_raised}, direct_or_reverse={direct_or_reverse}, num_colors={num_colors_val}, thickness={thickness_val}, length={data.get('length')}, width={data.get('width')}, price={price}")
             return jsonify({'message': 'Quotation updated successfully', 'quotation_block': block}), 200
 
         except Exception as e:

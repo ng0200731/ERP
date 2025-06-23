@@ -1140,6 +1140,12 @@ def list_quotations():
         # Convert to dictionary format
         records = []
         for q in quotations:
+            def to_iso_z(dt):
+                if not dt:
+                    return None
+                if dt.tzinfo is not None:
+                    return dt.astimezone(timezone.utc).replace(tzinfo=None).isoformat(timespec='seconds') + 'Z'
+                return dt.isoformat(timespec='seconds') + 'Z'
             record = {
                 'id': q.id,
                 'customer_name': q.customer_name,
@@ -1154,10 +1160,11 @@ def list_quotations():
                 'length': float(q.length) if q.length else None,
                 'width': float(q.width) if q.width else None,
                 'price': float(q.price) if q.price else None,
-                'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S') if q.created_at else None,
-                'last_updated': q.last_updated.strftime('%Y-%m-%d %H:%M:%S') if q.last_updated else None,
+                'created_at': to_iso_z(q.created_at) if q.created_at else None,
+                'last_updated': to_iso_z(q.last_updated) if q.last_updated else None,
                 'artwork_image': q.artwork_image if q.artwork_image else None,
-                'action': q.action if hasattr(q, 'action') else '-'
+                'action': q.action if hasattr(q, 'action') else '-',
+                'revision_count': getattr(q, 'revision_count', 0)
             }
             records.append(record)
         
@@ -1356,19 +1363,30 @@ def api_get_quotation(quotation_id):
             quotation.quotation_block = block
             quotation.last_updated = datetime.utcnow()
             quotation.action = 'updated'
+            # Increment revision count
+            if hasattr(quotation, 'revision_count') and quotation.revision_count is not None:
+                quotation.revision_count += 1
+            else:
+                quotation.revision_count = 1
             
             # --- Robust Color Names Handling ---
             color_names_list = data.get('color_names', [])
-            # Filter out any non-string or empty string values
             valid_color_names = [name for name in color_names_list if isinstance(name, str) and name.strip()]
-
             if valid_color_names:
                  quotation.color_names = json.dumps(valid_color_names)
             else:
-                 # If no valid color names are provided, save as NULL
                  quotation.color_names = None
-
             session.commit()
+            # --- Send email to logged-in user on edit ---
+            try:
+                user_email = session.get('user', None)
+                if user_email:
+                    subject = f'Quotation Updated (ID: {quotation_id})'
+                    msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
+                    msg.body = f'Your quotation (ID: {quotation_id}) has been updated.\n\nRevision: {quotation.revision_count}\n\n{block}'
+                    mail.send(msg)
+            except Exception as e:
+                logger.error(f"Failed to send edit notification email: {e}")
             print(f"[DEBUG] Edit mode save values: quality={quality}, flat_or_raised={flat_or_raised}, direct_or_reverse={direct_or_reverse}, num_colors={num_colors_val}, thickness={thickness_val}, length={data.get('length')}, width={data.get('width')}, price={price}")
             return jsonify({'message': 'Quotation updated successfully', 'quotation_block': block}), 200
 

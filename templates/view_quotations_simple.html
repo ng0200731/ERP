@@ -163,6 +163,7 @@
                     <th>Price</th>
                     <th>Created</th>
                     <th>Last Updated</th>
+                    <th>Revision</th>
                 </tr>
             </thead>
             <tbody id="quotation-table-body">
@@ -216,6 +217,7 @@
                     <td>${formatPrice(row.price)}</td>
                     <td class="timestamp">${formatDate(row.created_at)}</td>
                     <td class="timestamp">${formatDate(row.last_updated)}</td>
+                    <td>${row.revision_count || 0}</td>
                 </tr>
             `).join('');
         }

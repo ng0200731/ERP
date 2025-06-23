@@ -51,6 +51,7 @@ class Quotation(Base):
     quotation_block = Column(String, nullable=True)  # Stores the full quotation block as text
     action = Column(String(50), nullable=True, default='-')  # Action column v1.3.09
     color_names = Column(String, nullable=True)  # Stores all color names as JSON string
+    revision_count = Column(Integer, nullable=False, default=0)  # Number of times this quotation has been revised
 
 class Attachment(Base):
     __tablename__ = 'attachments'

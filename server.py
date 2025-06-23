@@ -948,10 +948,12 @@ def save_quotation():
                 combBeq = f"Combination B: ({fmt(db_width,2)} / ({fmt(user_length,2)}+6))\n              × ({fmt(db_length,2)} / ({fmt(user_width,2)}+6))\n              = {yDivM} × {xDivN} = {combB} (# per 1 pet){combB_more}"
             # Cost per label
             costPerLabel = '-'
+            costPerLabelDetail = ''
             if price != '-' and isinstance(combA, int) and isinstance(combB, int):
                 maxComb = max(combA, combB)
                 if maxComb > 0:
                     costPerLabel = float(price) / maxComb
+                    costPerLabelDetail = f"{fmt(price)} / {maxComb} = {fmt(costPerLabel)}"
             # Tier quotation
             tiers = [
                 (1000, 1.10), (3000, 1.05), (5000, 1.03), (10000, 1.00),
@@ -974,7 +976,7 @@ def save_quotation():
                 block += f"1) Cost of PET ({xVal} × {yVal}): {inputSummary} = {fmt(price)}\n"
                 block += f"2) {combAeq}\n"
                 block += f"   {combBeq}\n"
-                block += f"3) Cost per 1 label: {fmt(costPerLabel)}\n"
+                block += f"3) Cost per 1 label: {costPerLabelDetail}\n"
                 block += f"4) Tier quotation\nQty\tPrice\n"
                 block += '\n'.join(tier_lines)
                 block += f"\n\n[System Version: {version}]"

@@ -966,20 +966,26 @@ def save_quotation():
                     tprice = f"{costPerLabel * factor * 1000:.2f}"
                 tier_lines.append(f"{qty:,}\t{tprice}")
             # Build block as plain text, using [dim] to mark dimmed lines
+            def wrap_line(line, width=60):
+                # Split a line into chunks of at most 'width' characters
+                return '\n'.join([line[i:i+width] for i in range(0, len(line), width)])
             if db_length is None or db_width is None:
                 block = f"Quotation\n[WARNING: PET sheet size not found in database for the selected combination. Please check your input or database.]\n"
-                block += f"1) Cost of PET (- × -): {inputSummary} = -\n"
-                block += f"2) Combination A: -\n   Combination B: -\n3) Cost per 1 label: -\n4) Tier quotation\nQty\tPrice\n-\n"
+                block += wrap_line(f"1) Cost of PET (- × -): {inputSummary} = -") + "\n"
+                block += wrap_line(f"2) Combination A: -") + "\n" + wrap_line(f"   Combination B: -") + "\n"
+                block += wrap_line(f"3) Cost per 1 label: -") + "\n"
+                block += wrap_line(f"4) Tier quotation") + "\nQty\tPrice\n-\n"
                 block += f"\n\n[System Version: {version}]"
             else:
-                block = f"Quotation\n"
-                block += f"1) Cost of PET ({xVal} × {yVal}): {inputSummary} = {fmt(price)}\n"
-                block += f"2) {combAeq}\n"
-                block += f"   {combBeq}\n"
-                block += f"3) Cost per 1 label: {costPerLabelDetail}\n"
-                block += f"4) Tier quotation\nQty\tPrice\n"
-                block += '\n'.join(tier_lines)
-                block += f"\n\n[System Version: {version}]"
+                block = "Quotation\n"
+                block += wrap_line(f"1) Cost of PET ({xVal} × {yVal}): {inputSummary} = {fmt(price)}") + "\n"
+                for line in (combAeq + "\n" + combBeq).split("\n"):
+                    block += wrap_line(line) + "\n"
+                block += wrap_line(f"3) Cost per 1 label: {costPerLabelDetail}") + "\n"
+                block += wrap_line(f"4) Tier quotation") + "\nQty\tPrice\n"
+                for tline in tier_lines:
+                    block += wrap_line(tline) + "\n"
+                block += f"\n[System Version: {version}]"
             # --- END Quotation Block ---
             color_names_json = data.get('color_names')
             if isinstance(color_names_json, list):
@@ -1303,60 +1309,65 @@ def api_get_quotation(quotation_id):
             if price == '-':
                  return jsonify({'error': 'Price lookup failed'}), 500
 
-            # --- Recalculate Quotation Block ---
+            # --- Recalculate Quotation Block (edit mode, match create mode layout) ---
+            version = 'v1.3.14'  # Match create mode version
             def fmt(val, decimals=2):
                 if val is None or val == '-': return '-'
                 try: return f"{float(val):.{decimals}f}"
                 except (ValueError, TypeError): return '-'
-
+            def wrap_line(line, width=60):
+                return '\n'.join([line[i:i+width] for i in range(0, len(line), width)])
             user_length = float(data.get('length')) if data.get('length') else 0
             user_width = float(data.get('width')) if data.get('width') else 0
-            
             xVal = fmt(db_length)
             yVal = fmt(db_width)
-            
             num_colors_str = str(num_colors_val) if num_colors_val is not None else '-'
             thickness_str = str(thickness_val) if thickness_val is not None else '-'
-
             inputSummary = f"({quality}, {flat_or_raised}, {direct_or_reverse}, {thickness_str}, {num_colors_str})"
-            
             combA, combB, combAeq, combBeq = '-', '-', '-', '-'
+            combA_more = combB_more = ''
             if db_length and db_width and user_length and user_width:
                 mPlus6, nPlus6 = user_length + 6, user_width + 6
                 if mPlus6 > 0 and nPlus6 > 0:
                     xDivM, yDivN = int(db_length // mPlus6), int(db_width // nPlus6)
                     yDivM, xDivN = int(db_width // mPlus6), int(db_length // nPlus6)
                     combA, combB = xDivM * yDivN, yDivM * xDivN
-                    combAeq = f"({fmt(db_length)}/({fmt(user_length)}+6))x({fmt(db_width)}/({fmt(user_width)}+6))={xDivM}x{yDivN}={combA}(# per 1 pet)"
-                    combBeq = f"({fmt(db_width)}/({fmt(user_length)}+6))x({fmt(db_length)}/({fmt(user_width)}+6))={yDivM}x{xDivN}={combB}(# per 1 pet)"
-
+                    if combA > combB:
+                        combA_more = ' (more # of label)'
+                    elif combB > combA:
+                        combB_more = ' (more # of label)'
+                    combAeq = f"Combination A: ({fmt(db_length,2)} / ({fmt(user_length,2)}+6))\n              × ({fmt(db_width,2)} / ({fmt(user_width,2)}+6))\n              = {xDivM} × {yDivN} = {combA} (# per 1 pet){combA_more}"
+                    combBeq = f"Combination B: ({fmt(db_width,2)} / ({fmt(user_length,2)}+6))\n              × ({fmt(db_length,2)} / ({fmt(user_width,2)}+6))\n              = {yDivM} × {xDivN} = {combB} (# per 1 pet){combB_more}"
             costPerLabel = '-'
+            costPerLabelDetail = ''
             if price != '-' and isinstance(combA, int) and isinstance(combB, int):
                 maxComb = max(combA, combB)
-                if maxComb > 0: costPerLabel = float(price) / maxComb
-
+                if maxComb > 0:
+                    costPerLabel = float(price) / maxComb
+                    costPerLabelDetail = f"{fmt(price)} / {maxComb} = {fmt(costPerLabel)}"
             tiers = [(1000,1.1),(3000,1.05),(5000,1.03),(10000,1.00),(30000,0.95),(50000,0.9),(100000,0.85)]
             tier_lines = []
             for qty, factor in tiers:
                 tprice = '-'
                 if isinstance(costPerLabel, float): tprice = f"{costPerLabel*factor*1000:.2f}"
                 tier_lines.append(f"{qty:,}\t{tprice}")
-            
-            # --- Add user-friendly message for zero combination ---
-            comb_zero_msg = ''
-            if (isinstance(combA, int) and combA == 0) or (isinstance(combB, int) and combB == 0):
-                comb_zero_msg = ' [Invalid: Combination is zero, please check your dimensions.]'
-                combAeq += comb_zero_msg
-                combBeq += comb_zero_msg
-                costPerLabel = '-'
-                tier_lines = [f'{qty:,}\t-' for qty, _ in tiers]
-
-            block = f"Quotation\n"
-            block += f"1) Cost of PET ({xVal} x {yVal}): {inputSummary} = {fmt(price)}\n"
-            block += f"2) Combination A: {combAeq}\n"
-            block += f"   Combination B: {combBeq}\n"
-            block += f"3) Cost per 1 label: {fmt(costPerLabel)}\n"
-            block += f"4) Tier quotation\nQty\tPrice\n" + '\n'.join(tier_lines)
+            if db_length is None or db_width is None:
+                block = f"Quotation\n[WARNING: PET sheet size not found in database for the selected combination. Please check your input or database.]\n"
+                block += wrap_line(f"1) Cost of PET (- × -): {inputSummary} = -") + "\n"
+                block += wrap_line(f"2) Combination A: -") + "\n" + wrap_line(f"   Combination B: -") + "\n"
+                block += wrap_line(f"3) Cost per 1 label: -") + "\n"
+                block += wrap_line(f"4) Tier quotation") + "\nQty\tPrice\n-\n"
+                block += f"\n\n[System Version: {version}]"
+            else:
+                block = "Quotation\n"
+                block += wrap_line(f"1) Cost of PET ({xVal} × {yVal}): {inputSummary} = {fmt(price)}") + "\n"
+                for line in (combAeq + "\n" + combBeq).split("\n"):
+                    block += wrap_line(line) + "\n"
+                block += wrap_line(f"3) Cost per 1 label: {costPerLabelDetail}") + "\n"
+                block += wrap_line(f"4) Tier quotation") + "\nQty\tPrice\n"
+                for tline in tier_lines:
+                    block += wrap_line(tline) + "\n"
+                block += f"\n[System Version: {version}]"
 
             # Update quotation fields
             quotation.customer_name = data.get('company')

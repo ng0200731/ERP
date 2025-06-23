@@ -1507,6 +1507,32 @@ function swapToEditFields() {
   updateFieldCorrelations();
   updateColorFields();
   validateAndUpdateSaveButton();
+
+  // --- Add: Render color name fields as editable inputs ---
+  // Remove any existing color name fields
+  const colorContainer = $('#view-color-names');
+  colorContainer.empty();
+  const numColors = parseInt($('#view-num-colors').val()) || 0;
+  let colorNames = [];
+  // Get color names from hidden input if available
+  try {
+    colorNames = JSON.parse($('#hidden-color-names').val() || '[]');
+  } catch (e) {
+    colorNames = [];
+  }
+  while (colorNames.length < numColors) colorNames.push('');
+  for (let i = 1; i <= numColors; i++) {
+    const existingName = colorNames[i-1] || '';
+    const colorField = $(`
+      <div style="margin-bottom: 8px;">
+        <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #495057;">Color ${i}:</label>
+        <input type="text" id="view-color-name-${i}" class="item-info-field-view color-name-field" 
+               style="width: calc(100% - 24px); padding: 8px; margin-left: 24px;" placeholder="Enter color name" autocomplete="off" value="${existingName}">
+      </div>
+    `);
+    colorContainer.append(colorField);
+  }
+  $('.color-name-field').on('change input', validateAndUpdateSaveButton);
 }
 
 // --- Milestone 2: Complete Field Correlation Logic ---
@@ -1868,6 +1894,8 @@ function showQuotationViewForm2(quotationId) {
          $('#view-quotation-block').text(data.quotation_block ?? '-');
          // Show color names as separate read-only input fields and as JSON
          $('#view-color-names').remove();
+         // Add hidden input to store color names as JSON
+         $('#view-num-colors').parent().append('<input type="hidden" id="hidden-color-names" />');
          if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
            let colorInputs = '<div id="view-color-names" style="margin-top:4px;">';
            // Get computed style from #view-num-colors for consistency
@@ -1895,6 +1923,10 @@ function showQuotationViewForm2(quotationId) {
            colorInputs += `<div style='font-size:12px;color:#888;margin-top:2px;'>JSON: ${JSON.stringify(data.color_names)}</div>`;
            colorInputs += '</div>';
            $('#view-num-colors').parent().append(colorInputs);
+           // Store color names in hidden input
+           $('#hidden-color-names').val(JSON.stringify(data.color_names));
+         } else {
+           $('#hidden-color-names').val('[]');
          }
        })
        .catch(err => {

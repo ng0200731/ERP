@@ -1,4 +1,4 @@
-// Version v1.3.09
+// Version v1.3.12
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -55,13 +55,45 @@ if (typeof showCustomPopup !== 'function') {
     ensurePopupContainer();
     // Remove any existing popup
     $('.popup-success').remove();
+    // Dim background
+    $('body').addClass('popup-dimmed');
+    // Disable all submit buttons
+    $('button[type="submit"]').prop('disabled', true);
     $('#global-popup-container').html(`
       <div class="popup-success${isError ? ' popup-error' : ''}">${message}</div>
     `);
     setTimeout(() => {
       $('.popup-success').fadeOut(500, function() { $(this).remove(); });
+      // Restore background and re-enable submit buttons
+      $('body').removeClass('popup-dimmed');
+      // Restore submit button style to blue
+      $('button[type="submit"]').prop('disabled', false)
+        .css({
+          'background': '#007bff',
+          'color': 'white',
+          'border': 'none'
+        });
+      // Always reset submission lock for HT form
+      window.isSubmittingQuotation2 = false;
     }, 1500);
   };
+}
+
+// Add CSS for dimmed background if not present
+if (!document.getElementById('popup-dimmed-style')) {
+  const dimStyle = document.createElement('style');
+  dimStyle.id = 'popup-dimmed-style';
+  dimStyle.innerHTML = `
+    body.popup-dimmed::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.18);
+      z-index: 999998;
+      pointer-events: all;
+    }
+  `;
+  document.head.appendChild(dimStyle);
 }
 
 // Only attach the handler for Quotation Create button once, and do not globally override anything else
@@ -276,20 +308,13 @@ $(function() {
             });
         } else {
           showCustomPopup('Quotation saved successfully', false);
-          // Instead of redirecting, show the Quotation block with calculated values
           setTimeout(() => {
-            // Fetch the latest quotation record and render the block with its price
-            fetch('/quotation/list')
-              .then(res => res.json())
-              .then(records => {
-                if (Array.isArray(records) && records.length > 0) {
-                  const latest = records[0];
-                  renderQuotationBlock(latest);
-                } else {
-                  renderQuotationBlock();
-                }
-              });
-          }, 1000);
+            if (response.quotation_block) {
+              $('#quotation-block-content').html('<pre style="font-size:1.1em;">' + response.quotation_block + '</pre>');
+            }
+            // Always update version display if present
+            $("#right-frame h2 span").text('v1.3.13 [quotation_create.js]');
+          }, 500);
         }
       },
       error: function(xhr, status, error) {
@@ -298,7 +323,17 @@ $(function() {
           if (xhr.responseJSON && xhr.responseJSON.error) {
             errorMsg += ': ' + xhr.responseJSON.error;
           } else if (xhr.responseText) {
-            errorMsg += ': ' + xhr.responseText;
+            // Try to parse JSON error
+            try {
+              const resp = JSON.parse(xhr.responseText);
+              if (resp && resp.error) {
+                errorMsg += ': ' + resp.error;
+              } else {
+                errorMsg += ': ' + xhr.responseText;
+              }
+            } catch (e) {
+              errorMsg += ': ' + xhr.responseText;
+            }
           } else {
             errorMsg += ': ' + error;
           }
@@ -313,6 +348,7 @@ $(function() {
             'color': '',
             'border': ''
           });
+        window.isSubmittingQuotation2 = false;
       },
       complete: function() {
         window.isSubmittingQuotation2 = false;
@@ -549,7 +585,7 @@ function showQuotationCreateForm2(viewMode = false) {
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
       let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT)';
-      let version = '1.3.3'; // <-- Updated Version
+      let version = '1.3.13'; // <-- Updated Version
       let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">

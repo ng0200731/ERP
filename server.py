@@ -915,7 +915,8 @@ def save_quotation():
             # Begin transaction
             db_session.begin()
             current_time = datetime.utcnow()
-            # --- Build Quotation Block (with dimming logic) ---
+            # --- Build Quotation Block (with PET sheet size from database) ---
+            version = 'v1.3.11'  # Incremented version
             def fmt(val, decimals=2):
                 if val == '-' or val is None:
                     return '-'
@@ -936,8 +937,8 @@ def save_quotation():
                 xDivN = int(db_length // nPlus6)
                 combA = xDivM * yDivN
                 combB = yDivM * xDivN
-                combAeq = f"({fmt(db_length,2)} / ({fmt(user_length,2)}+6)) × ({fmt(db_width,2)} / ({fmt(user_width,2)}+6)) = {xDivM} × {yDivN} = {combA} (# per 1 pet)"
-                combBeq = f"({fmt(db_width,2)} / ({fmt(user_length,2)}+6)) × ({fmt(db_length,2)} / ({fmt(user_width,2)}+6)) = {yDivM} × {xDivN} = {combB} (# per 1 pet)"
+                combAeq = f"({fmt(db_length,2)} / ({fmt(user_length,2)}+6)) × ({fmt(db_width,2)} / ({fmt(user_width,2)}+6)) = {xDivM} × {yDivN} = {combA}(# per 1 pet)"
+                combBeq = f"({fmt(db_width,2)} / ({fmt(user_length,2)}+6)) × ({fmt(db_length,2)} / ({fmt(user_width,2)}+6)) = {yDivM} × {xDivN} = {combB}(# per 1 pet)"
             # Dimming logic
             combAColor = combBColor = ''
             if isinstance(combA, int) and isinstance(combB, int):
@@ -963,13 +964,20 @@ def save_quotation():
                     tprice = f"{costPerLabel * factor * 1000:.2f}"
                 tier_lines.append(f"{qty:,}\t{tprice}")
             # Build block as plain text, using [dim] to mark dimmed lines
-            block = f"Quotation\n"
-            block += f"1) Cost of PET ({xVal} × {yVal}): {inputSummary} = {fmt(price)}\n"
-            block += f"2) Combination A: {'[dim] ' if combAColor=='[dim]' else ''}{combAeq}\n"
-            block += f"   Combination B: {'[dim] ' if combBColor=='[dim]' else ''}{combBeq}\n"
-            block += f"3) Cost per 1 label: {fmt(costPerLabel)}\n"
-            block += f"4) Tier quotation\nQty\tPrice\n"
-            block += '\n'.join(tier_lines)
+            if db_length is None or db_width is None:
+                block = f"Quotation\n[WARNING: PET sheet size not found in database for the selected combination. Please check your input or database.]\n"
+                block += f"1) Cost of PET (- × -): {inputSummary} = -\n"
+                block += f"2) Combination A: -\n   Combination B: -\n3) Cost per 1 label: -\n4) Tier quotation\nQty\tPrice\n-\n"
+                block += f"\n\n[System Version: {version}]"
+            else:
+                block = f"Quotation\n"
+                block += f"1) Cost of PET ({xVal} × {yVal}): {inputSummary} = {fmt(price)}\n"
+                block += f"2) Combination A: {'[dim] ' if combAColor=='[dim]' else ''}{combAeq}\n"
+                block += f"   Combination B: {'[dim] ' if combBColor=='[dim]' else ''}{combBeq}\n"
+                block += f"3) Cost per 1 label: {fmt(costPerLabel)}\n"
+                block += f"4) Tier quotation\nQty\tPrice\n"
+                block += '\n'.join(tier_lines)
+                block += f"\n\n[System Version: {version}]"
             # --- END Quotation Block ---
             color_names_json = data.get('color_names')
             if isinstance(color_names_json, list):
@@ -1115,7 +1123,7 @@ def save_quotation():
             except Exception as e:
                 print(f"[ERROR] Failed to send quotation email: {e}")
             # --- End email logic ---
-            return jsonify({'message': 'Quotation saved successfully', 'action': 'created', 'price': price, 'length': db_length, 'width': db_width}), 200
+            return jsonify({'message': 'Quotation saved successfully', 'action': 'created', 'price': price, 'length': db_length, 'width': db_width, 'quotation_block': block, 'version': version}), 200
         except Exception as e:
             db_session.rollback()
             logger.error(f"Database error while saving quotation: {str(e)}")

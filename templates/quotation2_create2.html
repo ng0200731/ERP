@@ -1,6 +1,6 @@
 <!-- Quotation 2 Create (HT) Form -->
 <div style="padding:32px;max-width:600px; min-height:100vh;">
-  <h2 id="quotation2-form-title">Create Quotation (HT) <span style='font-size:1rem;color:#888;'>v1.3.08</span></h2>
+  <h2 id="quotation2-form-title">Create Quotation (HT) <span id='version-display' style='font-size:1rem;color:#888;'>v1.3.12 [quotation_create.js]</span></h2>
   
   <!-- Test message display -->
   {% if test_message %}
@@ -69,4 +69,6 @@
     <!-- Submit button at the bottom -->
     <button type="submit" style="padding:8px 32px; width: 100%; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">Submit</button>
   </form>
+  <!-- Ensure the quotation block container has the correct id for JS updates -->
+  <div id="quotation-block"></div>
 </div> 

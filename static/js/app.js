@@ -150,14 +150,15 @@ $(function() {
   });
 
   // Add debug button to left frame
-  if ($('#debug-btn').length === 0) {
-    $('.left-frame').append('<button id="debug-btn">Debug: Print DB</button>');
-  }
-  $(document).on('click', '#debug-btn', function() {
-    console.log('Current customers array:', customers);
-    console.log('Raw LocalStorage:', localStorage.getItem('customers'));
-    alert('Check the browser console for database debug info.');
-  });
+  // Removed debug button from left frame as per v1.2.81
+  // if ($('#debug-btn').length === 0) {
+  //   $('.left-frame').append('<button id="debug-btn">Debug: Print DB</button>');
+  // }
+  // $(document).on('click', '#debug-btn', function() {
+  //   console.log('Current customers array:', customers);
+  //   console.log('Raw LocalStorage:', localStorage.getItem('customers'));
+  //   alert('Check the browser console for database debug info.');
+  // });
 
   $('#right-frame').on('click', '#next-edit-step1', function() {
     console.log('Next Edit Step 1 clicked');

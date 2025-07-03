@@ -38,7 +38,7 @@
     // Define permission level in global scope
     var userPermissionLevel = "{{ permission_level }}";
     // Define global version
-    var appVersion = "v1.2.80";
+    var appVersion = "v1.2.81";
     // Global variables
     var customers = [];
   </script>
@@ -57,11 +57,12 @@
         <button id="btn-create">Create</button>
         <button id="btn-modify">Modify</button>
       </div>
-      <button id="btn-quotation">Quotation</button>
-      <div id="quotation-nested" style="display:none; margin-left: 10px;">
+      <!-- Removed Quotation and Development buttons as per v1.2.81 -->
+      <!-- <button id="btn-quotation">Quotation</button> -->
+      <!-- <div id="quotation-nested" style="display:none; margin-left: 10px;">
         <button id="btn-quotation-create">Create</button>
-      </div>
-      <button id="btn-development">Development</button>
+      </div> -->
+      <!-- <button id="btn-development">Development</button> -->
       <!-- Admin button only for level 3 users -->
       <button id="btn-admin" style="display:none;">Admin</button>
       <button id="btn-quotation2">Quotation 2</button>
@@ -137,7 +138,7 @@
       <h2>View Quotation <span style="font-size:1rem;color:#888;">v1.0.2</span></h2>
     </div>
   </div>
-  <div style="position:fixed;bottom:10px;right:20px;font-size:13px;color:#888;z-index:1000;">Version v1.0.2</div>
+  <div style="position:fixed;bottom:10px;right:20px;font-size:13px;color:#888;z-index:1000;">Version v1.2.81</div>
   
   <script>
     // Show Admin button only for level 3 users

@@ -1,4 +1,4 @@
-// Version v1.3.20
+// Version v1.3.21
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -1644,7 +1644,13 @@ function swapToEditFields(origImgSrc = '') {
         imgEl.src = e.target.result;
         imgEl.style.display = 'block';
         placeholder.style.display = 'none';
-        // TODO: Enable Save button and store file for upload in next milestone
+        // Enable Save button after image change
+        const saveBtn = document.getElementById('save-btn');
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.style.backgroundColor = '#28a745';
+          saveBtn.style.cursor = 'pointer';
+        }
       };
       reader.readAsDataURL(file);
     }

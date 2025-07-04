@@ -1,4 +1,4 @@
-// Version v1.3.12
+// Version v1.3.19
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -313,7 +313,7 @@ $(function() {
               $('#quotation-block-content').html('<pre style="font-size:1.1em;">' + response.quotation_block + '</pre>');
             }
             // Always update version display if present
-            $("#right-frame h2 span").text('v1.3.13 [quotation_create.js]');
+            $("#right-frame h2 span").text('v1.3.16 [quotation_create.js]');
           }, 500);
         }
       },
@@ -585,7 +585,7 @@ function showQuotationCreateForm2(viewMode = false) {
     $.get('/check_permission', function(response) {
       const userLevel = response.level || 0;
       let headerTitle = viewMode ? 'View Quotation' : 'Create Quotation (HT)';
-      let version = '1.3.14'; // <-- Updated Version
+      let version = '1.3.16'; // <-- Updated Version
       let jsFile = 'quotation_create.js';
       $('#right-frame').html(`
         <div style="padding:32px;max-width:900px; min-height:100vh;">
@@ -1502,7 +1502,7 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 // --- Milestone 1: Field Swapping Functions ---
-function swapToEditFields() {
+function swapToEditFields(origImgSrc = '') {
   const fields = [
     { id: 'view-item-code', type: 'text' },
     { id: 'view-width', type: 'number' },
@@ -1569,6 +1569,90 @@ function swapToEditFields() {
     colorContainer.append(colorField);
   }
   $('.color-name-field').on('change input', validateAndUpdateSaveButton);
+
+  // Ensure artwork image label is updated in edit mode
+  const artworkDiv = $('#view-artwork-image');
+  if (artworkDiv.length) {
+    artworkDiv.html(`
+      <label style="font-weight:bold;">Artwork Image (Drag & drop, click, or Ctrl+V to paste JPG/PNG or screenshot)</label>
+      <div id="edit-artwork-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
+        <span id="edit-artwork-drop-label">Drag & drop JPG/PNG here or click to select</span>
+        <input type="file" id="edit-artwork-input" accept=".jpg,.jpeg,.png" style="display:none;" />
+        <div id="edit-artwork-preview" style="margin-top:12px;"></div>
+      </div>
+    `);
+  }
+
+  // --- Milestone 3: Artwork Image Interactions (robust, always show original image) ---
+  if (artworkDiv.length) {
+    artworkDiv.html(`
+      <label style="font-weight:bold;">Artwork Image (Drag & drop, click, or Ctrl+V to paste JPG/PNG or screenshot)</label>
+      <div id="edit-artwork-image-holder" style="text-align:center;cursor:pointer;min-height:220px;display:flex;align-items:center;justify-content:center;">
+        <img id="edit-artwork-img" src="${origImgSrc}" style="max-width:200px;max-height:200px;border:1.5px solid #ccc;border-radius:8px;display:${origImgSrc ? 'block' : 'none'};margin:auto;" />
+        <input type="file" id="edit-artwork-input" accept=".jpg,.jpeg,.png" style="display:none;" />
+        <div id="edit-artwork-placeholder" style="${origImgSrc ? 'display:none;' : 'display:block;'}width:200px;height:200px;border:2px dashed #aaa;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#888;">Drag & drop JPG/PNG here or click to select</div>
+      </div>
+    `);
+    const imgEl = document.getElementById('edit-artwork-img');
+    const fileInput = document.getElementById('edit-artwork-input');
+    const placeholder = document.getElementById('edit-artwork-placeholder');
+    // Click image or placeholder to browse
+    imgEl.addEventListener('click', () => fileInput.click());
+    placeholder.addEventListener('click', () => fileInput.click());
+    // Drag & drop support
+    [imgEl, placeholder].forEach(el => {
+      el.addEventListener('dragover', e => { e.preventDefault(); el.style.border = '2px dashed #007bff'; });
+      el.addEventListener('dragleave', e => { e.preventDefault(); el.style.border = el === imgEl ? '1.5px solid #ccc' : '2px dashed #aaa'; });
+      el.addEventListener('drop', e => {
+        e.preventDefault();
+        el.style.border = el === imgEl ? '1.5px solid #ccc' : '2px dashed #aaa';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleArtworkFile(e.dataTransfer.files[0]);
+        }
+      });
+    });
+    // File input change
+    fileInput.addEventListener('change', e => {
+      if (fileInput.files && fileInput.files[0]) {
+        handleArtworkFile(fileInput.files[0]);
+      }
+    });
+    // Ctrl+V paste support
+    document.addEventListener('paste', handleArtworkPaste);
+    function handleArtworkPaste(e) {
+      if (document.getElementById('edit-artwork-img')) {
+        if (e.clipboardData && e.clipboardData.items) {
+          for (let i = 0; i < e.clipboardData.items.length; i++) {
+            const item = e.clipboardData.items[i];
+            if (item.kind === 'file' && (item.type === 'image/jpeg' || item.type === 'image/png')) {
+              const file = item.getAsFile();
+              handleArtworkFile(file);
+              e.preventDefault();
+              break;
+            }
+          }
+        }
+      }
+    }
+    function handleArtworkFile(file) {
+      if (!(file.type === 'image/jpeg' || file.type === 'image/png')) {
+        alert('Only JPG or PNG files are allowed.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        imgEl.src = e.target.result;
+        imgEl.style.display = 'block';
+        placeholder.style.display = 'none';
+        // TODO: Enable Save button and store file for upload in next milestone
+      };
+      reader.readAsDataURL(file);
+    }
+    // Clean up paste event on cancel
+    $(document).off('click.editArtworkCancel').on('click.editArtworkCancel', '#cancel-edit-btn', function() {
+      document.removeEventListener('paste', handleArtworkPaste);
+    });
+  }
 }
 
 // --- Milestone 2: Complete Field Correlation Logic ---
@@ -1741,11 +1825,11 @@ function swapToReadOnlyFields() {
 
 function showQuotationViewForm2(quotationId) {
   // Use the same layout as create, but all fields are disabled/read-only
-  // Updated version to 1.3.7
+  // Updated version to 1.3.19
   $('#right-frame').html(`
     <form id="view-quotation-form" style="padding:32px;max-width:900px; min-height:100vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.7 [quotation_create.js]</span></h2>
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.19 [quotation_create.js]</span></h2>
         <div id="view-mode-buttons">
           <button id="edit-toggle-btn" type="button" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
         </div>
@@ -1843,15 +1927,19 @@ function showQuotationViewForm2(quotationId) {
 
   $(document).on('click', '#edit-toggle-btn', function() {
     isEditMode = true;
-    
     // Store original values
     $('.item-info-field-view').each(function() {
       originalValues[this.id] = $(this).val();
     });
-
-    swapToEditFields();
-
-    // Update buttons
+    // Capture original image src before swapping fields
+    let origImgSrc = '';
+    const artworkDiv = $('#view-artwork-image');
+    const existingImg = artworkDiv.find('img');
+    if (existingImg.length) {
+      origImgSrc = existingImg.attr('src') || '';
+    }
+    swapToEditFields(origImgSrc); // Pass the image src to edit mode
+    // Update buttons: show Cancel Editing and Save (disabled)
     $('#view-mode-buttons').html(`
       <button id="cancel-edit-btn" style="background:#dc3545; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Cancel Editing</button>
       <button id="save-btn" style="background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:not-allowed; margin-left:8px;" disabled>Save</button>
@@ -1860,18 +1948,29 @@ function showQuotationViewForm2(quotationId) {
 
   $(document).on('click', '#cancel-edit-btn', function() {
     isEditMode = false;
-    
     // Restore original values before swapping back
     for (const id in originalValues) {
         $(`#${id}`).val(originalValues[id]);
     }
-    
     swapToReadOnlyFields();
-    
     // Restore Edit button
     $('#view-mode-buttons').html(
       `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
     );
+    // Restore artwork image view (no dotted box)
+    const artworkDiv = $('#view-artwork-image');
+    if (artworkDiv.length) {
+      let origImgSrc = '';
+      const existingImg = artworkDiv.find('img');
+      if (existingImg.length) {
+        origImgSrc = existingImg.attr('src') || '';
+      }
+      if (origImgSrc) {
+        artworkDiv.html(`<img src='${origImgSrc}' alt='Artwork Image' style='max-width:200px;'>`);
+      } else {
+        artworkDiv.html('-');
+      }
+    }
   });
 
    // Fetch and fill data
@@ -1971,6 +2070,106 @@ function showQuotationViewForm2(quotationId) {
    } else {
      $('#view-company').val('No quotation ID provided.');
    }
+
+  // --- Milestone 2: Artwork Image Label & Upload Area (simple HTML) ---
+  if (isEditMode) {
+    const artworkDiv = $('#view-artwork-image');
+    if (artworkDiv.length) {
+      artworkDiv.html(`
+        <label style="font-weight:bold;">Artwork Image (Drag & drop, click, or Ctrl+V to paste JPG/PNG or screenshot)</label>
+        <div id="edit-artwork-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer;">
+          <span id="edit-artwork-drop-label">Drag & drop JPG/PNG here or click to select</span>
+          <input type="file" id="edit-artwork-input" accept=".jpg,.jpeg,.png" style="display:none;" />
+          <div id="edit-artwork-preview" style="margin-top:12px;"></div>
+        </div>
+      `);
+    }
+  }
+  // --- Milestone 3: Artwork Image Interactions (robust: only image OR placeholder inside border, never both, never side-by-side) ---
+  if (isEditMode) {
+    const artworkDiv = $('#view-artwork-image');
+    let origImgSrc = '';
+    if (artworkDiv.length) {
+      // Capture the original image src BEFORE replacing the HTML
+      const existingImg = artworkDiv.find('img');
+      if (existingImg.length) {
+        origImgSrc = existingImg.attr('src') || '';
+      }
+      // Use a single container for both image and placeholder
+      artworkDiv.html(`
+        <label style="font-weight:bold;">Artwork Image (Drag & drop, click, or Ctrl+V to paste JPG/PNG or screenshot)</label>
+        <div id="edit-artwork-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:24px; text-align:center; background:#fafbfc; color:#888; cursor:pointer; min-height:220px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+          <div id="edit-artwork-content" style="width:100%;display:flex;align-items:center;justify-content:center;">
+            ${origImgSrc ? `<img id='edit-artwork-img' src='${origImgSrc}' style='max-width:200px;max-height:200px;border:1.5px solid #ccc;border-radius:8px;margin:auto;display:block;' />` : `<span id='edit-artwork-placeholder'>Drag & drop JPG/PNG here or click to select</span>`}
+          </div>
+          <input type="file" id="edit-artwork-input" accept=".jpg,.jpeg,.png" style="display:none;" />
+        </div>
+      `);
+      const dropArea = document.getElementById('edit-artwork-drop-area');
+      const contentDiv = document.getElementById('edit-artwork-content');
+      const imgEl = document.getElementById('edit-artwork-img');
+      const fileInput = document.getElementById('edit-artwork-input');
+      const placeholder = document.getElementById('edit-artwork-placeholder');
+      // Click image or placeholder or drop area to browse
+      if (imgEl) imgEl.addEventListener('click', () => fileInput.click());
+      if (placeholder) placeholder.addEventListener('click', () => fileInput.click());
+      dropArea.addEventListener('click', e => {
+        if (e.target === dropArea) fileInput.click();
+      });
+      // Drag & drop support
+      dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.style.background = '#e3e7ea'; });
+      dropArea.addEventListener('dragleave', e => { e.preventDefault(); dropArea.style.background = '#fafbfc'; });
+      dropArea.addEventListener('drop', e => {
+        e.preventDefault();
+        dropArea.style.background = '#fafbfc';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleArtworkFile(e.dataTransfer.files[0]);
+        }
+      });
+      // File input change
+      fileInput.addEventListener('change', e => {
+        if (fileInput.files && fileInput.files[0]) {
+          handleArtworkFile(fileInput.files[0]);
+        }
+      });
+      // Ctrl+V paste support
+      document.addEventListener('paste', handleArtworkPaste);
+      function handleArtworkPaste(e) {
+        if (document.getElementById('edit-artwork-drop-area')) {
+          if (e.clipboardData && e.clipboardData.items) {
+            for (let i = 0; i < e.clipboardData.items.length; i++) {
+              const item = e.clipboardData.items[i];
+              if (item.kind === 'file' && (item.type === 'image/jpeg' || item.type === 'image/png')) {
+                const file = item.getAsFile();
+                handleArtworkFile(file);
+                e.preventDefault();
+                break;
+              }
+            }
+          }
+        }
+      }
+      function handleArtworkFile(file) {
+        if (!(file.type === 'image/jpeg' || file.type === 'image/png')) {
+          alert('Only JPG or PNG files are allowed.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          // Replace content with image only
+          contentDiv.innerHTML = `<img id='edit-artwork-img' src='${e.target.result}' style='max-width:200px;max-height:200px;border:1.5px solid #ccc;border-radius:8px;margin:auto;display:block;' />`;
+          // Re-bind file input event
+          const newImgEl = document.getElementById('edit-artwork-img');
+          if (newImgEl) newImgEl.addEventListener('click', () => fileInput.click());
+        };
+        reader.readAsDataURL(file);
+      }
+      // Clean up paste event on cancel
+      $(document).off('click.editArtworkCancel').on('click.editArtworkCancel', '#cancel-edit-btn', function() {
+        document.removeEventListener('paste', handleArtworkPaste);
+      });
+    }
+  }
 }
 
 // --- Milestone 4: Save Functionality ---

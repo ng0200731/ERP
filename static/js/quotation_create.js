@@ -1,4 +1,4 @@
-// Version v1.3.19
+// Version v1.3.20
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -1825,11 +1825,11 @@ function swapToReadOnlyFields() {
 
 function showQuotationViewForm2(quotationId) {
   // Use the same layout as create, but all fields are disabled/read-only
-  // Updated version to 1.3.19
+  // Updated version to 1.3.20
   $('#right-frame').html(`
     <form id="view-quotation-form" style="padding:32px;max-width:900px; min-height:100vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.19 [quotation_create.js]</span></h2>
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.20 [quotation_create.js]</span></h2>
         <div id="view-mode-buttons">
           <button id="edit-toggle-btn" type="button" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
         </div>
@@ -1925,19 +1925,20 @@ function showQuotationViewForm2(quotationId) {
   let isEditMode = false;
   let originalValues = {}; // To store values before editing
 
-  $(document).on('click', '#edit-toggle-btn', function() {
+  $(document).off('click', '#edit-toggle-btn').on('click', '#edit-toggle-btn', function() {
     isEditMode = true;
     // Store original values
     $('.item-info-field-view').each(function() {
       originalValues[this.id] = $(this).val();
     });
-    // Capture original image src before swapping fields
+    // Capture and store original image src before swapping fields
     let origImgSrc = '';
     const artworkDiv = $('#view-artwork-image');
     const existingImg = artworkDiv.find('img');
     if (existingImg.length) {
       origImgSrc = existingImg.attr('src') || '';
     }
+    window._originalArtworkSrc = origImgSrc; // Store globally for cancel
     swapToEditFields(origImgSrc); // Pass the image src to edit mode
     // Update buttons: show Cancel Editing and Save (disabled)
     $('#view-mode-buttons').html(`
@@ -1945,8 +1946,7 @@ function showQuotationViewForm2(quotationId) {
       <button id="save-btn" style="background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:not-allowed; margin-left:8px;" disabled>Save</button>
     `);
   });
-
-  $(document).on('click', '#cancel-edit-btn', function() {
+  $(document).off('click', '#cancel-edit-btn').on('click', '#cancel-edit-btn', function() {
     isEditMode = false;
     // Restore original values before swapping back
     for (const id in originalValues) {
@@ -1957,14 +1957,10 @@ function showQuotationViewForm2(quotationId) {
     $('#view-mode-buttons').html(
       `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
     );
-    // Restore artwork image view (no dotted box)
+    // Restore artwork image view (no dotted box) from stored original src
     const artworkDiv = $('#view-artwork-image');
     if (artworkDiv.length) {
-      let origImgSrc = '';
-      const existingImg = artworkDiv.find('img');
-      if (existingImg.length) {
-        origImgSrc = existingImg.attr('src') || '';
-      }
+      let origImgSrc = window._originalArtworkSrc || '';
       if (origImgSrc) {
         artworkDiv.html(`<img src='${origImgSrc}' alt='Artwork Image' style='max-width:200px;'>`);
       } else {

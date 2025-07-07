@@ -1265,7 +1265,6 @@ def api_get_quotation(quotation_id):
                     return jsonify({'error': 'Only JPG or PNG files are allowed'}), 400
                 uploads_dir = os.path.join('uploads', 'artwork_images')
                 os.makedirs(uploads_dir, exist_ok=True)
-                from datetime import datetime
                 timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
                 safe_name = f"{timestamp}_{jpg_file.filename.replace(' ', '_')}"
                 file_path = os.path.join(uploads_dir, safe_name)

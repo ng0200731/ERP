@@ -1617,23 +1617,31 @@ function swapToEditFields(origImgSrc = '') {
         handleArtworkFile(fileInput.files[0]);
       }
     });
-    // Ctrl+V paste support
-    document.addEventListener('paste', handleArtworkPaste);
+    // --- Robust Ctrl+V paste support for artwork image in edit mode ---
     function handleArtworkPaste(e) {
-      if (document.getElementById('edit-artwork-img')) {
-        if (e.clipboardData && e.clipboardData.items) {
-          for (let i = 0; i < e.clipboardData.items.length; i++) {
-            const item = e.clipboardData.items[i];
-            if (item.kind === 'file' && (item.type === 'image/jpeg' || item.type === 'image/png')) {
-              const file = item.getAsFile();
-              handleArtworkFile(file);
-              e.preventDefault();
-              break;
-            }
+      const imgEl = document.getElementById('edit-artwork-img');
+      if (!imgEl) return;
+      if (e.clipboardData && e.clipboardData.items) {
+        for (let i = 0; i < e.clipboardData.items.length; i++) {
+          const item = e.clipboardData.items[i];
+          if (item.kind === 'file' && (item.type === 'image/jpeg' || item.type === 'image/png')) {
+            const file = item.getAsFile();
+            handleArtworkFile(file);
+            e.preventDefault();
+            break;
           }
         }
       }
     }
+    document.removeEventListener('paste', handleArtworkPaste);
+    document.addEventListener('paste', handleArtworkPaste);
+    // Remove on cancel or after save
+    $(document).off('click.editArtworkCancel').on('click.editArtworkCancel', '#cancel-edit-btn', function() {
+      document.removeEventListener('paste', handleArtworkPaste);
+    });
+    $(document).off('click.editArtworkSave').on('click.editArtworkSave', '#save-btn', function() {
+      document.removeEventListener('paste', handleArtworkPaste);
+    });
     function handleArtworkFile(file) {
       if (!(file.type === 'image/jpeg' || file.type === 'image/png')) {
         alert('Only JPG or PNG files are allowed.');
@@ -1644,6 +1652,10 @@ function swapToEditFields(origImgSrc = '') {
         imgEl.src = e.target.result;
         imgEl.style.display = 'block';
         placeholder.style.display = 'none';
+        // Ensure pasted image is set as file input value for upload
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
         // Enable Save button after image change
         const saveBtn = document.getElementById('save-btn');
         if (saveBtn) {
@@ -1654,10 +1666,6 @@ function swapToEditFields(origImgSrc = '') {
       };
       reader.readAsDataURL(file);
     }
-    // Clean up paste event on cancel
-    $(document).off('click.editArtworkCancel').on('click.editArtworkCancel', '#cancel-edit-btn', function() {
-      document.removeEventListener('paste', handleArtworkPaste);
-    });
   }
 }
 

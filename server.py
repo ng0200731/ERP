@@ -1274,7 +1274,7 @@ def api_get_quotation(quotation_id):
                 quotation.artwork_image = artwork_path
                 print(f'[DEBUG][PUT] Set quotation.artwork_image to: {quotation.artwork_image}')
 
-            # --- RECALCULATION LOGIC (copied/adapted from /quotation/save) ---
+            # --- RECALCULATION LOGIC (always run, regardless of image upload) ---
             conn = engine.raw_connection()
             cursor = conn.cursor()
             quality = data.get('quality', quotation.quality)

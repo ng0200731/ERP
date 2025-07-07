@@ -1231,113 +1231,129 @@ def api_get_quotation(quotation_id):
 
     if request.method == 'PUT':
         try:
-            data = request.json
+            # Helper functions (must be defined before use)
+            def safe_float(value, default=0.0):
+                try:
+                    if value is None or value == '' or value == '-':
+                        return default
+                    return float(value)
+                except (ValueError, TypeError):
+                    return default
+            def safe_int(value, default=0):
+                try:
+                    if value is None or value == '' or value == '-':
+                        return default
+                    return int(value)
+                except (ValueError, TypeError):
+                    return default
+            # Accept both JSON and multipart/form-data
+            if request.content_type and request.content_type.startswith('multipart/form-data'):
+                data = request.form.to_dict()
+                jpg_file = request.files.get('artwork_image') if 'artwork_image' in request.files else None
+            else:
+                data = request.get_json(force=True)
+                jpg_file = None
             quotation = session.query(Quotation).filter_by(id=quotation_id).first()
             if not quotation:
                 return jsonify({'error': 'Quotation not found'}), 404
+            # Handle artwork image upload (match create logic)
+            artwork_path = None
+            if jpg_file and jpg_file.filename:
+                print(f'[DEBUG][PUT] Received new file: {jpg_file.filename}')
+                if not jpg_file.filename.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    print('[DEBUG][PUT] File is not a JPG or PNG')
+                    return jsonify({'error': 'Only JPG or PNG files are allowed'}), 400
+                uploads_dir = os.path.join('uploads', 'artwork_images')
+                os.makedirs(uploads_dir, exist_ok=True)
+                from datetime import datetime
+                timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+                safe_name = f"{timestamp}_{jpg_file.filename.replace(' ', '_')}"
+                file_path = os.path.join(uploads_dir, safe_name)
+                jpg_file.save(file_path)
+                print(f'[DEBUG][PUT] Saved file to: {file_path}')
+                artwork_path = f"uploads/artwork_images/{safe_name}".replace('\\', '/')
+                quotation.artwork_image = artwork_path
+                print(f'[DEBUG][PUT] Set quotation.artwork_image to: {quotation.artwork_image}')
 
-            # --- PRICE LOOKUP LOGIC (REFINED) ---
-            quality = data.get('quality', '')
-            flat_or_raised = data.get('flat_or_raised', '')
-            direct_or_reverse = data.get('direct_or_reverse', '')
-            num_colors_val = data.get('num_colors')
-            thickness_val = data.get('thickness')
-            
+            # --- RECALCULATION LOGIC (copied/adapted from /quotation/save) ---
+            conn = engine.raw_connection()
+            cursor = conn.cursor()
+            quality = data.get('quality', quotation.quality)
+            flat_or_raised = data.get('flat_or_raised', quotation.flat_or_raised)
+            direct_or_reverse = data.get('direct_or_reverse', quotation.direct_or_reverse)
+            num_colors = safe_int(data.get('num_colors', quotation.num_colors))
+            thickness = safe_float(data.get('thickness', quotation.thickness))
             price = '-'
             db_length = None
             db_width = None
-
-            conn = None
-            cursor = None
-            try:
-                conn = engine.raw_connection()
-                cursor = conn.cursor()
-
-                if flat_or_raised and direct_or_reverse and num_colors_val is not None:
-                    num_colors = int(num_colors_val)
-                    if flat_or_raised.lower() == 'flat':
-                        sql = '''
-                            SELECT length, width, price FROM ht_database
-                            WHERE trim(lower(quality))=trim(lower(?))
-                              AND trim(lower(flat_or_raised))=trim(lower(?))
-                              AND trim(lower(direct_or_reverse))=trim(lower(?))
-                              AND num_colors=?
-                        '''
-                        params = (quality, flat_or_raised, direct_or_reverse, num_colors)
-                        cursor.execute(sql, params)
-                        row = cursor.fetchone()
-                        if row:
-                            db_length, db_width, price = row
-                    elif flat_or_raised.lower() == 'raised' and thickness_val is not None:
-                        thickness = float(thickness_val)
-                        sql = '''
-                            SELECT length, width, price FROM ht_database
-                            WHERE trim(lower(quality))=trim(lower(?))
-                              AND trim(lower(flat_or_raised))=trim(lower(?))
-                              AND trim(lower(direct_or_reverse))=trim(lower(?))
-                              AND num_colors=? AND thickness <= ?
-                            ORDER BY thickness DESC
-                            LIMIT 1
-                        '''
-                        params = (quality, flat_or_raised, direct_or_reverse, num_colors, thickness)
-                        cursor.execute(sql, params)
-                        row = cursor.fetchone()
-                        if row:
-                            db_length, db_width, price = row
-                        else:
-                            # Fallback: pick the minimum thickness for this combo
-                            sql2 = '''
-                                SELECT length, width, price FROM ht_database
-                                WHERE trim(lower(quality))=trim(lower(?))
-                                  AND trim(lower(flat_or_raised))=trim(lower(?))
-                                  AND trim(lower(direct_or_reverse))=trim(lower(?))
-                                  AND num_colors=?
-                                ORDER BY thickness ASC
-                                LIMIT 1
-                            '''
-                            params2 = (quality, flat_or_raised, direct_or_reverse, num_colors)
-                            cursor.execute(sql2, params2)
-                            row2 = cursor.fetchone()
-                            if row2:
-                                db_length, db_width, price = row2
-            finally:
-                if cursor is not None:
-                    cursor.close()
-                if conn is not None:
-                    conn.close()
-
-            if price == '-':
-                 return jsonify({'error': 'Price lookup failed'}), 500
-
-            # --- Recalculate Quotation Block (edit mode, match create mode layout) ---
-            version = 'v1.3.14'  # Match create mode version
+            if flat_or_raised and flat_or_raised.lower() == 'flat':
+                sql = '''
+                    SELECT length, width, price FROM ht_database
+                    WHERE trim(lower(quality))=trim(lower(?))
+                      AND trim(lower(flat_or_raised))=trim(lower(?))
+                      AND trim(lower(direct_or_reverse))=trim(lower(?))
+                      AND num_colors=?
+                '''
+                params = (quality, flat_or_raised, direct_or_reverse, num_colors)
+                cursor.execute(sql, params)
+                row = cursor.fetchone()
+                if row:
+                    db_length, db_width, price = row
+            elif flat_or_raised and flat_or_raised.lower() == 'raised':
+                sql = '''
+                    SELECT length, width, price FROM ht_database
+                    WHERE trim(lower(quality))=trim(lower(?))
+                      AND trim(lower(flat_or_raised))=trim(lower(?))
+                      AND trim(lower(direct_or_reverse))=trim(lower(?))
+                      AND num_colors=? AND thickness <= ?
+                    ORDER BY thickness DESC
+                    LIMIT 1
+                '''
+                params = (quality, flat_or_raised, direct_or_reverse, num_colors, thickness)
+                cursor.execute(sql, params)
+                row = cursor.fetchone()
+                if row:
+                    db_length, db_width, price = row
+                else:
+                    sql2 = '''
+                        SELECT length, width, price FROM ht_database
+                        WHERE trim(lower(quality))=trim(lower(?))
+                          AND trim(lower(flat_or_raised))=trim(lower(?))
+                          AND trim(lower(direct_or_reverse))=trim(lower(?))
+                          AND num_colors=?
+                        ORDER BY thickness ASC
+                        LIMIT 1
+                    '''
+                    params2 = (quality, flat_or_raised, direct_or_reverse, num_colors)
+                    cursor.execute(sql2, params2)
+                    row2 = cursor.fetchone()
+                    if row2:
+                        db_length, db_width, price = row2
+            conn.close()
+            # --- END PRICE LOOKUP ---
             def fmt(val, decimals=2):
-                if val is None or val == '-': return '-'
-                try: return f"{float(val):.{decimals}f}"
-                except (ValueError, TypeError): return '-'
-            def wrap_line(line, width=60):
-                return '\n'.join([line[i:i+width] for i in range(0, len(line), width)])
-            user_length = float(data.get('length')) if data.get('length') else 0
-            user_width = float(data.get('width')) if data.get('width') else 0
-            xVal = fmt(db_length)
-            yVal = fmt(db_width)
-            num_colors_str = str(num_colors_val) if num_colors_val is not None else '-'
-            thickness_str = str(thickness_val) if thickness_val is not None else '-'
-            inputSummary = f"({quality}, {flat_or_raised}, {direct_or_reverse}, {thickness_str}, {num_colors_str})"
-            combA, combB, combAeq, combBeq = '-', '-', '-', '-'
+                if val == '-' or val is None:
+                    return '-'
+                return f"{float(val):.{decimals}f}"
+            user_length = safe_float(data.get('length', quotation.length))
+            user_width = safe_float(data.get('width', quotation.width))
+            mPlus6 = user_length + 6 if user_length else None
+            nPlus6 = user_width + 6 if user_width else None
+            combA = combB = combAeq = combBeq = '-'
             combA_more = combB_more = ''
             if db_length and db_width and user_length and user_width:
-                mPlus6, nPlus6 = user_length + 6, user_width + 6
-                if mPlus6 > 0 and nPlus6 > 0:
-                    xDivM, yDivN = int(db_length // mPlus6), int(db_width // nPlus6)
-                    yDivM, xDivN = int(db_width // mPlus6), int(db_length // nPlus6)
-                    combA, combB = xDivM * yDivN, yDivM * xDivN
-                    if combA > combB:
-                        combA_more = ' (more # of label)'
-                    elif combB > combA:
-                        combB_more = ' (more # of label)'
-                    combAeq = f"Combination A: ({fmt(db_length,2)} / ({fmt(user_length,2)}+6))\n              × ({fmt(db_width,2)} / ({fmt(user_width,2)}+6))\n              = {xDivM} × {yDivN} = {combA} (# per 1 pet){combA_more}"
-                    combBeq = f"Combination B: ({fmt(db_width,2)} / ({fmt(user_length,2)}+6))\n              × ({fmt(db_length,2)} / ({fmt(user_width,2)}+6))\n              = {yDivM} × {xDivN} = {combB} (# per 1 pet){combB_more}"
+                xDivM = int(db_length // mPlus6)
+                yDivN = int(db_width // nPlus6)
+                yDivM = int(db_width // mPlus6)
+                xDivN = int(db_length // nPlus6)
+                combA = xDivM * yDivN
+                combB = yDivM * xDivN
+                if combA > combB:
+                    combA_more = ' (more # of label)'
+                elif combB > combA:
+                    combB_more = ' (more # of label)'
+                combAeq = f"Combination A: ({fmt(db_length,2)} / ({fmt(user_length,2)}+6))\n              × ({fmt(db_width,2)} / ({fmt(user_width,2)}+6))\n              = {xDivM} × {yDivN} = {combA} (# per 1 pet){combA_more}"
+                combBeq = f"Combination B: ({fmt(db_width,2)} / ({fmt(user_length,2)}+6))\n              × ({fmt(db_length,2)} / ({fmt(user_width,2)}+6))\n              = {yDivM} × {xDivN} = {combB} (# per 1 pet){combB_more}"
             costPerLabel = '-'
             costPerLabelDetail = ''
             if price != '-' and isinstance(combA, int) and isinstance(combB, int):
@@ -1345,12 +1361,22 @@ def api_get_quotation(quotation_id):
                 if maxComb > 0:
                     costPerLabel = float(price) / maxComb
                     costPerLabelDetail = f"{fmt(price)} / {maxComb} = {fmt(costPerLabel)}"
-            tiers = [(1000,1.1),(3000,1.05),(5000,1.03),(10000,1.00),(30000,0.95),(50000,0.9),(100000,0.85)]
+            tiers = [
+                (1000, 1.10), (3000, 1.05), (5000, 1.03), (10000, 1.00),
+                (30000, 0.95), (50000, 0.90), (100000, 0.85)
+            ]
             tier_lines = []
             for qty, factor in tiers:
                 tprice = '-'
-                if isinstance(costPerLabel, float): tprice = f"{costPerLabel*factor*1000:.2f}"
+                if costPerLabel != '-' and isinstance(costPerLabel, float):
+                    tprice = f"{costPerLabel * factor * 1000:.2f}"
                 tier_lines.append(f"{qty:,}\t{tprice}")
+            def wrap_line(line, width=60):
+                return '\n'.join([line[i:i+width] for i in range(0, len(line), width)])
+            version = 'v1.3.20'  # Updated version
+            inputSummary = f"({quality}, {flat_or_raised}, {direct_or_reverse}, {thickness if thickness else '-'}, {num_colors})"
+            xVal = fmt(db_length, 2) if db_length is not None else '-'
+            yVal = fmt(db_width, 2) if db_width is not None else '-'
             if db_length is None or db_width is None:
                 block = f"Quotation\n[WARNING: PET sheet size not found in database for the selected combination. Please check your input or database.]\n"
                 block += wrap_line(f"1) Cost of PET (- × -): {inputSummary} = -") + "\n"
@@ -1368,83 +1394,65 @@ def api_get_quotation(quotation_id):
                 for tline in tier_lines:
                     block += wrap_line(tline) + "\n"
                 block += f"\n[System Version: {version}]"
-
+            # --- END Quotation Block ---
             # Update quotation fields
-            quotation.customer_name = data.get('company')
-            quotation.key_person_name = data.get('key_person_name')
-            quotation.customer_item_code = data.get('customer_item_code')
             quotation.quality = quality
             quotation.flat_or_raised = flat_or_raised
             quotation.direct_or_reverse = direct_or_reverse
-            quotation.thickness = float(thickness_val) if thickness_val is not None else None
-            quotation.num_colors = int(num_colors_val) if num_colors_val is not None else None
+            quotation.thickness = thickness
+            quotation.num_colors = num_colors
             quotation.length = user_length
             quotation.width = user_width
-            quotation.price = float(price) if price != '-' else None
+            quotation.price = price if price != '-' else None
             quotation.quotation_block = block
             quotation.last_updated = datetime.utcnow()
-            quotation.action = 'updated'
-            # Increment revision count
-            if hasattr(quotation, 'revision_count') and quotation.revision_count is not None:
-                quotation.revision_count += 1
-            else:
-                quotation.revision_count = 1
-            
-            # --- Robust Color Names Handling ---
-            color_names_list = data.get('color_names', [])
-            valid_color_names = [name for name in color_names_list if isinstance(name, str) and name.strip()]
-            if valid_color_names:
-                 quotation.color_names = json.dumps(valid_color_names)
-            else:
-                 quotation.color_names = None
+            # Update color_names if present
+            color_names_json = data.get('color_names')
+            if color_names_json is not None:
+                if isinstance(color_names_json, list):
+                    color_names_json = json.dumps(color_names_json)
+                quotation.color_names = color_names_json
+            # Update customer_name, key_person_name, customer_item_code if present
+            for field in ['customer_name', 'key_person_name', 'customer_item_code']:
+                if data.get(field):
+                    setattr(quotation, field, data.get(field))
             session.commit()
-            # --- Send email to logged-in user on edit ---
-            # Gather all needed fields before closing session
-            customer_item_code = quotation.customer_item_code
-            revision_count = quotation.revision_count
-            block_copy = block
+            # --- Send HTML email to user ---
             try:
-                from flask_login import current_user
-                user_email = getattr(current_user, 'email', None)
-                if not user_email:
-                    from flask import session as flask_session
-                    user_email = flask_session.get('user', None)
-                print(f"[DEBUG] Edit email recipient: {user_email}")
-                if user_email:
-                    # --- Prepare template A HTML email (reuse creation logic) ---
-                    company = quotation.customer_name or '-'
-                    key_person_name = quotation.key_person_name or '-'
-                    key_person_position = '-'  # If you have this field, use it
-                    key_person_email = user_email
-                    item_code = quotation.customer_item_code or '-'
-                    product_name = '-'  # If you have this field, use it
-                    quality = quotation.quality or '-'
-                    flat_or_raised = quotation.flat_or_raised or '-'
-                    direct_or_reverse = quotation.direct_or_reverse or '-'
-                    thickness = quotation.thickness or '-'
-                    num_colors = quotation.num_colors or '-'
+                user_email = quotation.creator_email or 'unknown@example.com'
+                company = quotation.customer_name or '-'
+                key_person_name = quotation.key_person_name or '-'
+                key_person_position = data.get('key_person_position', '-')
+                key_person_email = user_email
+                item_code = quotation.customer_item_code or '-'
+                product_name = data.get('product_name', '-')
+                quality = quotation.quality or '-'
+                flat_or_raised = quotation.flat_or_raised or '-'
+                direct_or_reverse = quotation.direct_or_reverse or '-'
+                thickness = quotation.thickness or '-'
+                num_colors = quotation.num_colors or '-'
+                color_names = []
+                try:
+                    color_names = json.loads(quotation.color_names) if quotation.color_names else []
+                except Exception:
                     color_names = []
-                    try:
-                        color_names = json.loads(quotation.color_names) if quotation.color_names else []
-                    except Exception:
-                        color_names = []
-                    width = quotation.width or '-'
-                    length = quotation.length or '-'
-                    artwork_image_path = quotation.artwork_image if hasattr(quotation, 'artwork_image') else None
-                    artwork_image_url = ''
-                    if artwork_image_path:
-                        artwork_image_url = request.url_root.rstrip('/') + '/uploads/artwork_images/' + os.path.basename(artwork_image_path)
-                    quotation_block = block_copy
-                    img_cid = 'artwork_image'
-                    html_body = f'''
+                width = quotation.width or '-'
+                length = quotation.length or '-'
+                artwork_image_path = quotation.artwork_image
+                artwork_image_url = ''
+                if artwork_image_path:
+                    artwork_image_url = request.url_root.rstrip('/') + '/uploads/artwork_images/' + os.path.basename(artwork_image_path)
+                quotation_block = quotation.quotation_block
+                img_cid = 'artwork_image'
+                html_body = f'''
 <table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 15px; background: #f6f8fa; padding: 32px;">
   <tr>
     <td align="center">
       <table width="700" cellpadding="0" cellspacing="0" style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; padding: 32px; font-family: Arial, sans-serif; font-size: 15px;">
         <tr>
           <td colspan="2" align="center" style="padding-bottom: 24px; font-family: Arial, sans-serif; font-size: 15px;">
-            <h2 style="color: #2c3e50; margin: 0; font-family: Arial, sans-serif; font-size: 15px;">Quotation Submitted Successfully</h2>
-            <p style="color: #888; margin: 8px 0 0 0; font-family: Arial, sans-serif; font-size: 15px;">Thank you for your submission. Here are your quotation details:</p>
+            <h2 style="color: #2c3e50; margin: 0; font-family: Arial, sans-serif; font-size: 15px;">Quotation Updated Successfully</h2>
+            <p style="color: #888; margin: 8px 0 0 0; font-family: Arial, sans-serif; font-size: 15px;">Your quotation has been updated. Here are the details:</p>
           </td>
         </tr>
         <tr>
@@ -1492,31 +1500,25 @@ def api_get_quotation(quotation_id):
   </tr>
 </table>
 '''
-                    subject = f'FCL / HT Quotation / {item_code} ({revision_count} revised)'
-                    msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-                    msg.html = html_body
-                    # Attach the artwork image inline if present
-                    if artwork_image_path and os.path.exists(artwork_image_path):
-                        with open(artwork_image_path, 'rb') as img_file:
-                            msg.attach(filename=os.path.basename(artwork_image_path),
-                                       content_type='image/jpeg',
-                                       data=img_file.read(),
-                                       disposition='inline',
-                                       headers={'Content-ID': f'<{img_cid}>'})
-                    mail.send(msg)
-                    print(f"[INFO] Quotation edit email sent to {user_email}")
+                subject = f'FCL / HT Quotation / {item_code}'
+                msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
+                msg.html = html_body
+                if artwork_image_path and os.path.exists(artwork_image_path):
+                    with open(artwork_image_path, 'rb') as img_file:
+                        msg.attach(filename=os.path.basename(artwork_image_path),
+                                   content_type='image/jpeg',
+                                   data=img_file.read(),
+                                   disposition='inline',
+                                   headers={'Content-ID': f'<{img_cid}>'})
+                mail.send(msg)
+                print(f"[INFO] Quotation update email sent to {user_email}")
             except Exception as e:
-                print(f"[ERROR] Exception in edit email send: {e}")
-                logger.error(f"Failed to send edit notification email: {e}")
-            print(f"[DEBUG] Edit mode save values: quality={quality}, flat_or_raised={flat_or_raised}, direct_or_reverse={direct_or_reverse}, num_colors={num_colors_val}, thickness={thickness_val}, length={data.get('length')}, width={data.get('width')}, price={price}")
-            return jsonify({'message': 'Quotation updated successfully', 'quotation_block': block}), 200
-
+                print(f"[ERROR] Failed to send quotation update email: {e}")
+            # --- End email logic ---
+            return jsonify({'message': 'Quotation updated successfully', 'quotation_block': block, 'artwork_image': quotation.artwork_image.replace('\\', '/') if quotation.artwork_image else None}), 200
         except Exception as e:
             session.rollback()
-            logger.error(f"Error updating quotation: {str(e)}")
-            return jsonify({'error': f'Server error: {str(e)}'}), 500
-        finally:
-            session.close()
+            return jsonify({'error': str(e)}), 500
 
     # --- Original GET method ---
     quotation = session.query(Quotation).filter_by(id=quotation_id).first()

@@ -1829,7 +1829,7 @@ function swapToReadOnlyFields() {
     });
 }
 
-function showQuotationViewForm2(quotationId) {
+function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
   // Use the same layout as create, but all fields are disabled/read-only
   // Updated version to 1.3.20
   $('#right-frame').html(`
@@ -2015,7 +2015,8 @@ function showQuotationViewForm2(quotationId) {
          $('#view-updated-at').val(data.updated_at ?? '-');
          $('#view-action').val(data.action ?? '-');
          if (data.artwork_image) {
-           $('#view-artwork-image').html(`<img src="/${data.artwork_image}" alt="Artwork Image" style="max-width:200px;">`);
+           let imgSrc = overrideArtworkSrc ? overrideArtworkSrc : `/${data.artwork_image}`;
+           $('#view-artwork-image').html(`<img src="${imgSrc}" alt="Artwork Image" style="max-width:200px;">`);
          } else {
            $('#view-artwork-image').html('-');
          }
@@ -2137,7 +2138,7 @@ function showQuotationViewForm2(quotationId) {
       // Ctrl+V paste support
       document.addEventListener('paste', handleArtworkPaste);
       function handleArtworkPaste(e) {
-        if (document.getElementById('edit-artwork-drop-area')) {
+        if (document.getElementById('edit-artwork-img')) {
           if (e.clipboardData && e.clipboardData.items) {
             for (let i = 0; i < e.clipboardData.items.length; i++) {
               const item = e.clipboardData.items[i];
@@ -2193,78 +2194,115 @@ function saveQuotationChanges() {
     if (typeof numColorsVal === 'string' && numColorsVal.includes('(')) {
         numColorsVal = numColorsVal.split('(')[0].trim();
     }
-    const formData = {
-        company: $('#view-company').val(),
-        key_person_name: $('#view-key-person').val(),
-        customer_item_code: $('#view-item-code').val(),
-        quality: $('#view-quality').val(),
-        flat_or_raised: $('#view-flat-or-raised').val(),
-        direct_or_reverse: $('#view-direct-or-reverse').val(),
-        thickness: parseFloat($('#view-thickness').val()) || 0,
-        num_colors: numColorsVal ? parseInt(numColorsVal) : null,
-        width: $('#view-width').val() ? parseFloat($('#view-width').val()) : null,
-        length: $('#view-length').val() ? parseFloat($('#view-length').val()) : null,
-        color_names: []
-    };
-
-    // Collect color names from dynamic fields
+    // Prepare color names
+    const colorNames = [];
     $('.color-name-field').each(function() {
-        formData.color_names.push($(this).val().trim());
+        colorNames.push($(this).val().trim());
     });
+
+    // Check if a new image is selected
+    const fileInput = document.getElementById('edit-artwork-input');
+    const hasNewImage = fileInput && fileInput.files && fileInput.files[0];
 
     // Show loading state on the save button
     const saveBtn = $('#save-btn');
     saveBtn.prop('disabled', true).text('Saving...');
 
-    // Call the single backend endpoint to update the quotation
-    fetch(`/quotation/api/${quotationId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-        credentials: 'include' // Ensure session/cookies are sent
-    })
-    .then(response => {
-        if (!response.ok) {
-            // If response is not OK, get the error message from the body
-            return response.json().then(err => {
-                throw new Error(err.error || 'Unknown server error');
-            });
-        }
-        return response.json();
-    })
-    .then(updateResult => {
-        // Show success message
-        // const formData = {
-        //     quality: $('#view-quality').val(),
-        //     flat_or_raised: $('#view-flat-or-raised').val(),
-        //     direct_or_reverse: $('#view-direct-or-reverse').val(),
-        //     num_colors: $('#view-num-colors').val(),
-        //     thickness: $('#view-thickness').val(),
-        //     length: $('#view-length').val(),
-        //     width: $('#view-width').val(),
-        //     price: $('#view-price').val()
-        // };
-        // alert(
-        //     'Saved values:' +
-        //     '\nQuality: ' + formData.quality +
-        //     '\nFlat or Raised: ' + formData.flat_or_raised +
-        //     '\nDirect or Reverse: ' + formData.direct_or_reverse +
-        //     '\n# of Colors: ' + formData.num_colors +
-        //     '\nThickness: ' + formData.thickness +
-        //     '\nLength: ' + formData.length +
-        //     '\nWidth: ' + formData.width +
-        //     '\nPrice: ' + formData.price
-        // );
-        // After successful save, reload the form and update the Price field
-        showQuotationViewForm2(quotationId);
-    })
-    .catch(error => {
-        console.error('Error saving quotation:', error);
-        alert('Error updating quotation. Details: ' + error.message);
-        
-        // Restore the save button to its original state
-        saveBtn.prop('disabled', false).text('Save');
-    });
+    if (hasNewImage) {
+        // Use FormData for image upload
+        const formData = new FormData();
+        formData.append('company', $('#view-company').val());
+        formData.append('key_person_name', $('#view-key-person').val());
+        formData.append('customer_item_code', $('#view-item-code').val());
+        formData.append('quality', $('#view-quality').val());
+        formData.append('flat_or_raised', $('#view-flat-or-raised').val());
+        formData.append('direct_or_reverse', $('#view-direct-or-reverse').val());
+        formData.append('thickness', parseFloat($('#view-thickness').val()) || 0);
+        formData.append('num_colors', numColorsVal ? parseInt(numColorsVal) : null);
+        formData.append('width', $('#view-width').val() ? parseFloat($('#view-width').val()) : null);
+        formData.append('length', $('#view-length').val() ? parseFloat($('#view-length').val()) : null);
+        formData.append('color_names', JSON.stringify(colorNames));
+        formData.append('artwork_image', fileInput.files[0]);
+
+        fetch(`/quotation/api/${quotationId}`, {
+            method: 'PUT',
+            body: formData,
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.error || 'Unknown server error');
+                });
+            }
+            return response.json();
+        })
+        .then(updateResult => {
+            if (updateResult.artwork_image) {
+                const cacheBuster = '?t=' + new Date().getTime();
+                const newImgSrc = `/${updateResult.artwork_image}${cacheBuster}`;
+                $('#view-artwork-image').html(`<img src="${newImgSrc}" alt="Artwork Image" style="max-width:200px;">`);
+            }
+            saveBtn.prop('disabled', false).text('Save');
+            // Switch to view mode: hide Save/Cancel, show Edit
+            swapToReadOnlyFields();
+            $('#view-mode-buttons').html(
+              `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
+            );
+        })
+        .catch(error => {
+            console.error('Error saving quotation:', error);
+            alert('Error updating quotation. Details: ' + error.message);
+            saveBtn.prop('disabled', false).text('Save');
+        });
+    } else {
+        // No new image, use JSON
+        const formData = {
+            company: $('#view-company').val(),
+            key_person_name: $('#view-key-person').val(),
+            customer_item_code: $('#view-item-code').val(),
+            quality: $('#view-quality').val(),
+            flat_or_raised: $('#view-flat-or-raised').val(),
+            direct_or_reverse: $('#view-direct-or-reverse').val(),
+            thickness: parseFloat($('#view-thickness').val()) || 0,
+            num_colors: numColorsVal ? parseInt(numColorsVal) : null,
+            width: $('#view-width').val() ? parseFloat($('#view-width').val()) : null,
+            length: $('#view-length').val() ? parseFloat($('#view-length').val()) : null,
+            color_names: colorNames
+        };
+        fetch(`/quotation/api/${quotationId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.error || 'Unknown server error');
+                });
+            }
+            return response.json();
+        })
+        .then(updateResult => {
+            if (updateResult.artwork_image) {
+                const cacheBuster = '?t=' + new Date().getTime();
+                const newImgSrc = `/${updateResult.artwork_image}${cacheBuster}`;
+                $('#view-artwork-image').html(`<img src="${newImgSrc}" alt="Artwork Image" style="max-width:200px;">`);
+            }
+            saveBtn.prop('disabled', false).text('Save');
+            // Switch to view mode: hide Save/Cancel, show Edit
+            swapToReadOnlyFields();
+            $('#view-mode-buttons').html(
+              `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
+            );
+        })
+        .catch(error => {
+            console.error('Error saving quotation:', error);
+            alert('Error updating quotation. Details: ' + error.message);
+            saveBtn.prop('disabled', false).text('Save');
+        });
+    }
 }
 
 // --- Milestone 4: Quotation Calculation (REMOVED - now on backend) ---

@@ -18,6 +18,7 @@ import pandas as pd
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import json
+from sqlalchemy import event, text
 
 # Set up logging
 logging.basicConfig(
@@ -815,7 +816,7 @@ def save_quotation():
             print(f'[DEBUG] Saved file to: {file_path}')
             artwork_image_path = file_path
         
-        engine = create_engine('sqlite:///database.db')
+        engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
         Base.metadata.create_all(engine)
         
         # Get user email from session if available, otherwise use a default
@@ -1146,7 +1147,7 @@ def save_quotation():
 @app.route('/quotation/list', methods=['GET'])
 def list_quotations():
     try:
-        engine = create_engine('sqlite:///database.db')
+        engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
         Session = sessionmaker(bind=engine)
         session = Session()
         
@@ -1201,7 +1202,7 @@ def view_quotations():
 @app.route('/view_quotations_simple')
 def view_quotations_simple():
     try:
-        engine = create_engine('sqlite:///database.db')
+        engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
         df = pd.read_sql_table('quotations', engine)
         records = df.to_dict('records')
         # Format the last_updated datetime
@@ -1225,58 +1226,59 @@ def uploaded_attachment(filename):
 @app.route('/quotation/api/<int:quotation_id>', methods=['GET', 'PUT'])
 def api_get_quotation(quotation_id):
     from sqlalchemy.orm import sessionmaker
-    engine = create_engine('sqlite:///database.db')
+    engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
     Session = sessionmaker(bind=engine)
     session = Session()
 
     if request.method == 'PUT':
+        # Helper functions (must be defined before use)
+        def safe_float(value, default=0.0):
+            try:
+                if value is None or value == '' or value == '-':
+                    return default
+                return float(value)
+            except (ValueError, TypeError):
+                return default
+        def safe_int(value, default=0):
+            try:
+                if value is None or value == '' or value == '-':
+                    return default
+                return int(value)
+            except (ValueError, TypeError):
+                return default
+        # Accept both JSON and multipart/form-data
+        if request.content_type and request.content_type.startswith('multipart/form-data'):
+            data = request.form.to_dict()
+            jpg_file = request.files.get('artwork_image') if 'artwork_image' in request.files else None
+        else:
+            data = request.get_json(force=True)
+            jpg_file = None
+        # 1. Save file to disk BEFORE opening DB session
+        artwork_path = None
+        if jpg_file and jpg_file.filename:
+            print(f'[DEBUG][PUT] Received new file: {jpg_file.filename}')
+            if not jpg_file.filename.lower().endswith(('.jpg', '.jpeg', '.png')):
+                print('[DEBUG][PUT] File is not a JPG or PNG')
+                return jsonify({'error': 'Only JPG or PNG files are allowed'}), 400
+            uploads_dir = os.path.join('uploads', 'artwork_images')
+            os.makedirs(uploads_dir, exist_ok=True)
+            timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+            safe_name = f"{timestamp}_{jpg_file.filename.replace(' ', '_')}"
+            file_path = os.path.join(uploads_dir, safe_name)
+            jpg_file.save(file_path)
+            print(f'[DEBUG][PUT] Saved file to: {file_path}')
+            artwork_path = f"uploads/artwork_images/{safe_name}".replace('\\', '/')
+        # 2. Open DB session ONCE
+        session = Session()
         try:
-            # Helper functions (must be defined before use)
-            def safe_float(value, default=0.0):
-                try:
-                    if value is None or value == '' or value == '-':
-                        return default
-                    return float(value)
-                except (ValueError, TypeError):
-                    return default
-            def safe_int(value, default=0):
-                try:
-                    if value is None or value == '' or value == '-':
-                        return default
-                    return int(value)
-                except (ValueError, TypeError):
-                    return default
-            # Accept both JSON and multipart/form-data
-            if request.content_type and request.content_type.startswith('multipart/form-data'):
-                data = request.form.to_dict()
-                jpg_file = request.files.get('artwork_image') if 'artwork_image' in request.files else None
-            else:
-                data = request.get_json(force=True)
-                jpg_file = None
             quotation = session.query(Quotation).filter_by(id=quotation_id).first()
             if not quotation:
                 return jsonify({'error': 'Quotation not found'}), 404
-            # Handle artwork image upload (match create logic)
-            artwork_path = None
-            if jpg_file and jpg_file.filename:
-                print(f'[DEBUG][PUT] Received new file: {jpg_file.filename}')
-                if not jpg_file.filename.lower().endswith(('.jpg', '.jpeg', '.png')):
-                    print('[DEBUG][PUT] File is not a JPG or PNG')
-                    return jsonify({'error': 'Only JPG or PNG files are allowed'}), 400
-                uploads_dir = os.path.join('uploads', 'artwork_images')
-                os.makedirs(uploads_dir, exist_ok=True)
-                timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
-                safe_name = f"{timestamp}_{jpg_file.filename.replace(' ', '_')}"
-                file_path = os.path.join(uploads_dir, safe_name)
-                jpg_file.save(file_path)
-                print(f'[DEBUG][PUT] Saved file to: {file_path}')
-                artwork_path = f"uploads/artwork_images/{safe_name}".replace('\\', '/')
+            # If a new image was uploaded, update the path
+            if artwork_path:
                 quotation.artwork_image = artwork_path
                 print(f'[DEBUG][PUT] Set quotation.artwork_image to: {quotation.artwork_image}')
-
-            # --- RECALCULATION LOGIC (always run, regardless of image upload) ---
-            conn = engine.raw_connection()
-            cursor = conn.cursor()
+            # --- RECALCULATION LOGIC (use session.execute for price lookup) ---
             quality = data.get('quality', quotation.quality)
             flat_or_raised = data.get('flat_or_raised', quotation.flat_or_raised)
             direct_or_reverse = data.get('direct_or_reverse', quotation.direct_or_reverse)
@@ -1286,50 +1288,23 @@ def api_get_quotation(quotation_id):
             db_length = None
             db_width = None
             if flat_or_raised and flat_or_raised.lower() == 'flat':
-                sql = '''
-                    SELECT length, width, price FROM ht_database
-                    WHERE trim(lower(quality))=trim(lower(?))
-                      AND trim(lower(flat_or_raised))=trim(lower(?))
-                      AND trim(lower(direct_or_reverse))=trim(lower(?))
-                      AND num_colors=?
-                '''
-                params = (quality, flat_or_raised, direct_or_reverse, num_colors)
-                cursor.execute(sql, params)
-                row = cursor.fetchone()
+                sql = '''SELECT length, width, price FROM ht_database WHERE trim(lower(quality))=trim(lower(:q)) AND trim(lower(flat_or_raised))=trim(lower(:f)) AND trim(lower(direct_or_reverse))=trim(lower(:d)) AND num_colors=:n'''
+                params = {'q': quality, 'f': flat_or_raised, 'd': direct_or_reverse, 'n': num_colors}
+                row = session.execute(text(sql), params).fetchone()
                 if row:
                     db_length, db_width, price = row
             elif flat_or_raised and flat_or_raised.lower() == 'raised':
-                sql = '''
-                    SELECT length, width, price FROM ht_database
-                    WHERE trim(lower(quality))=trim(lower(?))
-                      AND trim(lower(flat_or_raised))=trim(lower(?))
-                      AND trim(lower(direct_or_reverse))=trim(lower(?))
-                      AND num_colors=? AND thickness <= ?
-                    ORDER BY thickness DESC
-                    LIMIT 1
-                '''
-                params = (quality, flat_or_raised, direct_or_reverse, num_colors, thickness)
-                cursor.execute(sql, params)
-                row = cursor.fetchone()
+                sql = '''SELECT length, width, price FROM ht_database WHERE trim(lower(quality))=trim(lower(:q)) AND trim(lower(flat_or_raised))=trim(lower(:f)) AND trim(lower(direct_or_reverse))=trim(lower(:d)) AND num_colors=:n AND thickness <= :t ORDER BY thickness DESC LIMIT 1'''
+                params = {'q': quality, 'f': flat_or_raised, 'd': direct_or_reverse, 'n': num_colors, 't': thickness}
+                row = session.execute(text(sql), params).fetchone()
                 if row:
                     db_length, db_width, price = row
                 else:
-                    sql2 = '''
-                        SELECT length, width, price FROM ht_database
-                        WHERE trim(lower(quality))=trim(lower(?))
-                          AND trim(lower(flat_or_raised))=trim(lower(?))
-                          AND trim(lower(direct_or_reverse))=trim(lower(?))
-                          AND num_colors=?
-                        ORDER BY thickness ASC
-                        LIMIT 1
-                    '''
-                    params2 = (quality, flat_or_raised, direct_or_reverse, num_colors)
-                    cursor.execute(sql2, params2)
-                    row2 = cursor.fetchone()
+                    sql2 = '''SELECT length, width, price FROM ht_database WHERE trim(lower(quality))=trim(lower(:q)) AND trim(lower(flat_or_raised))=trim(lower(:f)) AND trim(lower(direct_or_reverse))=trim(lower(:d)) AND num_colors=:n ORDER BY thickness ASC LIMIT 1'''
+                    params2 = {'q': quality, 'f': flat_or_raised, 'd': direct_or_reverse, 'n': num_colors}
+                    row2 = session.execute(text(sql2), params2).fetchone()
                     if row2:
                         db_length, db_width, price = row2
-            conn.close()
-            # --- END PRICE LOOKUP ---
             def fmt(val, decimals=2):
                 if val == '-' or val is None:
                     return '-'
@@ -1518,6 +1493,8 @@ def api_get_quotation(quotation_id):
         except Exception as e:
             session.rollback()
             return jsonify({'error': str(e)}), 500
+        finally:
+            session.close()
 
     # --- Original GET method ---
     quotation = session.query(Quotation).filter_by(id=quotation_id).first()
@@ -1602,3 +1579,9 @@ if __name__ == '__main__':
         app.run(host='0.0.0.0', port=5000, debug=True)
     except Exception as e:
         print('ERROR STARTING SERVER:', e) 
+
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.close()

@@ -2243,6 +2243,14 @@ function saveQuotationChanges() {
                 const newImgSrc = `/${updateResult.artwork_image}${cacheBuster}`;
                 $('#view-artwork-image').html(`<img src="${newImgSrc}" alt="Artwork Image" style="max-width:200px;">`);
             }
+            if (updateResult.quotation_block) {
+                $('#quotation_block').text(updateResult.quotation_block ?? '-');
+            }
+            // Smoothly update all form fields and quotation box
+            const quotationId = $('#view-quotation-form').data('quotation-id');
+            if (quotationId) {
+                showQuotationViewForm2(quotationId);
+            }
             saveBtn.prop('disabled', false).text('Save');
             // Switch to view mode: hide Save/Cancel, show Edit
             swapToReadOnlyFields();
@@ -2289,6 +2297,14 @@ function saveQuotationChanges() {
                 const cacheBuster = '?t=' + new Date().getTime();
                 const newImgSrc = `/${updateResult.artwork_image}${cacheBuster}`;
                 $('#view-artwork-image').html(`<img src="${newImgSrc}" alt="Artwork Image" style="max-width:200px;">`);
+            }
+            if (updateResult.quotation_block) {
+                $('#quotation_block').text(updateResult.quotation_block ?? '-');
+            }
+            // Smoothly update all form fields and quotation box
+            const quotationId = $('#view-quotation-form').data('quotation-id');
+            if (quotationId) {
+                showQuotationViewForm2(quotationId);
             }
             saveBtn.prop('disabled', false).text('Save');
             // Switch to view mode: hide Save/Cancel, show Edit

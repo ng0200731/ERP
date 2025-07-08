@@ -1667,6 +1667,122 @@ function swapToEditFields(origImgSrc = '') {
       reader.readAsDataURL(file);
     }
   }
+  // --- Milestone 1.5: Render additional artworks as image boxes in edit mode ---
+  const attachments = window._currentQuotationAttachments || [];
+  const multiArtworkList = $('#view-multi-artwork-list');
+  if (multiArtworkList.length) {
+    if (attachments.length > 0) {
+      let html = '';
+      attachments.forEach((att, idx) => {
+        const ext = att.filename.split('.').pop().toLowerCase();
+        const isImg = ['jpg','jpeg','png','gif','bmp','webp','svg'].includes(ext);
+        html += `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;position:relative;">
+          <button class='remove-attachment-btn' data-idx='${idx}' title='Remove' style='position:absolute;top:2px;right:2px;background:#fff;border:1px solid #ccc;border-radius:50%;width:22px;height:22px;line-height:18px;font-size:16px;color:#d00;cursor:pointer;z-index:2;'>×</button>`;
+        if (isImg) {
+          html += `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;'>
+            <a href="/uploads/attachments/${att.filename}" target="_blank" style="display:block;width:100%;height:100%;text-align:center;">
+              <img src="/uploads/attachments/${att.filename}" alt="Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;" />
+            </a>
+          </div>`;
+        } else {
+          html += `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fafbfc;'>
+            <a href="/uploads/attachments/${att.filename}" target="_blank" style="display:block;width:100%;height:100%;text-align:center;">
+              <span style='font-size:32px;'>📎</span>
+            </a>
+          </div>`;
+        }
+        html += `<div style='font-size:12px;text-align:center;margin-top:2px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>${att.original_filename || att.filename}</div>
+        </li>`;
+      });
+      multiArtworkList.html(html);
+      // --- Milestone 2: Remove logic with confirmation ---
+      // Track removed attachments in a global array for backend sync
+      window._removedQuotationAttachments = window._removedQuotationAttachments || [];
+      $('.remove-attachment-btn').off('click').on('click', function(e) {
+        e.preventDefault();
+        const idx = parseInt($(this).attr('data-idx'));
+        const att = attachments[idx];
+        if (window.confirm('Are you sure you want to remove this attachment?')) {
+          // Remove from attachments array and add to removed list
+          window._removedQuotationAttachments.push(att);
+          attachments.splice(idx, 1);
+          // Re-render list
+          swapToEditFields();
+        }
+      });
+    } else {
+      multiArtworkList.html('<li style="color:#888;">No additional artworks uploaded.</li>');
+    }
+  }
+  // --- Milestone 3: Add new attachments in edit mode ---
+  // Render drop area for new files
+  if (multiArtworkList.length) {
+    // Insert drop area above the list
+    if ($('#edit-multi-artwork-drop-area').length === 0) {
+      multiArtworkList.before(`
+        <div id="edit-multi-artwork-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:18px; text-align:center; background:#fafbfc; color:#888; cursor:pointer; margin-bottom:10px;">
+          <span id="edit-multi-artwork-drop-label">Drag & drop files here or click to select</span>
+          <input type="file" id="edit-multi-artwork-input" accept=".jpg,.jpeg,.png,.pdf,.ai,.psd,.svg,.txt" multiple style="display:none;" />
+        </div>
+      `);
+    }
+    const dropArea = document.getElementById('edit-multi-artwork-drop-area');
+    const fileInput = document.getElementById('edit-multi-artwork-input');
+    // Track new files in a global array
+    window._newQuotationAttachments = window._newQuotationAttachments || [];
+    // Drag & drop
+    dropArea.addEventListener('click', () => fileInput.click());
+    dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.style.background = '#e3e7ea'; });
+    dropArea.addEventListener('dragleave', e => { e.preventDefault(); dropArea.style.background = '#fafbfc'; });
+    dropArea.addEventListener('drop', e => {
+      e.preventDefault();
+      dropArea.style.background = '#fafbfc';
+      if (e.dataTransfer.files && e.dataTransfer.files.length) {
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          window._newQuotationAttachments.push(e.dataTransfer.files[i]);
+        }
+        swapToEditFields();
+      }
+    });
+    fileInput.addEventListener('change', e => {
+      if (fileInput.files && fileInput.files.length) {
+        for (let i = 0; i < fileInput.files.length; i++) {
+          window._newQuotationAttachments.push(fileInput.files[i]);
+        }
+        swapToEditFields();
+      }
+    });
+  }
+  // Render new files as boxes
+  const newFiles = window._newQuotationAttachments || [];
+  if (multiArtworkList.length && newFiles.length > 0) {
+    let html = multiArtworkList.html();
+    newFiles.forEach((file, idx) => {
+      const ext = file.name.split('.').pop().toLowerCase();
+      const isImg = ['jpg','jpeg','png','gif','bmp','webp','svg'].includes(ext);
+      html += `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;position:relative;">
+        <button class='remove-new-attachment-btn' data-idx='${idx}' title='Remove' style='position:absolute;top:2px;right:2px;background:#fff;border:1px solid #ccc;border-radius:50%;width:22px;height:22px;line-height:18px;font-size:16px;color:#d00;cursor:pointer;z-index:2;'>×</button>`;
+      if (isImg) {
+        html += `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;'>
+          <img src="${URL.createObjectURL(file)}" alt="Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;" />
+        </div>`;
+      } else {
+        html += `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fafbfc;'>
+          <span style='font-size:32px;'>📎</span>
+        </div>`;
+      }
+      html += `<div style='font-size:12px;text-align:center;margin-top:2px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>${file.name}</div>
+      </li>`;
+    });
+    multiArtworkList.html(html);
+    // Remove handler for new files
+    $('.remove-new-attachment-btn').off('click').on('click', function(e) {
+      e.preventDefault();
+      const idx = parseInt($(this).attr('data-idx'));
+      window._newQuotationAttachments.splice(idx, 1);
+      swapToEditFields();
+    });
+  }
 }
 
 // --- Milestone 2: Complete Field Correlation Logic ---
@@ -1835,6 +1951,8 @@ function swapToReadOnlyFields() {
         const val = el.val();
         el.replaceWith(`<input type="text" id="${id}" class="item-info-field-view" value="${val}" style="width: 100%; padding: 8px;" disabled>`);
     });
+    // Remove the edit-mode drop area for additional artworks if present
+    $('#edit-multi-artwork-drop-area').remove();
 }
 
 function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
@@ -2030,11 +2148,13 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
          }
          // Display additional artworks if available (assume data.additional_artworks is an array of filenames)
          if (data.attachments && data.attachments.length > 0) {
+           window._currentQuotationAttachments = data.attachments;
            let attachmentsHtml = data.attachments.map(att =>
              `<li><a href="/uploads/attachments/${att.filename}" target="_blank">${att.original_filename || att.filename}</a></li>`
            ).join('');
            $('#view-multi-artwork-list').html(attachmentsHtml);
          } else {
+           window._currentQuotationAttachments = [];
            $('#view-multi-artwork-list').html('<li style="color:#888;">No additional artworks uploaded.</li>');
          }
          $('#view-quotation-block').text(data.quotation_block ?? '-');
@@ -2361,3 +2481,49 @@ function initQuotationApp() {
     window.location.hash = 'create_ht';
   });
 }
+
+// --- Milestone 4: Integrate attachment add/remove with save logic ---
+// Patch save button handler in edit mode
+$(document).off('click.editArtworkSave').on('click.editArtworkSave', '#save-btn', function() {
+  // ... existing code to gather form data ...
+  const quotationId = $('#view-quotation-form').data('quotation-id');
+  const formData = new FormData();
+  // Gather all editable fields
+  $('.item-info-field-view').each(function() {
+    formData.append(this.id.replace('view-', ''), $(this).val());
+  });
+  // Add color names as JSON
+  const colorNames = [];
+  $('.color-name-field').each(function() { colorNames.push($(this).val()); });
+  formData.append('color_names', JSON.stringify(colorNames));
+  // Add artwork image if changed
+  const artworkInput = document.getElementById('edit-artwork-input');
+  if (artworkInput && artworkInput.files && artworkInput.files[0]) {
+    formData.append('artwork_image', artworkInput.files[0]);
+  }
+  // Add new attachments
+  (window._newQuotationAttachments || []).forEach(f => formData.append('attachments', f));
+  // Add removed attachments as JSON
+  formData.append('removed_attachments', JSON.stringify((window._removedQuotationAttachments || []).map(a => a.filename)));
+  // Send PUT request as multipart/form-data
+  fetch(`/quotation/api/${quotationId}`, {
+    method: 'PUT',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      showCustomPopup('Error saving quotation: ' + data.error, true);
+      return;
+    }
+    // Reset new/removed attachments trackers
+    window._newQuotationAttachments = [];
+    window._removedQuotationAttachments = [];
+    // Optionally update UI with new attachments
+    showQuotationViewForm2(quotationId);
+    showCustomPopup('Quotation updated successfully!', false);
+  })
+  .catch(err => {
+    showCustomPopup('Error saving quotation: ' + err, true);
+  });
+});

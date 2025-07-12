@@ -1706,8 +1706,10 @@ function swapToEditFields(origImgSrc = '') {
           // Remove from attachments array and add to removed list
           window._removedQuotationAttachments.push(att);
           attachments.splice(idx, 1);
-          // Re-render list
-          swapToEditFields();
+          // Re-render only the attachment list, not the entire edit fields
+          renderAttachmentList();
+          // Enable save button since something changed
+          validateAndUpdateSaveButton();
         }
       });
     } else {
@@ -1721,7 +1723,7 @@ function swapToEditFields(origImgSrc = '') {
     if ($('#edit-multi-artwork-drop-area').length === 0) {
       multiArtworkList.before(`
         <div id="edit-multi-artwork-drop-area" style="border:2px dashed #aaa; border-radius:8px; padding:18px; text-align:center; background:#fafbfc; color:#888; cursor:pointer; margin-bottom:10px;">
-          <span id="edit-multi-artwork-drop-label">Drag & drop files here or click to select</span>
+          <span id="edit-multi-artwork-drop-label">Drag & drop additional files here or click to select</span>
           <input type="file" id="edit-multi-artwork-input" accept=".jpg,.jpeg,.png,.pdf,.ai,.psd,.svg,.txt" multiple style="display:none;" />
         </div>
       `);
@@ -1741,7 +1743,10 @@ function swapToEditFields(origImgSrc = '') {
         for (let i = 0; i < e.dataTransfer.files.length; i++) {
           window._newQuotationAttachments.push(e.dataTransfer.files[i]);
         }
-        swapToEditFields();
+        // Re-render only the attachment list, not the entire edit fields
+        renderAttachmentList();
+        // Enable save button since something changed
+        validateAndUpdateSaveButton();
       }
     });
     fileInput.addEventListener('change', e => {
@@ -1749,7 +1754,10 @@ function swapToEditFields(origImgSrc = '') {
         for (let i = 0; i < fileInput.files.length; i++) {
           window._newQuotationAttachments.push(fileInput.files[i]);
         }
-        swapToEditFields();
+        // Re-render only the attachment list, not the entire edit fields
+        renderAttachmentList();
+        // Enable save button since something changed
+        validateAndUpdateSaveButton();
       }
     });
   }
@@ -1780,7 +1788,97 @@ function swapToEditFields(origImgSrc = '') {
       e.preventDefault();
       const idx = parseInt($(this).attr('data-idx'));
       window._newQuotationAttachments.splice(idx, 1);
-      swapToEditFields();
+      // Re-render only the attachment list, not the entire edit fields
+      renderAttachmentList();
+      // Enable save button since something changed
+      validateAndUpdateSaveButton();
+    });
+  }
+}
+
+// Function to render only the attachment list without affecting other edit fields
+function renderAttachmentList() {
+  const attachments = window._currentQuotationAttachments || [];
+  const multiArtworkList = $('#view-multi-artwork-list');
+
+  if (!multiArtworkList.length) return;
+
+  // Render existing attachments
+  if (attachments.length > 0) {
+    let html = '';
+    attachments.forEach((att, idx) => {
+      const ext = att.filename.split('.').pop().toLowerCase();
+      const isImg = ['jpg','jpeg','png','gif','bmp','webp','svg'].includes(ext);
+      html += `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;position:relative;">
+        <button class='remove-attachment-btn' data-idx='${idx}' title='Remove' style='position:absolute;top:2px;right:2px;background:#fff;border:1px solid #ccc;border-radius:50%;width:22px;height:22px;line-height:18px;font-size:16px;color:#d00;cursor:pointer;z-index:2;'>×</button>`;
+      if (isImg) {
+        html += `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;'>
+          <a href="/uploads/attachments/${att.filename}" target="_blank" style="display:block;width:100%;height:100%;text-align:center;">
+            <img src="/uploads/attachments/${att.filename}" alt="Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;" />
+          </a>
+        </div>`;
+      } else {
+        html += `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;text-align:center;'>
+          <a href="/uploads/attachments/${att.filename}" target="_blank" style="color:#007bff;text-decoration:none;font-size:12px;word-break:break-all;">
+            📄 ${att.original_filename || att.filename}
+          </a>
+        </div>`;
+      }
+      html += `</li>`;
+    });
+    multiArtworkList.html(html);
+
+    // Re-bind remove handlers
+    $('.remove-attachment-btn').off('click').on('click', function(e) {
+      e.preventDefault();
+      const idx = parseInt($(this).attr('data-idx'));
+      const att = attachments[idx];
+      if (window.confirm('Are you sure you want to remove this attachment?')) {
+        window._removedQuotationAttachments = window._removedQuotationAttachments || [];
+        window._removedQuotationAttachments.push(att);
+        attachments.splice(idx, 1);
+        renderAttachmentList();
+        validateAndUpdateSaveButton();
+      }
+    });
+  } else {
+    multiArtworkList.html('<li style="color:#888;">No additional artworks uploaded.</li>');
+  }
+
+  // Add new files to the display
+  const newFiles = window._newQuotationAttachments || [];
+  if (newFiles.length > 0) {
+    let html = multiArtworkList.html();
+    newFiles.forEach((file, idx) => {
+      const ext = file.name.split('.').pop().toLowerCase();
+      const isImg = ['jpg','jpeg','png','gif','bmp','webp','svg'].includes(ext);
+      html += `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;position:relative;">
+        <button class='remove-new-attachment-btn' data-idx='${idx}' title='Remove' style='position:absolute;top:2px;right:2px;background:#fff;border:1px solid #ccc;border-radius:50%;width:22px;height:22px;line-height:18px;font-size:16px;color:#d00;cursor:pointer;z-index:2;'>×</button>`;
+      if (isImg) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          $(`[data-new-idx="${idx}"] img`).attr('src', e.target.result);
+        };
+        reader.readAsDataURL(file);
+        html += `<div style='border:1.5px solid #28a745;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;'>
+          <img data-new-idx="${idx}" alt="New Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;" />
+        </div>`;
+      } else {
+        html += `<div style='border:1.5px solid #28a745;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;text-align:center;'>
+          <span style="color:#28a745;font-size:12px;word-break:break-all;">📄 ${file.name}</span>
+        </div>`;
+      }
+      html += `</li>`;
+    });
+    multiArtworkList.html(html);
+
+    // Re-bind remove handlers for new files
+    $('.remove-new-attachment-btn').off('click').on('click', function(e) {
+      e.preventDefault();
+      const idx = parseInt($(this).attr('data-idx'));
+      window._newQuotationAttachments.splice(idx, 1);
+      renderAttachmentList();
+      validateAndUpdateSaveButton();
     });
   }
 }
@@ -2328,125 +2426,98 @@ function saveQuotationChanges() {
         colorNames.push($(this).val().trim());
     });
 
-    // Check if a new image is selected
-    const fileInput = document.getElementById('edit-artwork-input');
-    const hasNewImage = fileInput && fileInput.files && fileInput.files[0];
+    // Always use FormData to handle both regular data and file uploads
+    const formData = new FormData();
+    formData.append('company', $('#view-company').val());
+    formData.append('key_person_name', $('#view-key-person').val());
+    formData.append('customer_item_code', $('#view-item-code').val());
+    formData.append('quality', $('#view-quality').val());
+    formData.append('flat_or_raised', $('#view-flat-or-raised').val());
+    formData.append('direct_or_reverse', $('#view-direct-or-reverse').val());
+    formData.append('thickness', parseFloat($('#view-thickness').val()) || 0);
+    formData.append('num_colors', numColorsVal ? parseInt(numColorsVal) : '');
+    formData.append('width', $('#view-width').val() ? parseFloat($('#view-width').val()) : '');
+    formData.append('length', $('#view-length').val() ? parseFloat($('#view-length').val()) : '');
+    formData.append('color_names', JSON.stringify(colorNames));
 
-    // Show loading state on the save button
-    const saveBtn = $('#save-btn');
-    saveBtn.prop('disabled', true).text('Saving...');
-
-    if (hasNewImage) {
-        // Use FormData for image upload
-        const formData = new FormData();
-        formData.append('company', $('#view-company').val());
-        formData.append('key_person_name', $('#view-key-person').val());
-        formData.append('customer_item_code', $('#view-item-code').val());
-        formData.append('quality', $('#view-quality').val());
-        formData.append('flat_or_raised', $('#view-flat-or-raised').val());
-        formData.append('direct_or_reverse', $('#view-direct-or-reverse').val());
-        formData.append('thickness', parseFloat($('#view-thickness').val()) || 0);
-        formData.append('num_colors', numColorsVal ? parseInt(numColorsVal) : null);
-        formData.append('width', $('#view-width').val() ? parseFloat($('#view-width').val()) : null);
-        formData.append('length', $('#view-length').val() ? parseFloat($('#view-length').val()) : null);
-        formData.append('color_names', JSON.stringify(colorNames));
-        formData.append('artwork_image', fileInput.files[0]);
-
-        fetch(`/quotation/api/${quotationId}`, {
-            method: 'PUT',
-            body: formData,
-            credentials: 'include'
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(err => {
-                    throw new Error(err.error || 'Unknown server error');
-                });
-            }
-            return response.json();
-        })
-        .then(updateResult => {
-            if (updateResult.artwork_image) {
-                const cacheBuster = '?t=' + new Date().getTime();
-                const newImgSrc = `/${updateResult.artwork_image}${cacheBuster}`;
-                $('#view-artwork-image').html(`<img src="${newImgSrc}" alt="Artwork Image" style="max-width:200px;">`);
-            }
-            if (updateResult.quotation_block) {
-                $('#quotation_block').text(updateResult.quotation_block ?? '-');
-            }
-            // Smoothly update all form fields and quotation box
-            const quotationId = $('#view-quotation-form').data('quotation-id');
-            if (quotationId) {
-                showQuotationViewForm2(quotationId);
-            }
-            saveBtn.prop('disabled', false).text('Save');
-            // Switch to view mode: hide Save/Cancel, show Edit
-            swapToReadOnlyFields();
-            $('#view-mode-buttons').html(
-              `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
-            );
-        })
-        .catch(error => {
-            console.error('Error saving quotation:', error);
-            alert('Error updating quotation. Details: ' + error.message);
-            saveBtn.prop('disabled', false).text('Save');
-        });
-    } else {
-        // No new image, use JSON
-        const formData = {
-            company: $('#view-company').val(),
-            key_person_name: $('#view-key-person').val(),
-            customer_item_code: $('#view-item-code').val(),
-            quality: $('#view-quality').val(),
-            flat_or_raised: $('#view-flat-or-raised').val(),
-            direct_or_reverse: $('#view-direct-or-reverse').val(),
-            thickness: parseFloat($('#view-thickness').val()) || 0,
-            num_colors: numColorsVal ? parseInt(numColorsVal) : null,
-            width: $('#view-width').val() ? parseFloat($('#view-width').val()) : null,
-            length: $('#view-length').val() ? parseFloat($('#view-length').val()) : null,
-            color_names: colorNames
-        };
-        fetch(`/quotation/api/${quotationId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData),
-            credentials: 'include'
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(err => {
-                    throw new Error(err.error || 'Unknown server error');
-                });
-            }
-            return response.json();
-        })
-        .then(updateResult => {
-            if (updateResult.artwork_image) {
-                const cacheBuster = '?t=' + new Date().getTime();
-                const newImgSrc = `/${updateResult.artwork_image}${cacheBuster}`;
-                $('#view-artwork-image').html(`<img src="${newImgSrc}" alt="Artwork Image" style="max-width:200px;">`);
-            }
-            if (updateResult.quotation_block) {
-                $('#quotation_block').text(updateResult.quotation_block ?? '-');
-            }
-            // Smoothly update all form fields and quotation box
-            const quotationId = $('#view-quotation-form').data('quotation-id');
-            if (quotationId) {
-                showQuotationViewForm2(quotationId);
-            }
-            saveBtn.prop('disabled', false).text('Save');
-            // Switch to view mode: hide Save/Cancel, show Edit
-            swapToReadOnlyFields();
-            $('#view-mode-buttons').html(
-              `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
-            );
-        })
-        .catch(error => {
-            console.error('Error saving quotation:', error);
-            alert('Error updating quotation. Details: ' + error.message);
-            saveBtn.prop('disabled', false).text('Save');
-        });
+    // Add new artwork file if present
+    if (window.newArtworkFile) {
+        formData.append('artwork_image', window.newArtworkFile);
     }
+
+    // Add new attachments if present
+    const newAttachments = window._newQuotationAttachments || [];
+    newAttachments.forEach(file => {
+        formData.append('attachments', file);
+    });
+
+    // Add removed attachments list
+    const removedAttachments = window._removedQuotationAttachments || [];
+    if (removedAttachments.length > 0) {
+        formData.append('removed_attachments', JSON.stringify(removedAttachments.map(att => att.filename)));
+    }
+
+    // Call the backend endpoint to update the quotation
+    fetch(`/quotation/api/${quotationId}`, {
+        method: 'PUT',
+        body: formData,
+        credentials: 'include'
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.error || 'Unknown server error');
+            });
+        }
+        return response.json();
+    })
+    .then(updateResult => {
+        // Clear the new image and attachment data since they've been saved
+        window.newArtworkFile = undefined;
+        window.newArtworkDataURL = undefined;
+        window._newQuotationAttachments = [];
+        window._removedQuotationAttachments = [];
+
+        // Show success message with details
+        let successMessage = 'Quotation updated successfully!';
+        if (updateResult.warnings && updateResult.warnings.length > 0) {
+            successMessage += '\n\nWarnings:\n' + updateResult.warnings.join('\n');
+        }
+
+        // Show success popup if available, otherwise use alert
+        if (typeof showCustomPopup === 'function') {
+            showCustomPopup(successMessage, false);
+        } else {
+            alert(successMessage);
+        }
+
+        // Refresh the entire view with latest data from server
+        setTimeout(() => {
+            showQuotationViewForm2(quotationId);
+        }, 1000);
+    })
+    .catch(error => {
+        console.error('Error saving quotation:', error);
+
+        // Provide detailed error message
+        let errorMessage = 'Error updating quotation.\n\nDetails: ' + error.message;
+
+        // Check if it's a partial failure (some things might have succeeded)
+        if (error.message.includes('partial')) {
+            errorMessage += '\n\nSome changes may have been saved. Please refresh to see the current state.';
+        }
+
+        // Show error popup if available, otherwise use alert
+        if (typeof showCustomPopup === 'function') {
+            showCustomPopup(errorMessage, true);
+        } else {
+            alert(errorMessage);
+        }
+
+        // Restore the save button to its original state
+        saveBtn.prop('disabled', false).text('Save');
+        validateAndUpdateSaveButton(); // Re-validate to set proper button state
+    });
 }
 
 // --- Milestone 4: Quotation Calculation (REMOVED - now on backend) ---

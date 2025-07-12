@@ -1390,6 +1390,68 @@ def api_get_quotation(quotation_id):
             for field in ['customer_name', 'key_person_name', 'customer_item_code']:
                 if data.get(field):
                     setattr(quotation, field, data.get(field))
+
+            # --- Handle Attachment Updates ---
+            warnings = []
+            try:
+                # Handle removed attachments
+                if 'removed_attachments' in data:
+                    removed_attachments_json = data.get('removed_attachments', '[]')
+                    if isinstance(removed_attachments_json, str):
+                        removed_filenames = json.loads(removed_attachments_json)
+                    else:
+                        removed_filenames = removed_attachments_json
+
+                    for filename in removed_filenames:
+                        # Find and delete attachment record
+                        attachment = session.query(Attachment).filter_by(
+                            quotation_id=quotation_id,
+                            filename=filename
+                        ).first()
+                        if attachment:
+                            # Delete physical file
+                            file_path = os.path.join('uploads', 'attachments', filename)
+                            if os.path.exists(file_path):
+                                try:
+                                    os.remove(file_path)
+                                    print(f'[DEBUG] Deleted attachment file: {file_path}')
+                                except Exception as e:
+                                    print(f'[WARNING] Could not delete file {file_path}: {e}')
+
+                            # Delete database record
+                            session.delete(attachment)
+                            print(f'[DEBUG] Removed attachment: {filename}')
+
+                # Handle new attachments
+                if 'attachments' in request.files:
+                    attachment_files = request.files.getlist('attachments')
+                    uploads_dir = os.path.join('uploads', 'attachments')
+                    os.makedirs(uploads_dir, exist_ok=True)
+
+                    for file in attachment_files:
+                        if file and file.filename:
+                            try:
+                                timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+                                safe_name = f"{timestamp}_{file.filename.replace(' ', '_')}"
+                                file_path = os.path.join(uploads_dir, safe_name)
+                                file.save(file_path)
+
+                                # Create attachment record
+                                attachment = Attachment(
+                                    quotation_id=quotation_id,
+                                    filename=safe_name,
+                                    original_filename=file.filename
+                                )
+                                session.add(attachment)
+                                print(f'[DEBUG] Added new attachment: {safe_name}')
+                            except Exception as e:
+                                warnings.append(f'Failed to upload attachment {file.filename}: {str(e)}')
+                                print(f'[ERROR] Attachment upload failed: {e}')
+
+            except Exception as e:
+                warnings.append(f'Error processing attachments: {str(e)}')
+                print(f'[ERROR] Attachment processing failed: {e}')
+
             session.commit()
             # --- Send HTML email to user ---
             try:
@@ -1489,7 +1551,16 @@ def api_get_quotation(quotation_id):
             except Exception as e:
                 print(f"[ERROR] Failed to send quotation update email: {e}")
             # --- End email logic ---
-            return jsonify({'message': 'Quotation updated successfully', 'quotation_block': block, 'artwork_image': quotation.artwork_image.replace('\\', '/') if quotation.artwork_image else None}), 200
+            # Prepare response with warnings if any
+            response_data = {
+                'message': 'Quotation updated successfully',
+                'quotation_block': block,
+                'artwork_image': quotation.artwork_image.replace('\\', '/') if quotation.artwork_image else None
+            }
+            if warnings:
+                response_data['warnings'] = warnings
+
+            return jsonify(response_data), 200
         except Exception as e:
             session.rollback()
             return jsonify({'error': str(e)}), 500

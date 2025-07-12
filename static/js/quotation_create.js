@@ -1,4 +1,5 @@
-// Version v1.3.21
+// Version v1.3.27
+console.log('Loaded quotation_create.js v1.3.27');
 // Ensure our popup implementation is used
 window.showCustomPopup = undefined; // Clear any existing implementation
 if (typeof showCustomPopup !== 'function') {
@@ -1961,7 +1962,7 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
   $('#right-frame').html(`
     <form id="view-quotation-form" style="padding:32px;max-width:900px; min-height:100vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.20 [quotation_create.js]</span></h2>
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.27 [quotation_create.js]</span></h2>
         <div id="view-mode-buttons">
           <button id="edit-toggle-btn" type="button" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
         </div>
@@ -2485,13 +2486,25 @@ function initQuotationApp() {
 // --- Milestone 4: Integrate attachment add/remove with save logic ---
 // Patch save button handler in edit mode
 $(document).off('click.editArtworkSave').on('click.editArtworkSave', '#save-btn', function() {
-  // ... existing code to gather form data ...
   const quotationId = $('#view-quotation-form').data('quotation-id');
   const formData = new FormData();
-  // Gather all editable fields
-  $('.item-info-field-view').each(function() {
-    formData.append(this.id.replace('view-', ''), $(this).val());
-  });
+  // Temporarily enable all relevant fields to collect their values
+  const fieldsToEnable = [
+    '#view-company', '#view-key-person', '#view-item-code', '#view-quality', '#view-flat-or-raised',
+    '#view-direct-or-reverse', '#view-thickness', '#view-num-colors', '#view-width', '#view-length'
+  ];
+  fieldsToEnable.forEach(sel => $(sel).prop('disabled', false));
+  // Explicitly append all required fields by ID
+  formData.append('company', $('#view-company').val());
+  formData.append('key_person_name', $('#view-key-person').val());
+  formData.append('customer_item_code', $('#view-item-code').val());
+  formData.append('quality', $('#view-quality').val());
+  formData.append('flat_or_raised', $('#view-flat-or-raised').val());
+  formData.append('direct_or_reverse', $('#view-direct-or-reverse').val());
+  formData.append('thickness', $('#view-thickness').val());
+  formData.append('num_colors', $('#view-num-colors').val());
+  formData.append('width', $('#view-width').val());
+  formData.append('length', $('#view-length').val());
   // Add color names as JSON
   const colorNames = [];
   $('.color-name-field').each(function() { colorNames.push($(this).val()); });
@@ -2505,6 +2518,12 @@ $(document).off('click.editArtworkSave').on('click.editArtworkSave', '#save-btn'
   (window._newQuotationAttachments || []).forEach(f => formData.append('attachments', f));
   // Add removed attachments as JSON
   formData.append('removed_attachments', JSON.stringify((window._removedQuotationAttachments || []).map(a => a.filename)));
+  // Add debug log before fetch
+  for (let pair of formData.entries()) {
+    console.log('FormData:', pair[0], pair[1]);
+  }
+  // Re-disable the fields after collecting values
+  fieldsToEnable.forEach(sel => $(sel).prop('disabled', true));
   // Send PUT request as multipart/form-data
   fetch(`/quotation/api/${quotationId}`, {
     method: 'PUT',
@@ -2527,3 +2546,5 @@ $(document).off('click.editArtworkSave').on('click.editArtworkSave', '#save-btn'
     showCustomPopup('Error saving quotation: ' + err, true);
   });
 });
+
+// ... existing code ...

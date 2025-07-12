@@ -1250,9 +1250,17 @@ def api_get_quotation(quotation_id):
         if request.content_type and request.content_type.startswith('multipart/form-data'):
             data = request.form.to_dict()
             jpg_file = request.files.get('artwork_image') if 'artwork_image' in request.files else None
+            # Parse removed_attachments if present
+            removed_attachments = []
+            if 'removed_attachments' in data:
+                try:
+                    removed_attachments = json.loads(data['removed_attachments'])
+                except Exception as e:
+                    print(f'[DEBUG][PUT] Failed to parse removed_attachments: {e}')
         else:
             data = request.get_json(force=True)
             jpg_file = None
+            removed_attachments = data.get('removed_attachments', [])
         # 1. Save file to disk BEFORE opening DB session
         artwork_path = None
         if jpg_file and jpg_file.filename:
@@ -1274,10 +1282,28 @@ def api_get_quotation(quotation_id):
             quotation = session.query(Quotation).filter_by(id=quotation_id).first()
             if not quotation:
                 return jsonify({'error': 'Quotation not found'}), 404
-            # If a new image was uploaded, update the path
+            # Only update artwork_image if a new file was uploaded
             if artwork_path:
+                print(f'[DEBUG][PUT] Setting artwork_image to: {artwork_path}')
                 quotation.artwork_image = artwork_path
-                print(f'[DEBUG][PUT] Set quotation.artwork_image to: {quotation.artwork_image}')
+            else:
+                print(f'[DEBUG][PUT] No new artwork image uploaded. Current value: {quotation.artwork_image}')
+            # --- Remove selected attachments (not artwork image) ---
+            if removed_attachments:
+                for filename in removed_attachments:
+                    att = session.query(Attachment).filter_by(quotation_id=quotation_id, filename=filename).first()
+                    if att:
+                        # Delete file from disk
+                        file_path = os.path.join('uploads', 'attachments', os.path.basename(att.filename))
+                        if os.path.exists(file_path):
+                            try:
+                                os.remove(file_path)
+                                print(f'[DEBUG][PUT] Deleted attachment file: {file_path}')
+                            except Exception as e:
+                                print(f'[DEBUG][PUT] Failed to delete file: {file_path}, {e}')
+                        session.delete(att)
+                        print(f'[DEBUG][PUT] Deleted attachment record: {filename}')
+                session.commit()
             # --- RECALCULATION LOGIC (use session.execute for price lookup) ---
             quality = data.get('quality', quotation.quality)
             flat_or_raised = data.get('flat_or_raised', quotation.flat_or_raised)
@@ -1347,7 +1373,9 @@ def api_get_quotation(quotation_id):
                 tier_lines.append(f"{qty:,}\t{tprice}")
             def wrap_line(line, width=60):
                 return '\n'.join([line[i:i+width] for i in range(0, len(line), width)])
-            version = 'v1.3.20'  # Updated version
+            version = 'v1.3.23'  # Updated version
+            print(f'[DEBUG][PUT] request.files: {dict(request.files)}')
+            print(f'[DEBUG][PUT] request.form: {dict(request.form)}')
             inputSummary = f"({quality}, {flat_or_raised}, {direct_or_reverse}, {thickness if thickness else '-'}, {num_colors})"
             xVal = fmt(db_length, 2) if db_length is not None else '-'
             yVal = fmt(db_width, 2) if db_width is not None else '-'

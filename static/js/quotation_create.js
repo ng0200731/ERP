@@ -307,13 +307,13 @@ function handlePostSubmissionOption(option) {
 
 // Clear all form fields (Option 1)
 function clearAllFormFields() {
-  // Clear customer fields
-  $('#quotation2-company-input').val('').attr('data-selected', 'false');
+  // Clear customer fields (using correct IDs)
+  $('#quotation2-company-input').val('').attr('data-selected', 'false').attr('placeholder', 'Type to search...');
   $('#quotation2-company-id').val('');
-  $('#quotation2-keyperson').html('<option value="">-- Select Key Person --</option>');
+  $('#quotation2-keyperson').html('<option value="">-- Select Key Person --</option>').prop('disabled', true);
 
-  // Clear item details
-  $('#ht-item-code').val('');
+  // Clear item details (using correct IDs)
+  $('#customer-item-code').val('');
   $('#ht-quality').val('');
   $('#ht-flat-or-raised').val('');
   $('#ht-direct-or-reverse').val('');
@@ -325,9 +325,32 @@ function clearAllFormFields() {
   // Clear color names
   $('#color-names-group').html('');
 
-  // Clear artwork
+  // Clear main JPG/PNG artwork image (Upload JPG/PNG Artwork section)
+  $('#q2-jpg-input').val('');
+  $('#q2-jpg-preview').html('');
+  $('#q2-drop-area').css('background', '#fafbfc');
+  $('#q2-drop-label').text('Drag & drop JPG/PNG here or click to select');
+
+  // Clear additional artworks (Upload Additional Artwork(s) section)
   $('#multi-artwork-list').html('');
   $('#multi-artwork-input').val('');
+  $('#multi-artwork-drop-area').removeClass('dragover').css('background', '#fafbfc');
+  $('#multi-artwork-drop-label').text('Drag & drop files here or click to select');
+
+  // Reset global artwork variables
+  window._selectedArtworkFiles = [];
+  window._selectedMultiArtworkFiles = [];
+  window.multiArtworkFiles = [];
+
+  // Clear quotation block (using correct ID)
+  $('#quotation-block-content').html('<span style="color:#888;">(Quotation details will appear here.)</span>');
+
+  // Clear any dynamic product type fields
+  $('.dynamic-field').remove();
+
+  // Reset any validation states
+  $('.field-error').removeClass('field-error');
+  $('.error-message').remove();
 
   // Reset submit button
   const $submitBtn = $('#quotation2-submit-btn');
@@ -340,7 +363,7 @@ function clearAllFormFields() {
   // Hide company suggestions
   $('#company2-suggestions ul').hide();
 
-  console.log('[INFO] Form cleared for new customer');
+  console.log('[DEBUG] Option 1 - All form fields cleared for totally new customer');
 }
 
 // Clear all fields except customer data (Option 2)
@@ -1230,10 +1253,17 @@ function showQuotationCreateForm2(viewMode = false) {
 
           // Populate key people
           let kpOpts = '<option value="">-- Select Key Person --</option>';
-          if (Array.isArray(company.keyPeople)) {
+          if (Array.isArray(company.keyPeople) && company.keyPeople.length > 0) {
             kpOpts += company.keyPeople.map((kp, idx) => `<option value="${idx}">${kp.name} (${kp.position})</option>`).join('');
+            // Enable the key person dropdown when company has key people
+            $('#quotation2-keyperson').prop('disabled', false);
+          } else {
+            // Keep disabled if no key people
+            $('#quotation2-keyperson').prop('disabled', true);
           }
           $('#quotation2-keyperson').html(kpOpts);
+
+          console.log('[DEBUG] Company selected:', company.company, 'Key people count:', company.keyPeople ? company.keyPeople.length : 0);
         }
       }
 

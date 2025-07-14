@@ -1967,33 +1967,23 @@ function updateFormFieldsWithData(data) {
     // Update quotation block
     $('#view-quotation-block').text(data.quotation_block ?? '-');
 
-    // Update color names display
+    // Update color names display with proper labels and layout
     $('#view-color-names').remove();
     $('#view-num-colors').parent().append('<input type="hidden" id="hidden-color-names" />');
     if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
         let colorInputs = '<div id="view-color-names" style="margin-top:4px;">';
-        const numColorsInput = document.getElementById('view-num-colors');
-        let colorInputStyle = '';
-        if (numColorsInput) {
-            const computed = window.getComputedStyle(numColorsInput);
-            colorInputStyle = [
-                'width:' + computed.width,
-                'padding:' + computed.padding,
-                'background:' + computed.backgroundColor,
-                'border:' + computed.border,
-                'border-radius:' + computed.borderRadius,
-                'color:' + computed.color,
-                'margin-bottom:' + computed.marginBottom,
-                'font:' + computed.font,
-                'box-sizing:' + computed.boxSizing
-            ].join(';');
-        } else {
-            colorInputStyle = 'width:100%;padding:8px;background:#e9ecef;border:1px solid #e9ecef;border-radius:4px;color:#495057;margin-bottom:2px;';
-        }
 
         data.color_names.forEach((colorName, index) => {
-            colorInputs += `<input type="text" value="${colorName}" readonly style="${colorInputStyle}" title="Color ${index + 1}: ${colorName}" />`;
+            const colorNumber = index + 1;
+            colorInputs += `
+                <div style="margin-bottom: 8px;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #495057;">Color ${colorNumber}:</label>
+                    <input type="text" id="view-color-name-${colorNumber}" class="item-info-field-view color-name-field"
+                           style="width: calc(100% - 24px); padding: 8px; margin-left: 24px;" value="${colorName}" readonly>
+                </div>
+            `;
         });
+
         colorInputs += '</div>';
         $('#view-num-colors').parent().append(colorInputs);
         $('#hidden-color-names').val(JSON.stringify(data.color_names));
@@ -2282,6 +2272,27 @@ function swapToReadOnlyFields() {
         const val = el.val();
         el.replaceWith(`<input type="text" id="${id}" class="item-info-field-view" value="${val}" style="width: 100%; padding: 8px;" disabled>`);
     });
+
+    // Handle color name fields - convert to disabled with proper labels and layout
+    const colorContainer = $('#view-color-names');
+    if (colorContainer.length) {
+        const colorFields = colorContainer.find('.color-name-field');
+        let colorHtml = '';
+
+        colorFields.each(function(index) {
+            const colorValue = $(this).val();
+            const colorNumber = index + 1;
+            colorHtml += `
+                <div style="margin-bottom: 8px;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #495057;">Color ${colorNumber}:</label>
+                    <input type="text" id="view-color-name-${colorNumber}" class="item-info-field-view color-name-field"
+                           style="width: calc(100% - 24px); padding: 8px; margin-left: 24px;" value="${colorValue}" disabled>
+                </div>
+            `;
+        });
+
+        colorContainer.html(colorHtml);
+    }
     // Remove the edit-mode drop area for additional artworks if present
     $('#edit-multi-artwork-drop-area').remove();
 

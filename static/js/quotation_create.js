@@ -1820,6 +1820,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // --- Milestone 1: Field Swapping Functions ---
 function swapToEditFields(origImgSrc = '') {
+  // Initialize attachment tracking arrays for edit mode
+  window._newQuotationAttachments = window._newQuotationAttachments || [];
+  window._removedQuotationAttachments = [];  // Reset removed attachments when entering edit mode
+
+  console.log('[DEBUG] Entering edit mode - initialized attachment arrays');
+  console.log('  _newQuotationAttachments:', window._newQuotationAttachments.length);
+  console.log('  _removedQuotationAttachments:', window._removedQuotationAttachments.length);
+
   const fields = [
     { id: 'view-item-code', type: 'text' },
     { id: 'view-width', type: 'number' },
@@ -3024,12 +3032,37 @@ function saveQuotationChanges() {
     const totalAttachments = currentAttachments.length + newAttachments.length - removedAttachments.length;
 
     console.log('[DEBUG] Edit mode attachment validation:');
-    console.log('  Current attachments:', currentAttachments.length);
-    console.log('  New attachments:', newAttachments.length);
-    console.log('  Removed attachments:', removedAttachments.length);
+    console.log('  Current attachments:', currentAttachments.length, currentAttachments);
+    console.log('  New attachments:', newAttachments.length, newAttachments);
+    console.log('  Removed attachments:', removedAttachments.length, removedAttachments);
     console.log('  Total attachments after changes:', totalAttachments);
 
-    if (totalAttachments < 1) {
+    // Additional debugging - check what's actually in the DOM
+    const visibleAttachments = $('#view-multi-artwork-list li').length;
+    const visibleAttachmentsText = $('#view-multi-artwork-list').text();
+    console.log('  Visible attachments in DOM:', visibleAttachments);
+    console.log('  DOM content:', visibleAttachmentsText);
+
+    // Additional fallback check - look at actual DOM content
+    const attachmentListElement = document.getElementById('view-multi-artwork-list');
+    let hasVisibleAttachments = false;
+
+    if (attachmentListElement) {
+        const listItems = attachmentListElement.querySelectorAll('li');
+        // Check if there are list items that are not the "No additional artworks" message
+        hasVisibleAttachments = Array.from(listItems).some(li => {
+            const text = li.textContent.trim();
+            return text && !text.includes('No additional artworks uploaded');
+        });
+    }
+
+    console.log('  DOM fallback check - hasVisibleAttachments:', hasVisibleAttachments);
+
+    // Use DOM fallback if calculation seems wrong
+    const finalAttachmentCount = (totalAttachments > 0 || hasVisibleAttachments) ? Math.max(totalAttachments, hasVisibleAttachments ? 1 : 0) : 0;
+    console.log('  Final attachment count after fallback:', finalAttachmentCount);
+
+    if (finalAttachmentCount < 1) {
         hideLoadingOverlay();
         showCustomPopup('Warning: At least 1 attachment must be present in the Additional Artwork(s) section. Please add an attachment before saving.', true);
 

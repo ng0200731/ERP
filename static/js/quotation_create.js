@@ -1622,8 +1622,186 @@ function isPreviewable(type, name) {
     type.startsWith('image/') ||
     type === 'application/pdf' ||
     type.startsWith('text/') ||
-    name.endsWith('.svg')
+    name.endsWith('.svg') ||
+    isWordDocument({type, name}) // Word docs are "previewable" (with download option)
   );
+}
+
+function isWordDocument(file) {
+  const type = file.type || '';
+  const name = file.name || '';
+
+  return (
+    type === 'application/msword' ||
+    type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    name.toLowerCase().endsWith('.doc') ||
+    name.toLowerCase().endsWith('.docx')
+  );
+}
+
+function isImageFile(filename) {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'];
+  const name = (filename || '').toLowerCase();
+  return imageExtensions.some(ext => name.endsWith(ext));
+}
+
+function getFileIcon(mimeType, filename) {
+  const name = (filename || '').toLowerCase();
+  const type = mimeType || '';
+
+  // Images
+  if (type.startsWith('image/') || isImageFile(filename)) {
+    return '🖼️';
+  }
+
+  // PDFs
+  if (type === 'application/pdf' || name.endsWith('.pdf')) {
+    return '📄';
+  }
+
+  // Word documents
+  if (type === 'application/msword' ||
+      type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      name.endsWith('.doc') || name.endsWith('.docx')) {
+    return '📝';
+  }
+
+  // Excel
+  if (type === 'application/vnd.ms-excel' ||
+      type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      name.endsWith('.xls') || name.endsWith('.xlsx')) {
+    return '📊';
+  }
+
+  // PowerPoint
+  if (type === 'application/vnd.ms-powerpoint' ||
+      type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+      name.endsWith('.ppt') || name.endsWith('.pptx')) {
+    return '📽️';
+  }
+
+  // Text files
+  if (type.startsWith('text/') || name.endsWith('.txt')) {
+    return '📝';
+  }
+
+  // Archives
+  if (name.endsWith('.zip') || name.endsWith('.rar') || name.endsWith('.7z') ||
+      name.endsWith('.tar') || name.endsWith('.gz')) {
+    return '📦';
+  }
+
+  // Audio
+  if (type.startsWith('audio/') || name.endsWith('.mp3') || name.endsWith('.wav') ||
+      name.endsWith('.flac') || name.endsWith('.aac')) {
+    return '🎵';
+  }
+
+  // Video
+  if (type.startsWith('video/') || name.endsWith('.mp4') || name.endsWith('.avi') ||
+      name.endsWith('.mov') || name.endsWith('.wmv')) {
+    return '🎬';
+  }
+
+  // Adobe files
+  if (name.endsWith('.ai')) return '🎨';
+  if (name.endsWith('.psd')) return '🖌️';
+  if (name.endsWith('.eps')) return '📐';
+
+  // Default
+  return '📎';
+}
+
+function isPreviewableExistingFile(filename) {
+  const name = (filename || '').toLowerCase();
+  return (
+    isImageFile(filename) ||
+    name.endsWith('.pdf') ||
+    name.endsWith('.txt') ||
+    name.endsWith('.svg')
+    // Note: Word docs (.doc, .docx) are NOT included here because they auto-download
+  );
+}
+
+
+
+// Preview function for existing files (from server)
+function showExistingFilePreview(filename, originalFilename) {
+  const fileUrl = `/uploads/attachments/${filename}`;
+  const name = originalFilename || filename;
+  const ext = name.toLowerCase().split('.').pop();
+
+  // Word documents: Auto-download immediately, no preview modal
+  if (['doc', 'docx'].includes(ext)) {
+    // Create temporary download link and trigger download
+    const a = document.createElement('a');
+    a.href = fileUrl;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return; // Exit early, no modal
+  }
+
+  // For all other files, show preview modal
+  const modal = ensureFilePreviewModal();
+  const content = document.getElementById('file-preview-content');
+  modal.style.display = 'flex';
+
+  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext)) {
+    // Image preview
+    content.innerHTML = `
+      <div style="text-align:center;">
+        <div style="margin-bottom:16px;">
+          <h3 style="color:#333; margin-bottom:8px;">${name}</h3>
+          <p style="color:#666; margin:0;">Image File</p>
+        </div>
+        <div style="border:1px solid #ddd; border-radius:8px; padding:16px; background:#f8f9fa; display:inline-block;">
+          <img src="${fileUrl}" style="max-width:80vw; max-height:60vh; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.1);" />
+        </div>
+        <div style="margin-top:16px;">
+          <a href="${fileUrl}" download="${name}" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:4px; text-decoration:none; display:inline-block;">
+            📥 Download Image
+          </a>
+        </div>
+      </div>
+    `;
+  } else if (ext === 'pdf') {
+    // PDF preview with online viewing and download
+    content.innerHTML = `
+      <div style="text-align:center;">
+        <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h3 style="color:#333; margin-bottom:8px;">${name}</h3>
+            <p style="color:#666; margin:0;">PDF Document - Online Preview</p>
+          </div>
+          <a href="${fileUrl}" download="${name}" style="background:#dc3545; color:white; border:none; padding:8px 16px; border-radius:4px; text-decoration:none; display:inline-block;">
+            📥 Download PDF
+          </a>
+        </div>
+        <iframe src="${fileUrl}" style="width:90vw; height:70vh; border:1px solid #ddd; border-radius:8px; background:#fff;"></iframe>
+        <div style="margin-top:16px;">
+          <p style="color:#888; font-size:12px;">💡 Tip: Use browser controls to zoom, navigate pages, or print</p>
+        </div>
+      </div>
+    `;
+  } else {
+    // Other file types - show download option
+    const fileIcon = getFileIcon('', filename);
+    content.innerHTML = `
+      <div style="text-align:center; padding:40px;">
+        <div style="font-size:48px; margin-bottom:16px;">${fileIcon}</div>
+        <h3 style="color:#333; margin-bottom:8px;">File Preview</h3>
+        <p style="color:#666; margin-bottom:16px;">Preview not available for this file type</p>
+        <div style="background:#f8f9fa; border:1px solid #e9ecef; border-radius:8px; padding:16px; margin-bottom:20px;">
+          <strong>File:</strong> ${name}
+        </div>
+        <a href="${fileUrl}" download="${name}" style="background:#6c757d; color:white; border:none; padding:12px 24px; border-radius:6px; text-decoration:none; display:inline-block; font-size:16px;">
+          📥 Download File
+        </a>
+      </div>
+    `;
+  }
 }
 function ensureFilePreviewModal() {
   let modal = document.getElementById('file-preview-modal');
@@ -1757,10 +1935,41 @@ function showFilePreviewModal(file) {
       modal.style.display = 'none';
       content.innerHTML = '';
     };
-  } else if (file.type.startsWith('image/')) {
+  } else if (file.type.startsWith('image/') || isImageFile(file.name)) {
     const reader = new FileReader();
     reader.onload = function(e) {
-      content.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:70vh;" />`;
+      const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+      content.innerHTML = `
+        <div style="text-align:center;">
+          <div style="margin-bottom:16px;">
+            <h3 style="color:#333; margin-bottom:8px;">${file.name}</h3>
+            <p style="color:#666; margin:0;">Size: ${fileSize} | Type: ${file.type || 'Image'}</p>
+          </div>
+          <div style="border:1px solid #ddd; border-radius:8px; padding:16px; background:#f8f9fa; display:inline-block;">
+            <img src="${e.target.result}" style="max-width:80vw; max-height:60vh; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.1);" />
+          </div>
+          <div style="margin-top:16px;">
+            <button id="download-image-file" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+              📥 Download Image
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Add download functionality
+      document.getElementById('download-image-file').onclick = function() {
+        const blob = new Blob([file], {type: file.type});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      };
     };
     reader.readAsDataURL(file);
   } else if (file.type.startsWith('text/') || file.name.endsWith('.svg')) {
@@ -1769,8 +1978,73 @@ function showFilePreviewModal(file) {
       content.innerHTML = `<pre style="max-width:80vw;max-height:70vh;overflow:auto;">${escapeHtml(e.target.result)}</pre>`;
     };
     reader.readAsText(file);
+  } else if (isWordDocument(file)) {
+    // Word document - show download option with file info
+    const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+    content.innerHTML = `
+      <div style="text-align:center; padding:40px;">
+        <div style="font-size:48px; color:#0078d4; margin-bottom:16px;">📄</div>
+        <h3 style="color:#333; margin-bottom:8px;">Word Document Preview</h3>
+        <p style="color:#666; margin-bottom:16px;">Preview not available for Word documents in browser</p>
+        <div style="background:#f8f9fa; border:1px solid #e9ecef; border-radius:8px; padding:16px; margin-bottom:20px;">
+          <strong>File:</strong> ${file.name}<br>
+          <strong>Size:</strong> ${fileSize}<br>
+          <strong>Type:</strong> ${file.type || 'Microsoft Word Document'}
+        </div>
+        <button id="download-word-file" style="background:#0078d4; color:white; border:none; padding:12px 24px; border-radius:6px; cursor:pointer; font-size:16px;">
+          📥 Download to View
+        </button>
+      </div>
+    `;
+
+    // Add download functionality
+    document.getElementById('download-word-file').onclick = function() {
+      const blob = new Blob([file], {type: file.type});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    };
   } else {
-    content.innerHTML = '<span style="color:#d00;">Preview not available for this file type.</span>';
+    // Other unsupported file types
+    const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+    const fileIcon = getFileIcon(file.type, file.name);
+    content.innerHTML = `
+      <div style="text-align:center; padding:40px;">
+        <div style="font-size:48px; margin-bottom:16px;">${fileIcon}</div>
+        <h3 style="color:#333; margin-bottom:8px;">Preview Not Available</h3>
+        <p style="color:#666; margin-bottom:16px;">This file type cannot be previewed in the browser</p>
+        <div style="background:#f8f9fa; border:1px solid #e9ecef; border-radius:8px; padding:16px; margin-bottom:20px;">
+          <strong>File:</strong> ${file.name}<br>
+          <strong>Size:</strong> ${fileSize}<br>
+          <strong>Type:</strong> ${file.type || 'Unknown'}
+        </div>
+        <button id="download-other-file" style="background:#6c757d; color:white; border:none; padding:12px 24px; border-radius:6px; cursor:pointer; font-size:16px;">
+          📥 Download File
+        </button>
+      </div>
+    `;
+
+    // Add download functionality
+    document.getElementById('download-other-file').onclick = function() {
+      const blob = new Blob([file], {type: file.type});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    };
   }
 }
 function escapeHtml(text) {
@@ -2008,20 +2282,29 @@ function swapToEditFields(origImgSrc = '') {
         const isImg = ['jpg','jpeg','png','gif','bmp','webp','svg'].includes(ext);
         html += `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;position:relative;">
           <button class='remove-attachment-btn' data-idx='${idx}' title='Remove' style='position:absolute;top:2px;right:2px;background:#fff;border:1px solid #ccc;border-radius:50%;width:22px;height:22px;line-height:18px;font-size:16px;color:#d00;cursor:pointer;z-index:2;'>×</button>`;
+        const fileIcon = getFileIcon('', att.filename);
+        const isPreviewableFile = isPreviewableExistingFile(att.filename);
+
         if (isImg) {
           html += `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;'>
-            <a href="/uploads/attachments/${att.filename}" target="_blank" style="display:block;width:100%;height:100%;text-align:center;">
-              <img src="/uploads/attachments/${att.filename}" alt="Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;" />
-            </a>
+            <img src="/uploads/attachments/${att.filename}" alt="Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;cursor:pointer;"
+                 onclick="showExistingFilePreview('${att.filename}', '${att.original_filename || att.filename}')" />
           </div>`;
         } else {
-          html += `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fafbfc;'>
-            <a href="/uploads/attachments/${att.filename}" target="_blank" style="display:block;width:100%;height:100%;text-align:center;">
-              <span style='font-size:32px;'>📎</span>
-            </a>
+          html += `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fafbfc;cursor:pointer;'
+                        onclick="showExistingFilePreview('${att.filename}', '${att.original_filename || att.filename}')">
+            <span style='font-size:32px;'>${fileIcon}</span>
           </div>`;
         }
+
         html += `<div style='font-size:12px;text-align:center;margin-top:2px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>${att.original_filename || att.filename}</div>
+        <div style='font-size:10px;text-align:center;margin-top:2px;'>
+          ${isPreviewableFile ?
+            `<a href="#" onclick="showExistingFilePreview('${att.filename}', '${att.original_filename || att.filename}'); return false;" style="color:#007bff;text-decoration:none;">👁️ Preview</a> | ` :
+            ''
+          }
+          <a href="/uploads/attachments/${att.filename}" target="_blank" style="color:#28a745;text-decoration:none;">📥 Download</a>
+        </div>
         </li>`;
       });
       multiArtworkList.html(html);
@@ -2222,23 +2505,32 @@ function updateFormFieldsWithData(data) {
         let attachmentsHtml = data.attachments.map(att => {
             const ext = att.filename.split('.').pop().toLowerCase();
             const isImg = ['jpg','jpeg','png','gif','bmp','webp','svg'].includes(ext);
-            if (isImg) {
-                return `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;">
-                    <div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;'>
-                        <a href="/uploads/attachments/${att.filename}" target="_blank" style="display:block;width:100%;height:100%;text-align:center;">
-                            <img src="/uploads/attachments/${att.filename}" alt="Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;" />
-                        </a>
-                    </div>
-                </li>`;
-            } else {
-                return `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;">
-                    <div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;text-align:center;'>
-                        <a href="/uploads/attachments/${att.filename}" target="_blank" style="color:#007bff;text-decoration:none;font-size:12px;word-break:break-all;">
-                            📄 ${att.original_filename || att.filename}
-                        </a>
-                    </div>
-                </li>`;
-            }
+            const fileIcon = getFileIcon('', att.filename);
+            const isPreviewableFile = isPreviewableExistingFile(att.filename);
+            const originalName = att.original_filename || att.filename;
+
+            return `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;position:relative;">
+              ${isImg ?
+                `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;'>
+                   <img src="/uploads/attachments/${att.filename}" alt="Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;cursor:pointer;"
+                        onclick="showExistingFilePreview('${att.filename}', '${originalName}')" />
+                 </div>` :
+                `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fafbfc;cursor:pointer;'
+                      onclick="showExistingFilePreview('${att.filename}', '${originalName}')">
+                   <span style='font-size:32px;'>${fileIcon}</span>
+                 </div>`
+              }
+              <div style='font-size:12px;text-align:center;margin-top:2px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>${originalName}</div>
+              <div style='font-size:10px;text-align:center;margin-top:2px;'>
+                ${isPreviewableFile ?
+                  `<a href="#" onclick="showExistingFilePreview('${att.filename}', '${originalName}'); return false;" style="color:#007bff;text-decoration:none;">👁️ Preview</a> | ` :
+                  (ext === 'doc' || ext === 'docx') ?
+                    `<a href="#" onclick="showExistingFilePreview('${att.filename}', '${originalName}'); return false;" style="color:#0078d4;text-decoration:none;">📥 Download</a> | ` :
+                    ''
+                }
+                <a href="/uploads/attachments/${att.filename}" target="_blank" style="color:#28a745;text-decoration:none;">📥 Download</a>
+              </div>
+            </li>`;
         }).join('');
         $('#view-multi-artwork-list').html(attachmentsHtml);
     } else {
@@ -2692,12 +2984,208 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
   let isEditMode = false;
   let originalValues = {}; // To store values before editing
 
+  // Enhanced data backup and change tracking system (expose globally)
+  window.originalDataBackup = null;
+  window.hasUnsavedChanges = false;
+  window.changeTrackingEnabled = false;
+  window.isEditMode = false;
+
+  // Function to create comprehensive backup of all data
+  function createDataBackup() {
+    console.log('Creating comprehensive data backup...');
+
+    // Backup form field values
+    const formData = {};
+    $('.item-info-field-view').each(function() {
+      formData[this.id] = $(this).val();
+    });
+
+    // Backup artwork image
+    const artworkImg = $('#view-artwork-image img');
+    const artworkSrc = artworkImg.length ? artworkImg.attr('src') : null;
+
+    // Backup attachments (deep copy)
+    const attachments = window._currentQuotationAttachments ?
+      JSON.parse(JSON.stringify(window._currentQuotationAttachments)) : [];
+
+    // Backup quotation block
+    const quotationBlock = $('#view-quotation-block').text();
+
+    // Backup color names
+    const colorNames = [];
+    $('#view-color-names input').each(function() {
+      colorNames.push($(this).val());
+    });
+
+    window.originalDataBackup = {
+      formData: formData,
+      artworkSrc: artworkSrc,
+      attachments: attachments,
+      quotationBlock: quotationBlock,
+      colorNames: colorNames,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Data backup created:', window.originalDataBackup);
+    return window.originalDataBackup;
+  }
+
+  // Function to detect if any changes have been made
+  function detectChanges() {
+    if (!window.originalDataBackup || !window.changeTrackingEnabled) return false;
+
+    // Check form fields
+    let formChanged = false;
+    $('.item-info-field-view').each(function() {
+      const currentValue = $(this).val();
+      const originalValue = window.originalDataBackup.formData[this.id];
+      if (currentValue !== originalValue) {
+        formChanged = true;
+        return false; // Break out of each loop
+      }
+    });
+
+    // Check artwork image
+    const currentArtworkSrc = $('#view-artwork-image img').attr('src') || null;
+    const artworkChanged = currentArtworkSrc !== window.originalDataBackup.artworkSrc;
+
+    // Check attachments (compare counts and filenames)
+    const currentAttachments = window._currentQuotationAttachments || [];
+    const attachmentsChanged = (
+      currentAttachments.length !== window.originalDataBackup.attachments.length ||
+      (window._newQuotationAttachments && window._newQuotationAttachments.length > 0) ||
+      (window._removedQuotationAttachments && window._removedQuotationAttachments.length > 0)
+    );
+
+    // Check quotation block
+    const currentQuotationBlock = $('#view-quotation-block').text();
+    const quotationChanged = currentQuotationBlock !== window.originalDataBackup.quotationBlock;
+
+    const hasChanges = formChanged || artworkChanged || attachmentsChanged || quotationChanged;
+    console.log('Change detection:', {
+      formChanged,
+      artworkChanged,
+      attachmentsChanged,
+      quotationChanged,
+      hasChanges
+    });
+
+    return hasChanges;
+  }
+
+  // Function to restore all data from backup with smooth animations
+  function restoreDataFromBackup() {
+    return new Promise((resolve) => {
+      if (!window.originalDataBackup) {
+        console.warn('No backup data available for restoration');
+        resolve();
+        return;
+      }
+
+      console.log('Starting data restoration with animations...');
+
+      // Show loading overlay
+      showLoadingOverlay('Restoring original data...');
+
+      // Fade out current content
+      $('#view-quotation-form').animate({ opacity: 0.3 }, 300, function() {
+
+        // Restore form field values
+        for (const fieldId in window.originalDataBackup.formData) {
+          $(`#${fieldId}`).val(window.originalDataBackup.formData[fieldId]);
+        }
+
+        // Restore artwork image
+        const artworkDiv = $('#view-artwork-image');
+        if (window.originalDataBackup.artworkSrc) {
+          artworkDiv.html(`<img src='${window.originalDataBackup.artworkSrc}' alt='Artwork Image' style='max-width:200px;'>`);
+        } else {
+          artworkDiv.html('-');
+        }
+
+        // Restore attachments
+        window._currentQuotationAttachments = JSON.parse(JSON.stringify(window.originalDataBackup.attachments));
+        window._newQuotationAttachments = [];
+        window._removedQuotationAttachments = [];
+
+        // Re-render attachment list
+        if (window.originalDataBackup.attachments.length > 0) {
+          let attachmentsHtml = window.originalDataBackup.attachments.map(att => {
+            const ext = att.filename.split('.').pop().toLowerCase();
+            const isImg = ['jpg','jpeg','png','gif','bmp','webp','svg'].includes(ext);
+            const fileIcon = getFileIcon('', att.filename);
+            const isPreviewableFile = isPreviewableExistingFile(att.filename);
+            const originalName = att.original_filename || att.filename;
+
+            return `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;position:relative;">
+              ${isImg ?
+                `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;'>
+                   <img src="/uploads/attachments/${att.filename}" alt="Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;cursor:pointer;"
+                        onclick="showExistingFilePreview('${att.filename}', '${originalName}')" />
+                 </div>` :
+                `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fafbfc;cursor:pointer;'
+                      onclick="showExistingFilePreview('${att.filename}', '${originalName}')">
+                   <span style='font-size:32px;'>${fileIcon}</span>
+                 </div>`
+              }
+              <div style='font-size:12px;text-align:center;margin-top:2px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>${originalName}</div>
+              <div style='font-size:10px;text-align:center;margin-top:2px;'>
+                ${isPreviewableFile ?
+                  `<a href="#" onclick="showExistingFilePreview('${att.filename}', '${originalName}'); return false;" style="color:#007bff;text-decoration:none;">👁️ Preview</a> | ` :
+                  (ext === 'doc' || ext === 'docx') ?
+                    `<a href="#" onclick="showExistingFilePreview('${att.filename}', '${originalName}'); return false;" style="color:#0078d4;text-decoration:none;">📥 Download</a> | ` :
+                    ''
+                }
+                <a href="/uploads/attachments/${att.filename}" target="_blank" style="color:#28a745;text-decoration:none;">📥 Download</a>
+              </div>
+            </li>`;
+          }).join('');
+          $('#view-multi-artwork-list').html(attachmentsHtml);
+        } else {
+          $('#view-multi-artwork-list').html('<li style="color:#888;">No additional artworks uploaded.</li>');
+        }
+
+        // Restore quotation block
+        $('#view-quotation-block').text(window.originalDataBackup.quotationBlock);
+
+        // Restore color names
+        $('#view-color-names').remove();
+        if (window.originalDataBackup.colorNames.length > 0) {
+          let colorInputs = '<div id="view-color-names" style="margin-top:4px;">';
+          window.originalDataBackup.colorNames.forEach((colorName, index) => {
+            colorInputs += `<input type="text" value="${colorName}" readonly style="margin-right:8px;margin-bottom:4px;padding:4px;border:1px solid #ccc;border-radius:4px;background:#f8f9fa;" />`;
+          });
+          colorInputs += '</div>';
+          $('#view-num-colors').parent().append(colorInputs);
+        }
+
+        // Reset change tracking
+        window.hasUnsavedChanges = false;
+        window.changeTrackingEnabled = false;
+
+        // Fade content back in
+        $('#view-quotation-form').animate({ opacity: 1 }, 400, function() {
+          hideLoadingOverlay();
+          console.log('Data restoration completed successfully');
+          resolve();
+        });
+      });
+    });
+  }
+
+
+
   $(document).off('click', '#edit-toggle-btn').on('click', '#edit-toggle-btn', function() {
-    isEditMode = true;
-    // Store original values
+    window.isEditMode = true;
+
+    // Create comprehensive data backup
+    createDataBackup();
+
+    // Store original values (legacy support)
     $('.item-info-field-view').each(function() {
       originalValues[this.id] = $(this).val();
     });
+
     // Capture and store original image src before swapping fields
     let origImgSrc = '';
     const artworkDiv = $('#view-artwork-image');
@@ -2706,34 +3194,81 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
       origImgSrc = existingImg.attr('src') || '';
     }
     window._originalArtworkSrc = origImgSrc; // Store globally for cancel
+
+    // Enable change tracking
+    window.changeTrackingEnabled = true;
+    window.hasUnsavedChanges = false;
+
     swapToEditFields(origImgSrc); // Pass the image src to edit mode
+
     // Update buttons: show Cancel Editing and Save (disabled)
     $('#view-mode-buttons').html(`
       <button id="cancel-edit-btn" style="background:#dc3545; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Cancel Editing</button>
       <button id="save-btn" type="button" style="background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:not-allowed; margin-left:8px;" disabled>Save</button>
     `);
+
+    console.log('Edit mode activated - backup created and change tracking enabled');
   });
   $(document).off('click', '#cancel-edit-btn').on('click', '#cancel-edit-btn', function() {
-    isEditMode = false;
-    // Restore original values before swapping back
-    for (const id in originalValues) {
-        $(`#${id}`).val(originalValues[id]);
-    }
-    swapToReadOnlyFields();
-    // Restore Edit button
-    $('#view-mode-buttons').html(
-      `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
-    );
-    // Restore artwork image view (no dotted box) from stored original src
-    const artworkDiv = $('#view-artwork-image');
-    if (artworkDiv.length) {
-      let origImgSrc = window._originalArtworkSrc || '';
-      if (origImgSrc) {
-        artworkDiv.html(`<img src='${origImgSrc}' alt='Artwork Image' style='max-width:200px;'>`);
-      } else {
-        artworkDiv.html('-');
+    // Check if there are unsaved changes
+    const hasChanges = detectChanges();
+
+    // Show confirmation dialog if there are changes
+    if (hasChanges || window.hasUnsavedChanges) {
+      const confirmed = confirm('Are you sure you want to discard all changes and return to view mode?');
+      if (!confirmed) {
+        return; // User canceled the cancel operation
       }
     }
+
+    console.log('Cancel editing confirmed - starting restoration...');
+
+    // Restore data from backup with animations
+    restoreDataFromBackup().then(() => {
+      // Switch back to view mode
+      window.isEditMode = false;
+      window.changeTrackingEnabled = false;
+      window.hasUnsavedChanges = false;
+
+      swapToReadOnlyFields();
+
+      // Restore Edit button
+      $('#view-mode-buttons').html(
+        `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
+      );
+
+      console.log('Cancel editing completed successfully');
+    }).catch(error => {
+      console.error('Error during data restoration:', error);
+
+      // Fallback: basic restoration without animations
+      window.isEditMode = false;
+      window.changeTrackingEnabled = false;
+      window.hasUnsavedChanges = false;
+
+      // Restore original values (legacy method)
+      for (const id in originalValues) {
+        $(`#${id}`).val(originalValues[id]);
+      }
+
+      swapToReadOnlyFields();
+
+      // Restore Edit button
+      $('#view-mode-buttons').html(
+        `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
+      );
+
+      // Restore artwork image view (fallback)
+      const artworkDiv = $('#view-artwork-image');
+      if (artworkDiv.length) {
+        let origImgSrc = window._originalArtworkSrc || '';
+        if (origImgSrc) {
+          artworkDiv.html(`<img src='${origImgSrc}' alt='Artwork Image' style='max-width:200px;'>`);
+        } else {
+          artworkDiv.html('-');
+        }
+      }
+    });
   });
 
    // Fetch and fill data
@@ -2784,9 +3319,36 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
          // Display additional artworks if available (assume data.additional_artworks is an array of filenames)
          if (data.attachments && data.attachments.length > 0) {
            window._currentQuotationAttachments = data.attachments;
-           let attachmentsHtml = data.attachments.map(att =>
-             `<li><a href="/uploads/attachments/${att.filename}" target="_blank">${att.original_filename || att.filename}</a></li>`
-           ).join('');
+           let attachmentsHtml = data.attachments.map(att => {
+             const ext = att.filename.split('.').pop().toLowerCase();
+             const isImg = ['jpg','jpeg','png','gif','bmp','webp','svg'].includes(ext);
+             const fileIcon = getFileIcon('', att.filename);
+             const isPreviewableFile = isPreviewableExistingFile(att.filename);
+             const originalName = att.original_filename || att.filename;
+
+             return `<li style="display:inline-block;margin:6px 8px 6px 0;vertical-align:top;position:relative;">
+               ${isImg ?
+                 `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fff;'>
+                    <img src="/uploads/attachments/${att.filename}" alt="Artwork" style="max-width:90px;max-height:90px;display:block;margin:auto;cursor:pointer;"
+                         onclick="showExistingFilePreview('${att.filename}', '${originalName}')" />
+                  </div>` :
+                 `<div style='border:1.5px solid #ccc;border-radius:8px;padding:8px;width:110px;height:110px;display:flex;align-items:center;justify-content:center;background:#fafbfc;cursor:pointer;'
+                       onclick="showExistingFilePreview('${att.filename}', '${originalName}')">
+                    <span style='font-size:32px;'>${fileIcon}</span>
+                  </div>`
+               }
+               <div style='font-size:12px;text-align:center;margin-top:2px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>${originalName}</div>
+               <div style='font-size:10px;text-align:center;margin-top:2px;'>
+                 ${isPreviewableFile ?
+                   `<a href="#" onclick="showExistingFilePreview('${att.filename}', '${originalName}'); return false;" style="color:#007bff;text-decoration:none;">👁️ Preview</a> | ` :
+                   (ext === 'doc' || ext === 'docx') ?
+                     `<a href="#" onclick="showExistingFilePreview('${att.filename}', '${originalName}'); return false;" style="color:#0078d4;text-decoration:none;">📥 Download</a> | ` :
+                     ''
+                 }
+                 <a href="/uploads/attachments/${att.filename}" target="_blank" style="color:#28a745;text-decoration:none;">📥 Download</a>
+               </div>
+             </li>`;
+           }).join('');
            $('#view-multi-artwork-list').html(attachmentsHtml);
          } else {
            window._currentQuotationAttachments = [];
@@ -2958,6 +3520,68 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
       });
     }
   }
+}
+
+// Enhanced cancel editing helper functions (moved to global scope)
+// Navigation warning system
+function setupNavigationWarning() {
+  // Browser navigation warning
+  window.addEventListener('beforeunload', function(e) {
+    if (window.isEditMode && window.hasUnsavedChanges) {
+      const message = 'You have unsaved changes. Are you sure you want to leave?';
+      e.preventDefault();
+      e.returnValue = message;
+      return message;
+    }
+  });
+
+  // Internal navigation warning (for SPA-style navigation)
+  $(document).on('click', 'a[href]:not([target="_blank"]):not([href^="#"])', function(e) {
+    if (window.isEditMode && window.hasUnsavedChanges) {
+      const confirmed = confirm('You have unsaved changes. Are you sure you want to leave this page?');
+      if (!confirmed) {
+        e.preventDefault();
+        return false;
+      }
+    }
+  });
+}
+
+// Setup change tracking on form elements
+function setupChangeTracking() {
+  // Track form field changes
+  $(document).on('input change', '.item-info-field-view', function() {
+    if (window.changeTrackingEnabled) {
+      markAsChanged();
+    }
+  });
+
+  // Track file uploads
+  $(document).on('change', '#edit-artwork-input, #edit-multi-artwork-input', function() {
+    if (window.changeTrackingEnabled) {
+      markAsChanged();
+    }
+  });
+
+  // Track drag and drop
+  $(document).on('drop', '#edit-artwork-drop-area, #edit-multi-artwork-drop-area', function() {
+    if (window.changeTrackingEnabled) {
+      setTimeout(markAsChanged, 100); // Delay to ensure file is processed
+    }
+  });
+
+  // Track attachment removals
+  $(document).on('click', '.remove-attachment-btn', function() {
+    if (window.changeTrackingEnabled) {
+      markAsChanged();
+    }
+  });
+}
+
+// Function to mark that changes have been made
+function markAsChanged() {
+  window.hasUnsavedChanges = true;
+  console.log('Marked as changed - unsaved changes detected');
 }
 
 // --- Milestone 4: Save Functionality ---
@@ -3204,4 +3828,15 @@ function initQuotationApp() {
     window.location.hash = 'create_ht';
   });
 }
+
+// Initialize enhanced cancel editing functionality
+$(document).ready(function() {
+  // Setup navigation warning system
+  setupNavigationWarning();
+
+  // Setup change tracking system
+  setupChangeTracking();
+
+  console.log('Enhanced cancel editing system initialized');
+});
 

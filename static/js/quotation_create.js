@@ -3031,10 +3031,12 @@ function saveQuotationChanges() {
 
     if (totalAttachments < 1) {
         hideLoadingOverlay();
-        showCustomPopup('At least 1 attachment must be present in the Additional Artwork(s) section. Please add an attachment before saving.', true);
+        showCustomPopup('Warning: At least 1 attachment must be present in the Additional Artwork(s) section. Please add an attachment before saving.', true);
 
-        // Add visual indication to the upload area
+        // Add visual indication to the upload area and attachment list
         const editDropArea = document.getElementById('edit-multi-artwork-drop-area');
+        const attachmentList = document.getElementById('view-multi-artwork-list');
+
         if (editDropArea) {
             editDropArea.style.borderColor = 'red';
             editDropArea.style.backgroundColor = '#ffe6e6';
@@ -3045,8 +3047,23 @@ function saveQuotationChanges() {
                 editDropArea.style.backgroundColor = '#fafbfc';
             }, 3000);
         }
-        return;
+
+        if (attachmentList) {
+            attachmentList.style.borderColor = 'red';
+            attachmentList.style.backgroundColor = '#ffe6e6';
+
+            // Reset visual indication after 3 seconds
+            setTimeout(() => {
+                attachmentList.style.borderColor = '';
+                attachmentList.style.backgroundColor = '';
+            }, 3000);
+        }
+
+        return; // Prevent save when no attachments
     }
+
+    // If we reach here, totalAttachments >= 1, so save is allowed
+    console.log('[DEBUG] Attachment validation passed - proceeding with save');
 
     // Call the backend endpoint to update the quotation
     fetch(`/quotation/api/${quotationId}`, {

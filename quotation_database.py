@@ -342,9 +342,10 @@ def api_update_quotation(quotation_id):
         else:
             quotation.color_names = color_names
 
-        # Update timestamp
+        # Update timestamp and increment revision count
         quotation.last_updated = datetime.utcnow()
-        
+        quotation.revision_count = (quotation.revision_count or 0) + 1
+
         session.commit()
         session.close()
 

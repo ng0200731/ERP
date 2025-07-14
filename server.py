@@ -1408,6 +1408,8 @@ def api_get_quotation(quotation_id):
             quotation.price = price if price != '-' else None
             quotation.quotation_block = block
             quotation.last_updated = datetime.utcnow()
+            # Increment revision count
+            quotation.revision_count = (quotation.revision_count or 0) + 1
             # Update color_names if present
             color_names_json = data.get('color_names')
             if color_names_json is not None:
@@ -1629,6 +1631,7 @@ def api_get_quotation(quotation_id):
         'artwork_image': getattr(q, 'artwork_image', '').replace('\\', '/'),
         'quotation_block': getattr(q, 'quotation_block', ''),
         'action': getattr(q, 'action', '-'),
+        'revision_count': getattr(q, 'revision_count', 0),
         'attachments': [
             {
                 'filename': a.filename.replace('\\', '/'),

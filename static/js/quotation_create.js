@@ -146,62 +146,118 @@ function showPostSubmissionOptionsPopup() {
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,0.6);
       z-index: 10000;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-family: Arial, sans-serif;
     ">
       <div style="
-        background: white;
-        padding: 32px;
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        max-width: 500px;
+        background: #ffffff;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        max-width: 480px;
         width: 90%;
-        text-align: center;
+        overflow: hidden;
       ">
-        <h3 style="margin: 0 0 24px 0; color: #2c3e50; font-size: 20px;">What would you like to do next?</h3>
+        <!-- Header -->
+        <div style="
+          background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+          color: white;
+          padding: 20px 24px;
+          text-align: center;
+          border-bottom: 1px solid #ddd;
+        ">
+          <h3 style="
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+          ">✅ Quotation Created Successfully!</h3>
+          <p style="
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+          ">What would you like to do next?</p>
+        </div>
 
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-          <button id="option-new-customer" style="
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 16px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-          ">
-            1) Create totally new customer
-          </button>
+        <!-- Content -->
+        <div style="padding: 24px;">
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button id="option-new-customer" style="
+              background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+              color: white;
+              border: none;
+              padding: 14px 20px;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: 500;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+              display: flex;
+              align-items: center;
+              justify-content: flex-start;
+              text-align: left;
+            " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(74, 144, 226, 0.4)'"
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(74, 144, 226, 0.3)'">
+              <span style="margin-right: 12px; font-size: 16px;">👤</span>
+              <div>
+                <div style="font-weight: 600;">Create New Customer</div>
+                <div style="font-size: 12px; opacity: 0.9;">Clear all fields for a completely new customer</div>
+              </div>
+            </button>
 
-          <button id="option-same-customer" style="
-            background: #27ae60;
-            color: white;
-            border: none;
-            padding: 16px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-          ">
-            2) Same customer with another item
-          </button>
+            <button id="option-same-customer" style="
+              background: linear-gradient(135deg, #28a745 0%, #20923a 100%);
+              color: white;
+              border: none;
+              padding: 14px 20px;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: 500;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+              display: flex;
+              align-items: center;
+              justify-content: flex-start;
+              text-align: left;
+            " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(40, 167, 69, 0.4)'"
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(40, 167, 69, 0.3)'">
+              <span style="margin-right: 12px; font-size: 16px;">🔄</span>
+              <div>
+                <div style="font-weight: 600;">Same Customer, New Item</div>
+                <div style="font-size: 12px; opacity: 0.9;">Keep customer info, clear item details only</div>
+              </div>
+            </button>
 
-          <button id="option-no-more" style="
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 16px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-          ">
-            3) No more
-          </button>
+            <button id="option-no-more" style="
+              background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+              color: white;
+              border: none;
+              padding: 14px 20px;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: 500;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+              display: flex;
+              align-items: center;
+              justify-content: flex-start;
+              text-align: left;
+            " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(220, 53, 69, 0.4)'"
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(220, 53, 69, 0.3)'">
+              <span style="margin-right: 12px; font-size: 16px;">🚫</span>
+              <div>
+                <div style="font-weight: 600;">Finish for Today</div>
+                <div style="font-size: 12px; opacity: 0.9;">Disable form - no more quotations needed</div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -310,8 +366,8 @@ function clearAllFormFieldsExceptCustomer() {
     }
   }
 
-  // Clear item details
-  $('#ht-item-code').val('');
+  // Clear ALL item information fields (using correct IDs)
+  $('#customer-item-code').val('');
   $('#ht-quality').val('');
   $('#ht-flat-or-raised').val('');
   $('#ht-direct-or-reverse').val('');
@@ -323,9 +379,34 @@ function clearAllFormFieldsExceptCustomer() {
   // Clear color names
   $('#color-names-group').html('');
 
-  // Clear artwork
+  // Clear main JPG/PNG artwork image (Upload JPG/PNG Artwork section)
+  $('#q2-jpg-input').val('');
+  $('#q2-jpg-preview').html('');
+  $('#q2-drop-area').css('background', '#fafbfc');
+  $('#q2-drop-label').text('Drag & drop JPG/PNG here or click to select');
+
+  // Clear additional artworks (Upload Additional Artwork(s) section)
   $('#multi-artwork-list').html('');
   $('#multi-artwork-input').val('');
+  $('#multi-artwork-drop-area').removeClass('dragover').css('background', '#fafbfc');
+  $('#multi-artwork-drop-label').text('Drag & drop files here or click to select');
+
+  // Reset global artwork variables
+  window._selectedArtworkFiles = [];
+  window._selectedMultiArtworkFiles = [];
+  window.multiArtworkFiles = [];
+
+  // Clear quotation block (using correct ID)
+  $('#quotation-block-content').html('<span style="color:#888;">(Quotation details will appear here.)</span>');
+
+  // Clear any dynamic product type fields
+  $('.dynamic-field').remove();
+
+  // Reset any validation states
+  $('.field-error').removeClass('field-error');
+  $('.error-message').remove();
+
+  console.log('[DEBUG] All item fields cleared - ready for new item with same customer');
 
   // Reset submit button
   const $submitBtn = $('#quotation2-submit-btn');

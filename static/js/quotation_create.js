@@ -92,8 +92,46 @@ if (!document.getElementById('popup-dimmed-style')) {
       z-index: 999998;
       pointer-events: all;
     }
+    .loading-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.2);
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: all;
+    }
+    .loading-text {
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      background: rgba(0,0,0,0.6);
+      padding: 20px 40px;
+      border-radius: 8px;
+    }
   `;
   document.head.appendChild(dimStyle);
+}
+
+// Loading overlay functions
+function showLoadingOverlay(message = 'Saving...') {
+  // Remove any existing loading overlay
+  $('.loading-overlay').remove();
+
+  // Create and show loading overlay
+  const loadingOverlay = $(`
+    <div class="loading-overlay">
+      <div class="loading-text">${message}</div>
+    </div>
+  `);
+
+  $('body').append(loadingOverlay);
+}
+
+function hideLoadingOverlay() {
+  $('.loading-overlay').remove();
 }
 
 // Only attach the handler for Quotation Create button once, and do not globally override anything else
@@ -254,6 +292,9 @@ $(function() {
         return;
     }
 
+    // Show loading overlay
+    showLoadingOverlay('Saving...');
+
     // Prepare FormData for file upload
     var formData = new FormData(this);
     // Always get the file from the file input
@@ -298,6 +339,7 @@ $(function() {
         withCredentials: true
       },
       success: function(response) {
+        hideLoadingOverlay();
         if (response.error) {
           showCustomPopup('Error: ' + response.error, true);
           $submitBtn.prop('disabled', false)
@@ -313,11 +355,12 @@ $(function() {
               $('#quotation-block-content').html('<pre style="font-size:1.1em;">' + response.quotation_block + '</pre>');
             }
             // Always update version display if present
-            $("#right-frame h2 span").text('v1.3.16 [quotation_create.js]');
+            $("#right-frame h2 span").text('v1.3.20 [quotation_create.js]');
           }, 500);
         }
       },
       error: function(xhr, status, error) {
+        hideLoadingOverlay();
         let errorMsg = 'Error saving quotation';
         try {
           if (xhr.responseJSON && xhr.responseJSON.error) {
@@ -1645,8 +1688,15 @@ function swapToEditFields(origImgSrc = '') {
         alert('Only JPG or PNG files are allowed.');
         return;
       }
+
+      // Store the file for saving
+      window.newArtworkFile = file;
+
       const reader = new FileReader();
       reader.onload = function(e) {
+        // Store the data URL for display purposes
+        window.newArtworkDataURL = e.target.result;
+
         imgEl.src = e.target.result;
         imgEl.style.display = 'block';
         placeholder.style.display = 'none';
@@ -2234,6 +2284,17 @@ function swapToReadOnlyFields() {
     });
     // Remove the edit-mode drop area for additional artworks if present
     $('#edit-multi-artwork-drop-area').remove();
+
+    // Restore artwork image view (no dotted box) from stored original src
+    const artworkDiv = $('#view-artwork-image');
+    if (artworkDiv.length) {
+      let origImgSrc = window._originalArtworkSrc || '';
+      if (origImgSrc) {
+        artworkDiv.html(`<img src='${origImgSrc}' alt='Artwork Image' style='max-width:200px;'>`);
+      } else {
+        artworkDiv.html('-');
+      }
+    }
 }
 
 function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
@@ -2566,13 +2627,35 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
           alert('Only JPG or PNG files are allowed.');
           return;
         }
+
+        // Store the file for saving
+        window.newArtworkFile = file;
+
+        // Also set the file input for form submission compatibility
+        if (fileInput) {
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          fileInput.files = dataTransfer.files;
+        }
+
         const reader = new FileReader();
         reader.onload = function(e) {
+          // Store the data URL for display purposes
+          window.newArtworkDataURL = e.target.result;
+
           // Replace content with image only
           contentDiv.innerHTML = `<img id='edit-artwork-img' src='${e.target.result}' style='max-width:200px;max-height:200px;border:1.5px solid #ccc;border-radius:8px;margin:auto;display:block;' />`;
           // Re-bind file input event
           const newImgEl = document.getElementById('edit-artwork-img');
           if (newImgEl) newImgEl.addEventListener('click', () => fileInput.click());
+
+          // Enable Save button after image change
+          const saveBtn = document.getElementById('save-btn');
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.style.backgroundColor = '#28a745';
+            saveBtn.style.cursor = 'pointer';
+          }
         };
         reader.readAsDataURL(file);
       }
@@ -2589,6 +2672,7 @@ $(document).on('click', '#save-btn', function(e) {
   e.preventDefault(); // Prevent any form submission
   e.stopPropagation(); // Stop event bubbling
   if (!$(this).prop('disabled')) {
+    showLoadingOverlay('Saving...');
     saveQuotationChanges();
   }
 });
@@ -2603,6 +2687,7 @@ $(document).on('submit', '#view-quotation-form', function(e) {
 function saveQuotationChanges() {
     const quotationId = $('#view-quotation-form').data('quotation-id');
     if (!quotationId) {
+        hideLoadingOverlay();
         alert("Error: Quotation ID is missing. Please refresh the page and try again.");
         return;
     }
@@ -2681,6 +2766,9 @@ function saveQuotationChanges() {
             successMessage += '\n\nWarnings:\n' + updateResult.warnings.join('\n');
         }
 
+        // Hide loading overlay
+        hideLoadingOverlay();
+
         // Show success popup if available, otherwise use alert
         console.log('[DEBUG] About to show success popup and refresh data');
         if (typeof showCustomPopup === 'function') {
@@ -2695,6 +2783,9 @@ function saveQuotationChanges() {
     })
     .catch(error => {
         console.error('Error saving quotation:', error);
+
+        // Hide loading overlay
+        hideLoadingOverlay();
 
         // Provide detailed error message
         let errorMessage = 'Error updating quotation.\n\nDetails: ' + error.message;

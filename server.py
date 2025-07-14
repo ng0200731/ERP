@@ -1566,7 +1566,8 @@ def api_get_quotation(quotation_id):
   </tr>
 </table>
 '''
-                subject = f'FCL / HT Quotation / {item_code}'
+                revision_count = quotation.revision_count or 0
+                subject = f'FCL / HT Quotation / {item_code} (#{revision_count} revision)'
                 msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
                 msg.html = html_body
                 if artwork_image_path and os.path.exists(artwork_image_path):

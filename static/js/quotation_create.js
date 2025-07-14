@@ -134,6 +134,242 @@ function hideLoadingOverlay() {
   $('.loading-overlay').remove();
 }
 
+// Post-submission options popup
+function showPostSubmissionOptionsPopup() {
+  // Remove any existing popup
+  $('.post-submission-popup').remove();
+
+  const popup = $(`
+    <div class="post-submission-popup" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <div style="
+        background: white;
+        padding: 32px;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        max-width: 500px;
+        width: 90%;
+        text-align: center;
+      ">
+        <h3 style="margin: 0 0 24px 0; color: #2c3e50; font-size: 20px;">What would you like to do next?</h3>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <button id="option-new-customer" style="
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+          ">
+            1) Create totally new customer
+          </button>
+
+          <button id="option-same-customer" style="
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+          ">
+            2) Same customer with another item
+          </button>
+
+          <button id="option-no-more" style="
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+          ">
+            3) No more
+          </button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  $('body').append(popup);
+
+  // Add hover effects
+  popup.find('button').hover(
+    function() { $(this).css('opacity', '0.8'); },
+    function() { $(this).css('opacity', '1'); }
+  );
+
+  // Handle option clicks
+  popup.find('#option-new-customer').on('click', function() {
+    handlePostSubmissionOption(1);
+  });
+
+  popup.find('#option-same-customer').on('click', function() {
+    handlePostSubmissionOption(2);
+  });
+
+  popup.find('#option-no-more').on('click', function() {
+    handlePostSubmissionOption(3);
+  });
+}
+
+// Handle post-submission option selection
+function handlePostSubmissionOption(option) {
+  // Remove the popup
+  $('.post-submission-popup').remove();
+
+  switch(option) {
+    case 1: // Create totally new customer
+      clearAllFormFields();
+      break;
+
+    case 2: // Same customer with another item
+      clearAllFormFieldsExceptCustomer();
+      break;
+
+    case 3: // No more
+      disableEntireForm();
+      break;
+  }
+}
+
+// Clear all form fields (Option 1)
+function clearAllFormFields() {
+  // Clear customer fields
+  $('#quotation2-company-input').val('').attr('data-selected', 'false');
+  $('#quotation2-company-id').val('');
+  $('#quotation2-keyperson').html('<option value="">-- Select Key Person --</option>');
+
+  // Clear item details
+  $('#ht-item-code').val('');
+  $('#ht-quality').val('');
+  $('#ht-flat-or-raised').val('');
+  $('#ht-direct-or-reverse').val('');
+  $('#ht-thickness').val('');
+  $('#ht-num-colors').val('1');
+  $('#ht-width').val('');
+  $('#ht-length').val('');
+
+  // Clear color names
+  $('#color-names-group').html('');
+
+  // Clear artwork
+  $('#multi-artwork-list').html('');
+  $('#multi-artwork-input').val('');
+
+  // Reset submit button
+  const $submitBtn = $('#quotation2-submit-btn');
+  $submitBtn.prop('disabled', false).text('Submit').css({
+    'background': '',
+    'color': '',
+    'border': ''
+  });
+
+  // Hide company suggestions
+  $('#company2-suggestions ul').hide();
+
+  console.log('[INFO] Form cleared for new customer');
+}
+
+// Clear all fields except customer data (Option 2)
+function clearAllFormFieldsExceptCustomer() {
+  const lastCustomerData = window._lastQuotationCustomerData;
+
+  if (lastCustomerData && lastCustomerData.companyId) {
+    // Preserve customer fields
+    $('#quotation2-company-input').val(lastCustomerData.company).attr('data-selected', 'true');
+    $('#quotation2-company-id').val(lastCustomerData.companyId);
+
+    // Find and repopulate key people for this customer
+    const customers = window.customers || [];
+    const selectedCustomer = customers.find(c => c.id == lastCustomerData.companyId);
+
+    if (selectedCustomer && Array.isArray(selectedCustomer.keyPeople)) {
+      let kpOpts = '<option value="">-- Select Key Person --</option>';
+      kpOpts += selectedCustomer.keyPeople.map((kp, idx) => {
+        const selected = idx == lastCustomerData.keyPersonIndex ? ' selected' : '';
+        return `<option value="${idx}"${selected}>${kp.name} (${kp.position})</option>`;
+      }).join('');
+      $('#quotation2-keyperson').html(kpOpts);
+    }
+  }
+
+  // Clear item details
+  $('#ht-item-code').val('');
+  $('#ht-quality').val('');
+  $('#ht-flat-or-raised').val('');
+  $('#ht-direct-or-reverse').val('');
+  $('#ht-thickness').val('');
+  $('#ht-num-colors').val('1');
+  $('#ht-width').val('');
+  $('#ht-length').val('');
+
+  // Clear color names
+  $('#color-names-group').html('');
+
+  // Clear artwork
+  $('#multi-artwork-list').html('');
+  $('#multi-artwork-input').val('');
+
+  // Reset submit button
+  const $submitBtn = $('#quotation2-submit-btn');
+  $submitBtn.prop('disabled', false).text('Submit').css({
+    'background': '',
+    'color': '',
+    'border': ''
+  });
+
+  // Hide company suggestions
+  $('#company2-suggestions ul').hide();
+
+  console.log('[INFO] Form cleared for same customer with new item');
+}
+
+// Disable entire form (Option 3)
+function disableEntireForm() {
+  // Disable all input fields
+  $('#quotation2-create2-form input, #quotation2-create2-form select, #quotation2-create2-form textarea').prop('disabled', true);
+
+  // Disable submit button
+  const $submitBtn = $('#quotation2-submit-btn');
+  $submitBtn.prop('disabled', true).text('Form Disabled').css({
+    'background': '#6c757d',
+    'color': '#fff',
+    'border': '1px solid #6c757d',
+    'cursor': 'not-allowed'
+  });
+
+  // Disable file inputs
+  $('#multi-artwork-input').prop('disabled', true);
+
+  // Disable any buttons
+  $('#quotation2-create2-form button').not('#quotation2-submit-btn').prop('disabled', true);
+
+  // Add visual indication that form is disabled
+  $('#quotation2-create2-form').css({
+    'opacity': '0.6',
+    'pointer-events': 'none'
+  });
+
+  console.log('[INFO] Form disabled - no more quotations allowed');
+}
+
 // Only attach the handler for Quotation Create button once, and do not globally override anything else
 $(function() {
   // Make sure userPermissionLevel is defined, if not, get it
@@ -268,8 +504,24 @@ $(function() {
 
     // --- Multi-artwork attachment validation ---
     var multiFiles = window.multiArtworkFiles || [];
+    console.log('[DEBUG] Attachment validation - multiFiles count:', multiFiles.length);
+
     if (!multiFiles || multiFiles.length === 0) {
       showCustomPopup('Please upload at least one attachment in the Additional Artwork(s) section.', true);
+
+      // Add visual indication to the upload area
+      const multiDropArea = document.getElementById('multi-artwork-drop-area');
+      if (multiDropArea) {
+        multiDropArea.style.borderColor = 'red';
+        multiDropArea.style.backgroundColor = '#ffe6e6';
+
+        // Reset visual indication after 3 seconds
+        setTimeout(() => {
+          multiDropArea.style.borderColor = '#aaa';
+          multiDropArea.style.backgroundColor = '#fafbfc';
+        }, 3000);
+      }
+
       $submitBtn.prop('disabled', false)
         .css({
           'background': '',
@@ -278,6 +530,13 @@ $(function() {
         });
       window.isSubmittingQuotation2 = false;
       return;
+    } else {
+      // Reset visual indication if validation passes
+      const multiDropArea = document.getElementById('multi-artwork-drop-area');
+      if (multiDropArea) {
+        multiDropArea.style.borderColor = '#aaa';
+        multiDropArea.style.backgroundColor = '#fafbfc';
+      }
     }
 
     // If form is not valid, show the single alert and stop submission
@@ -350,6 +609,21 @@ $(function() {
             });
         } else {
           showCustomPopup('Quotation saved successfully', false);
+
+          // Store current customer data for potential reuse
+          const selectedKeyPersonOption = $('#quotation2-keyperson option:selected');
+          window._lastQuotationCustomerData = {
+            company: $('#quotation2-company-input').val(),
+            companyId: $('#quotation2-company-id').val(),
+            keyPerson: selectedKeyPersonOption.text(),
+            keyPersonIndex: $('#quotation2-keyperson').val()
+          };
+
+          // Show post-submission options popup immediately
+          setTimeout(() => {
+            showPostSubmissionOptionsPopup();
+          }, 100);
+
           setTimeout(() => {
             if (response.quotation_block) {
               $('#quotation-block-content').html('<pre style="font-size:1.1em;">' + response.quotation_block + '</pre>');
@@ -2743,6 +3017,35 @@ function saveQuotationChanges() {
     const removedAttachments = window._removedQuotationAttachments || [];
     if (removedAttachments.length > 0) {
         formData.append('removed_attachments', JSON.stringify(removedAttachments.map(att => att.filename)));
+    }
+
+    // --- Attachment validation for edit mode ---
+    const currentAttachments = window._currentQuotationAttachments || [];
+    const totalAttachments = currentAttachments.length + newAttachments.length - removedAttachments.length;
+
+    console.log('[DEBUG] Edit mode attachment validation:');
+    console.log('  Current attachments:', currentAttachments.length);
+    console.log('  New attachments:', newAttachments.length);
+    console.log('  Removed attachments:', removedAttachments.length);
+    console.log('  Total attachments after changes:', totalAttachments);
+
+    if (totalAttachments < 1) {
+        hideLoadingOverlay();
+        showCustomPopup('At least 1 attachment must be present in the Additional Artwork(s) section. Please add an attachment before saving.', true);
+
+        // Add visual indication to the upload area
+        const editDropArea = document.getElementById('edit-multi-artwork-drop-area');
+        if (editDropArea) {
+            editDropArea.style.borderColor = 'red';
+            editDropArea.style.backgroundColor = '#ffe6e6';
+
+            // Reset visual indication after 3 seconds
+            setTimeout(() => {
+                editDropArea.style.borderColor = '#aaa';
+                editDropArea.style.backgroundColor = '#fafbfc';
+            }, 3000);
+        }
+        return;
     }
 
     // Call the backend endpoint to update the quotation

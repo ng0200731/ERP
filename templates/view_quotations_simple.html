@@ -131,7 +131,7 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.3.09</span>
+            <span class="version-tag">v1.3.12</span>
         </div>
         <button class="refresh-btn" onclick="loadData()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -197,15 +197,27 @@
                 return '<tr><td colspan="16" style="text-align: center;">No quotation records found.</td></tr>';
             }
 
-            return data.map(row => `
-                <tr>
+            return data.map(row => {
+                // Generate proper status display based on revision count and current status
+                let displayStatus = row.status || 'quotation complete';
+                if (displayStatus === 'quotation complete' && row.revision_count >= 1) {
+                    displayStatus = `quotation complete (#${row.revision_count})`;
+                }
+
+                // Add line breaks for long status text
+                displayStatus = displayStatus.replace(/quotation complete/g, 'quotation<br>complete')
+                                           .replace(/submitted to customer/g, 'submitted to<br>customer')
+                                           .replace(/price approved/g, 'price<br>approved');
+
+                return `
+                <tr data-id="${row.id}">
                     <td class="sticky sticky-id">${row.id || ''}</td>
                     <td class="sticky sticky-customer">${row.customer_name || ''}</td>
                     <td class="sticky sticky-keyperson">${row.key_person_name || ''}</td>
                     <td class="sticky sticky-itemcode" style="font-family: monospace;">${row.customer_item_code || ''}</td>
                     <td class="sticky sticky-artwork">${row.artwork_image ? `<img src="/${row.artwork_image.replace(/^uploads\//, 'uploads/')}" style="max-width:100%;max-height:60px;object-fit:contain;display:block;margin:auto;border:1px solid #ccc;border-radius:4px;" loading="lazy">` : ''}</td>
-                    <td class="sticky sticky-status">${row.status || '-'}</td>
-                    <td class="sticky sticky-action" style="overflow:visible;">${row.action ? `<button class='action-btn' data-id='${row.id}'>Action</button>` : '-'}</td>
+                    <td class="sticky sticky-status status-cell" data-original-status="${row.status || 'quotation complete'}" style="font-size:0.85em; color:#666;">${displayStatus}</td>
+                    <td class="sticky sticky-action" style="overflow:visible;"><button class='action-btn' data-id='${row.id}'>Action</button></td>
                     <td class="creator-email">${formatCreatorEmail(row.creator_email) || ''}</td>
                     <td>${row.quality || ''}</td>
                     <td>${row.flat_or_raised || ''}</td>
@@ -219,7 +231,8 @@
                     <td class="timestamp">${formatDate(row.last_updated)}</td>
                     <td>${row.revision_count || 0}</td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function loadData() {
@@ -245,6 +258,65 @@
 
         // Load data when page loads
         loadData();
+
+        // Function to determine button states based on current status
+        function getButtonStates(currentStatus) {
+            const disabledStyle = 'opacity:0.4;color:#999;cursor:not-allowed;';
+            const activeStyle = '';
+
+            console.log('[DEBUG] getButtonStates called with status:', currentStatus);
+
+            // View is ALWAYS active regardless of status
+            let states = {
+                view: { text: 'View', style: activeStyle, disabled: false },
+                submitted: { style: disabledStyle, disabled: true },
+                priceApproved: { style: disabledStyle, disabled: true },
+                startSampling: { style: disabledStyle, disabled: true }
+            };
+
+            // Normalize status for comparison (handle line breaks and extra spaces)
+            const normalizedStatus = currentStatus.toLowerCase().replace(/\s+/g, ' ').trim();
+            console.log('[DEBUG] Original status:', `"${currentStatus}"`);
+            console.log('[DEBUG] Normalized status:', `"${normalizedStatus}"`);
+            console.log('[DEBUG] Contains sampling?', normalizedStatus.includes('sampling'));
+
+            // TEMPORARY TEST: Force sampling status for debugging
+            if (normalizedStatus.includes('sampling')) {
+                // Status 4: Only View (read-only) active - ALL OTHER BUTTONS DISABLED
+                states.view = { text: 'View', style: activeStyle, disabled: false };
+                states.submitted = { style: disabledStyle, disabled: true };
+                states.priceApproved = { style: disabledStyle, disabled: true };
+                states.startSampling = { style: disabledStyle, disabled: true };
+                console.log('[DEBUG] FORCED Status 4 - sampling (only View active, all others disabled)');
+            } else if (normalizedStatus === 'quotation complete' || normalizedStatus.includes('quotation complete (#') ||
+                normalizedStatus === '-' || normalizedStatus === '' || !currentStatus) {
+                // Status 1: View (edit) + Submitted to Customer active (includes empty/null status)
+                states.view = { text: 'View (edit)', style: activeStyle, disabled: false };
+                states.submitted = { style: activeStyle, disabled: false };
+                console.log('[DEBUG] Status 1 - quotation complete');
+            } else if (normalizedStatus.includes('submitted to customer')) {
+                // Status 2: View (read-only) + Price Approved active, others DISABLED
+                states.view = { text: 'View', style: activeStyle, disabled: false };
+                states.submitted = { style: disabledStyle, disabled: true };
+                states.priceApproved = { style: activeStyle, disabled: false };
+                states.startSampling = { style: disabledStyle, disabled: true };
+                console.log('[DEBUG] Status 2 - submitted to customer');
+            } else if (normalizedStatus.includes('price approved')) {
+                // Status 3: View (read-only) + Start Sampling active, others DISABLED
+                states.view = { text: 'View', style: activeStyle, disabled: false };
+                states.submitted = { style: disabledStyle, disabled: true };
+                states.priceApproved = { style: disabledStyle, disabled: true };
+                states.startSampling = { style: activeStyle, disabled: false };
+                console.log('[DEBUG] Status 3 - price approved');
+            } else {
+                // Default case: if status is empty or unknown, at least View should be active
+                states.view = { text: 'View', style: activeStyle, disabled: false };
+                console.log('[DEBUG] Default case - unknown status:', normalizedStatus);
+            }
+
+            console.log('[DEBUG] Final button states:', states);
+            return states;
+        }
 
         // Add JS to create a floating dropdown menu in the document body
         (function() {
@@ -280,32 +352,108 @@
                     openDropdown.style.boxShadow = '0 4px 16px rgba(0,0,0,0.18)';
                     openDropdown.style.zIndex = '99999';
                     openDropdown.style.minWidth = '180px';
+                    // Get current status to determine button states
+                    const currentRow = document.querySelector(`tr[data-id="${id}"]`);
+                    const statusCell = currentRow ? currentRow.querySelector('.status-cell') : null;
+                    const currentStatus = statusCell ? statusCell.getAttribute('data-original-status') || '' : '';
+                    console.log('[DEBUG] Original status from data attribute:', currentStatus);
+                    console.log('[DEBUG] Status cell element:', statusCell);
+
+                    // Determine button states based on status
+                    const buttonStates = getButtonStates(currentStatus);
+                    console.log('[DEBUG] Button states for dropdown:', buttonStates);
+                    console.log('[DEBUG] Creating dropdown for ID:', id, 'Status:', currentStatus);
+
                     openDropdown.innerHTML = `
-                        <div class='action-dropdown-item' data-action='view' data-id='${id}' style='padding:10px 18px;cursor:pointer;'>View (edit)</div>
-                        <div class='action-dropdown-item' data-action='send-email' data-id='${id}' style='padding:10px 18px;cursor:pointer;'>Send Email</div>
-                        <div class='action-dropdown-item' data-action='price-approved' data-id='${id}' style='padding:10px 18px;cursor:pointer;'>Price Approved</div>
-                        <div class='action-dropdown-item' data-action='start-sampling' data-id='${id}' style='padding:10px 18px;cursor:pointer;'>Start Sampling</div>
+                        <div class='action-dropdown-item' data-action='view' data-id='${id}' style='padding:10px 18px;cursor:pointer;${buttonStates.view.style}'>${buttonStates.view.text}</div>
+                        <div class='action-dropdown-item' data-action='submitted-to-customer' data-id='${id}' style='padding:10px 18px;cursor:pointer;${buttonStates.submitted.style}' ${buttonStates.submitted.disabled ? 'data-disabled="true"' : ''}>Submitted to Customer</div>
+                        <div class='action-dropdown-item' data-action='price-approved' data-id='${id}' style='padding:10px 18px;cursor:pointer;${buttonStates.priceApproved.style}' ${buttonStates.priceApproved.disabled ? 'data-disabled="true"' : ''}>Price Approved</div>
+                        <div class='action-dropdown-item' data-action='start-sampling' data-id='${id}' style='padding:10px 18px;cursor:pointer;${buttonStates.startSampling.style}' ${buttonStates.startSampling.disabled ? 'data-disabled="true"' : ''}>Start Sampling</div>
                     `;
+                    console.log('[DEBUG] Dropdown HTML created:', openDropdown.innerHTML);
                     document.body.appendChild(openDropdown);
                     e.stopPropagation();
                 }
             });
-            // Add handler for View action
-            document.addEventListener('click', function(e) {
+            // Add handler for all action items (only once)
+            if (!window.actionHandlerAdded) {
+                window.actionHandlerAdded = true;
+                document.addEventListener('click', function(e) {
                 if (e.target.classList.contains('action-dropdown-item')) {
+                    // Close dropdown immediately when any item is clicked
+                    closeDropdown();
+
+                    // Check if button is disabled
+                    if (e.target.getAttribute('data-disabled') === 'true') {
+                        return; // Do nothing for disabled buttons
+                    }
+
                     const action = e.target.getAttribute('data-action');
                     const id = e.target.getAttribute('data-id');
+
                     if (action === 'view') {
+                        // Pass status information to view function for edit restrictions
+                        const currentRow = document.querySelector(`tr[data-id="${id}"]`);
+                        const statusCell = currentRow ? currentRow.querySelector('.status-cell') : null;
+                        const currentStatus = statusCell ? statusCell.getAttribute('data-original-status') || '' : '';
+                        // Allow editing for Status 1 (including empty/null status)
+                        const canEdit = (currentStatus === 'quotation complete' || currentStatus.startsWith('quotation complete (#') ||
+                                        currentStatus === '-' || currentStatus === '' || !currentStatus);
+
                         if (typeof showQuotationViewForm2 === 'function') {
-                            showQuotationViewForm2(id);
+                            showQuotationViewForm2(id, null, canEdit);
                         } else {
                             window.open(`/quotation2_view_select?id=${id}`, '_blank');
                         }
-                        closeDropdown();
+                    } else if (action === 'submitted-to-customer') {
+                        if (confirm('Are you sure you want to mark this quotation as submitted to customer?')) {
+                            updateQuotationStatus(id, action);
+                        }
+                    } else if (action === 'price-approved') {
+                        if (confirm('Are you sure you want to approve the price for this quotation?')) {
+                            updateQuotationStatus(id, action);
+                        }
+                    } else if (action === 'start-sampling') {
+                        if (confirm('Are you sure you want to start sampling for this quotation?')) {
+                            updateQuotationStatus(id, action);
+                        }
                     }
                 }
-            });
+                });
+            }
         })();
+
+        // Function to update quotation status via API
+        function updateQuotationStatus(quotationId, action) {
+            console.log(`[DEBUG] Updating quotation ${quotationId} with action: ${action}`);
+
+            fetch(`/quotation/status/${quotationId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ action: action })
+            })
+            .then(response => {
+                console.log(`[DEBUG] Response status: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                console.log('[DEBUG] Response data:', data);
+                if (data.error) {
+                    alert('Error updating status: ' + data.error);
+                } else {
+                    // Success - reload the data to reflect changes
+                    console.log('[DEBUG] Status updated successfully, reloading data...');
+                    loadData();
+                    alert('Status updated successfully!');
+                }
+            })
+            .catch(error => {
+                console.error('Error updating status:', error);
+                alert('Error updating status. Please try again.');
+            });
+        }
     </script>
 </body>
-</html> 
+</html>

@@ -1009,7 +1009,8 @@ def save_quotation():
                 artwork_image=artwork_image_path,
                 quotation_block=block,
                 action='created',
-                color_names=color_names_json
+                color_names=color_names_json,
+                status='quotation complete'  # Set initial status
             )
             db_session.add(quotation)
             db_session.commit()
@@ -1181,6 +1182,7 @@ def list_quotations():
                 'last_updated': to_iso_z(q.last_updated) if q.last_updated else None,
                 'artwork_image': q.artwork_image if q.artwork_image else None,
                 'action': q.action if hasattr(q, 'action') else '-',
+                'status': q.status if q.status else '-',
                 'revision_count': getattr(q, 'revision_count', 0)
             }
             records.append(record)
@@ -1410,6 +1412,12 @@ def api_get_quotation(quotation_id):
             quotation.last_updated = datetime.utcnow()
             # Increment revision count
             quotation.revision_count = (quotation.revision_count or 0) + 1
+
+            # Update status to show revision number
+            if quotation.revision_count > 1:
+                quotation.status = f'quotation complete (#{quotation.revision_count})'
+            else:
+                quotation.status = 'quotation complete'
             # Update color_names if present
             color_names_json = data.get('color_names')
             if color_names_json is not None:
@@ -1653,6 +1661,57 @@ def serve_quotation2_view_select():
     print('=== /quotation2_view_select ROUTE ACCESSED ===')
     v = '1.3.2'
     return render_template('quotation2_view_select.html', version=v)
+
+# Status update endpoints
+@app.route('/quotation/status/<int:quotation_id>', methods=['PUT'])
+def update_quotation_status(quotation_id):
+    """Update quotation status for workflow actions"""
+    try:
+        print(f"[DEBUG] API called for quotation {quotation_id}")
+        data = request.json
+        action = data.get('action')
+        print(f"[DEBUG] Action received: {action}")
+
+        # Map actions to status values
+        status_map = {
+            'submitted-to-customer': 'submitted to customer',
+            'price-approved': 'price approved',
+            'start-sampling': 'sampling'
+        }
+
+        if action not in status_map:
+            return jsonify({'error': 'Invalid action'}), 400
+
+        new_status = status_map[action]
+
+        # Update database
+        from sqlalchemy.orm import sessionmaker
+        engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        try:
+            quotation = session.query(Quotation).filter_by(id=quotation_id).first()
+            if not quotation:
+                return jsonify({'error': 'Quotation not found'}), 404
+
+            # Update status and timestamp
+            quotation.status = new_status
+            quotation.last_updated = datetime.utcnow()
+
+            session.commit()
+            return jsonify({'message': 'Status updated successfully', 'status': new_status}), 200
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error updating quotation status: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+        finally:
+            session.close()
+
+    except Exception as e:
+        logger.error(f"Error in update_quotation_status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 # Register blueprints
 app.register_blueprint(ht_database_bp)

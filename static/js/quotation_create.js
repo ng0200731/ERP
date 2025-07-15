@@ -2546,9 +2546,7 @@ function refreshQuotationDataInPlace(quotationId) {
         swapToReadOnlyFields();
 
         // Restore Edit button
-        $('#view-mode-buttons').html(
-            `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
-        );
+        $('#view-mode-buttons').html(getEditButtonHTML());
 
         // Clear any temporary data
         window._newQuotationAttachments = [];
@@ -2567,9 +2565,7 @@ function refreshQuotationDataInPlace(quotationId) {
         // Fallback: just switch to view mode with current data
         isEditMode = false;
         swapToReadOnlyFields();
-        $('#view-mode-buttons').html(
-            `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
-        );
+        $('#view-mode-buttons').html(getEditButtonHTML());
 
         // Reset save button state
         const saveBtn = $('#save-btn');
@@ -2993,7 +2989,18 @@ function swapToReadOnlyFields() {
     }
 }
 
-function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
+// Helper function to generate edit button HTML based on permissions
+function getEditButtonHTML() {
+  const canEdit = window.currentQuotationCanEdit || false;
+  return canEdit
+    ? `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
+    : `<span style="color:#999; font-style:italic;">Read-only (Status beyond completion)</span>`;
+}
+
+function showQuotationViewForm2(quotationId, overrideArtworkSrc, canEdit = true) {
+  // Store canEdit globally for use in restore operations
+  window.currentQuotationCanEdit = canEdit;
+
   // Use the same layout as create, but all fields are disabled/read-only
   // Updated version to 1.3.20
   $('#right-frame').html(`
@@ -3001,7 +3008,7 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
         <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.20 [quotation_create.js]</span></h2>
         <div id="view-mode-buttons">
-          <button id="edit-toggle-btn" type="button" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>
+          ${canEdit ? '<button id="edit-toggle-btn" type="button" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>' : '<span style="color:#999; font-style:italic;">Read-only (Status beyond completion)</span>'}
         </div>
       </div>
       <div style="display:flex; gap:32px; align-items:flex-start;">
@@ -3287,6 +3294,12 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
 
 
   $(document).off('click', '#edit-toggle-btn').on('click', '#edit-toggle-btn', function() {
+    // Check if editing is allowed based on status
+    if (!window.currentQuotationCanEdit) {
+      alert('This quotation cannot be edited because its status is beyond completion.');
+      return;
+    }
+
     window.isEditMode = true;
 
     // Create comprehensive data backup
@@ -3344,9 +3357,7 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
       swapToReadOnlyFields();
 
       // Restore Edit button
-      $('#view-mode-buttons').html(
-        `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
-      );
+      $('#view-mode-buttons').html(getEditButtonHTML());
 
       console.log('Cancel editing completed successfully');
     }).catch(error => {
@@ -3365,9 +3376,7 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc) {
       swapToReadOnlyFields();
 
       // Restore Edit button
-      $('#view-mode-buttons').html(
-        `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
-      );
+      $('#view-mode-buttons').html(getEditButtonHTML());
 
       // Restore artwork image view (fallback)
       const artworkDiv = $('#view-artwork-image');

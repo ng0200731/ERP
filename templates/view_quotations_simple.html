@@ -115,6 +115,32 @@
         .sticky-itemcode { left: 450px; z-index: 104; max-width: 160px; min-width: 140px; overflow: hidden; white-space: nowrap; background: #fff !important; }
         .sticky-artwork { left: 610px; z-index: 105; max-width: 140px; min-width: 120px; overflow: hidden; background: #fff !important; }
         .sticky-status { left: 750px; z-index: 106; max-width: 100px; min-width: 80px; overflow: hidden; white-space: nowrap; background: #fff !important; box-shadow: 2px 0 6px -2px #bbb; }
+
+        /* Status color coding */
+        .status-quotation-complete {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb) !important;
+            color: #1565c0 !important;
+            border-left: 4px solid #2196f3 !important;
+            font-weight: 500;
+        }
+        .status-submitted {
+            background: linear-gradient(135deg, #fff3e0, #ffcc02) !important;
+            color: #e65100 !important;
+            border-left: 4px solid #ff9800 !important;
+            font-weight: 500;
+        }
+        .status-price-approved {
+            background: linear-gradient(135deg, #f3e5f5, #ce93d8) !important;
+            color: #6a1b9a !important;
+            border-left: 4px solid #9c27b0 !important;
+            font-weight: 500;
+        }
+        .status-sampling {
+            background: linear-gradient(135deg, #e8f5e8, #a5d6a7) !important;
+            color: #2e7d32 !important;
+            border-left: 4px solid #4caf50 !important;
+            font-weight: 500;
+        }
         .sticky-action { left: 850px; z-index: 107; max-width: 100px; min-width: 80px; overflow: hidden; white-space: nowrap; background: #fff !important; box-shadow: 2px 0 6px -2px #bbb; }
 
         .quotation-table th {
@@ -131,7 +157,7 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.3.12</span>
+            <span class="version-tag">v1.3.13</span>
         </div>
         <button class="refresh-btn" onclick="loadData()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -200,9 +226,13 @@
             return data.map(row => {
                 // Generate proper status display based on revision count and current status
                 let displayStatus = row.status || 'quotation complete';
+                const originalStatus = displayStatus; // Store original for CSS class
                 if (displayStatus === 'quotation complete' && row.revision_count >= 1) {
                     displayStatus = `quotation complete (#${row.revision_count})`;
                 }
+
+                // Get status CSS class for color coding
+                const statusClass = getStatusClass(originalStatus);
 
                 // Add line breaks for long status text
                 displayStatus = displayStatus.replace(/quotation complete/g, 'quotation<br>complete')
@@ -216,7 +246,7 @@
                     <td class="sticky sticky-keyperson">${row.key_person_name || ''}</td>
                     <td class="sticky sticky-itemcode" style="font-family: monospace;">${row.customer_item_code || ''}</td>
                     <td class="sticky sticky-artwork">${row.artwork_image ? `<img src="/${row.artwork_image.replace(/^uploads\//, 'uploads/')}" style="max-width:100%;max-height:60px;object-fit:contain;display:block;margin:auto;border:1px solid #ccc;border-radius:4px;" loading="lazy">` : ''}</td>
-                    <td class="sticky sticky-status status-cell" data-original-status="${row.status || 'quotation complete'}" style="font-size:0.85em; color:#666;">${displayStatus}</td>
+                    <td class="sticky sticky-status status-cell ${statusClass}" data-original-status="${row.status || 'quotation complete'}" style="font-size:0.85em; padding: 8px 12px; text-align: center;">${displayStatus}</td>
                     <td class="sticky sticky-action" style="overflow:visible;"><button class='action-btn' data-id='${row.id}'>Action</button></td>
                     <td class="creator-email">${formatCreatorEmail(row.creator_email) || ''}</td>
                     <td>${row.quality || ''}</td>
@@ -258,6 +288,23 @@
 
         // Load data when page loads
         loadData();
+
+        // Function to get status CSS class for color coding
+        function getStatusClass(status) {
+            const normalizedStatus = status.toLowerCase().replace(/\s+/g, ' ').trim();
+
+            if (normalizedStatus.includes('sampling')) {
+                return 'status-sampling';
+            } else if (normalizedStatus.includes('price approved')) {
+                return 'status-price-approved';
+            } else if (normalizedStatus.includes('submitted to customer')) {
+                return 'status-submitted';
+            } else if (normalizedStatus === 'quotation complete' || normalizedStatus.includes('quotation complete (#') ||
+                       normalizedStatus === '-' || normalizedStatus === '' || !status) {
+                return 'status-quotation-complete';
+            }
+            return 'status-quotation-complete'; // Default
+        }
 
         // Function to determine button states based on current status
         function getButtonStates(currentStatus) {

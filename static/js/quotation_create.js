@@ -2992,9 +2992,14 @@ function swapToReadOnlyFields() {
 // Helper function to generate edit button HTML based on permissions
 function getEditButtonHTML() {
   const canEdit = window.currentQuotationCanEdit || false;
-  return canEdit
+  const dashboardBtn = `<button id="dashboard-btn" type="button" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;" onclick="if(window.parent && window.parent.loadDashboard) { window.parent.loadDashboard(); } else if(window.loadDashboard) { window.loadDashboard(); }">📊 Dashboard</button>`;
+  const returnBtn = `<button id="return-to-records-btn" type="button" style="background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">← Return to Records</button>`;
+
+  const editBtn = canEdit
     ? `<button id="edit-toggle-btn" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>`
     : `<span style="color:#999; font-style:italic;">Read-only (Status beyond completion)</span>`;
+
+  return dashboardBtn + returnBtn + editBtn;
 }
 
 function showQuotationViewForm2(quotationId, overrideArtworkSrc, canEdit = true) {
@@ -3006,11 +3011,8 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc, canEdit = true)
   $('#right-frame').html(`
     <form id="view-quotation-form" style="padding:32px;max-width:900px; min-height:100vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.21 [quotation_create.js]</span></h2>
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.22 [quotation_create.js]</span></h2>
         <div id="view-mode-buttons" style="display:flex; gap:12px; align-items:center;">
-          <button id="dashboard-btn" type="button" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;" onclick="if(window.parent && window.parent.loadDashboard) { window.parent.loadDashboard(); } else if(window.loadDashboard) { window.loadDashboard(); }">📊 Dashboard</button>
-          <button id="return-to-records-btn" type="button" style="background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">← Return to Records</button>
-          ${canEdit ? '<button id="edit-toggle-btn" type="button" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>' : '<span style="color:#999; font-style:italic;">Read-only (Status beyond completion)</span>'}
         </div>
       </div>
       <div style="display:flex; gap:32px; align-items:flex-start;">
@@ -3099,6 +3101,9 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc, canEdit = true)
 
   // Store the quotation ID on the form element for robust access
   $('#view-quotation-form').data('quotation-id', quotationId);
+
+  // Initialize view mode buttons
+  $('#view-mode-buttons').html(getEditButtonHTML());
 
   // --- Milestone 1: Edit/Cancel button logic ---
   let isEditMode = false;
@@ -3342,8 +3347,9 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc, canEdit = true)
 
     swapToEditFields(origImgSrc); // Pass the image src to edit mode
 
-    // Update buttons: show Cancel Editing and Save (disabled)
+    // Update buttons: show Dashboard, Cancel Editing and Save (disabled)
     $('#view-mode-buttons').html(`
+      <button id="dashboard-btn" type="button" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;" onclick="if(window.parent && window.parent.loadDashboard) { window.parent.loadDashboard(); } else if(window.loadDashboard) { window.loadDashboard(); }">📊 Dashboard</button>
       <button id="cancel-edit-btn" style="background:#dc3545; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Cancel Editing</button>
       <button id="save-btn" type="button" style="background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:not-allowed; margin-left:8px;" disabled>Save</button>
     `);

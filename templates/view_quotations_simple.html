@@ -157,7 +157,14 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.3.13</span>
+            <span class="version-tag">v1.4.02</span>
+            {% if permission_level == 1 %}
+                <span style="background:#ffc107;color:#212529;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">Level 1: Own Records Only</span>
+            {% elif permission_level >= 3 %}
+                <span style="background:#28a745;color:white;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">Level 3: All Records</span>
+            {% else %}
+                <span style="background:#dc3545;color:white;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">No Access</span>
+            {% endif %}
         </div>
         <button class="refresh-btn" onclick="loadData()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -166,7 +173,20 @@
             Refresh Data
         </button>
     </div>
-    
+
+    <!-- User Info Display -->
+    {% if user_email %}
+    <div style="padding:10px 20px;background:#e9ecef;border-left:4px solid #007bff;margin:0 20px 20px 20px;border-radius:4px;">
+        <strong>Logged in as:</strong> {{ user_email }}
+        <span style="color:#666;">(Permission Level {{ permission_level }})</span>
+        {% if permission_level == 1 %}
+            - <em>You can only view quotations you created</em>
+        {% elif permission_level >= 3 %}
+            - <em>You can view all quotations</em>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <div class="table-container">
         <table class="quotation-table">
             <thead>
@@ -220,7 +240,17 @@
 
         function createTableRows(data) {
             if (!data || data.length === 0) {
-                return '<tr><td colspan="16" style="text-align: center;">No quotation records found.</td></tr>';
+                // Get user permission level from template variables (if available)
+                const permissionLevel = {{ permission_level|default(1) }};
+                let message = 'No quotation records found.';
+
+                if (permissionLevel === 1) {
+                    message = 'No quotation records found that you created. Only quotations you create will appear here.';
+                } else if (permissionLevel >= 3) {
+                    message = 'No quotation records found in the system.';
+                }
+
+                return `<tr><td colspan="19" style="text-align: center; padding: 40px; color: #666; font-style: italic;">${message}</td></tr>`;
             }
 
             return data.map(row => {
@@ -278,11 +308,13 @@
                         throw new Error(data.error);
                     }
                     document.getElementById('quotation-table-body').innerHTML = createTableRows(data);
+                    updateLastUpdated();
                 })
                 .catch(error => {
                     console.error('Error loading data:', error);
-                    document.getElementById('quotation-table-body').innerHTML = 
+                    document.getElementById('quotation-table-body').innerHTML =
                         `<tr><td colspan="16" style="text-align: center; color: red;">Error loading data: ${error.message}</td></tr>`;
+                    updateLastUpdated();
                 });
         }
 
@@ -501,6 +533,28 @@
                 alert('Error updating status. Please try again.');
             });
         }
+
+        // Add last updated info with access control details
+        function updateLastUpdated() {
+            const now = new Date().toLocaleString();
+            const permissionLevel = {{ permission_level|default(1) }};
+            const userEmail = '{{ user_email|default("") }}';
+
+            let accessInfo = '';
+            if (permissionLevel === 1) {
+                accessInfo = ` | Showing only quotations created by ${userEmail}`;
+            } else if (permissionLevel >= 3) {
+                accessInfo = ' | Showing all quotations (Admin access)';
+            }
+
+            document.getElementById('last-updated').innerHTML =
+                `<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; color: #666; font-size: 0.9em;">
+                    <strong>Last updated:</strong> ${now}${accessInfo}
+                    <br><small>Version v1.4.02 | Access Level: ${permissionLevel}</small>
+                </div>`;
+        }
     </script>
+
+    <div id="last-updated"></div>
 </body>
 </html>

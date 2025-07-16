@@ -2,7 +2,7 @@ import os
 print('!!! TEST MARKER 123 !!!')
 print('server.py absolute path:', os.path.abspath(__file__))
 print('STARTING SERVER.PY')
-from flask import Flask, request, jsonify, send_from_directory, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, send_from_directory, render_template, session, redirect, url_for, make_response
 from flask_cors import CORS
 import sqlite3
 from datetime import datetime, timezone, timedelta
@@ -18,6 +18,17 @@ import pandas as pd
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import json
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.units import mm
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    print("Warning: reportlab not installed. PDF generation will not work.")
+    REPORTLAB_AVAILABLE = False
+import io
 from sqlalchemy import event, text
 
 # Set up logging
@@ -368,6 +379,9 @@ def dashboard():
             # Count sampling quotations
             sampling = base_query.filter(Quotation.status == 'sampling').count()
 
+            # Count sample card quotations
+            sample_card = base_query.filter(Quotation.status == 'sample card').count()
+
             db_session.close()
 
             return jsonify({
@@ -375,6 +389,7 @@ def dashboard():
                 'submitted_to_customer': submitted_to_customer,
                 'price_approved': price_approved,
                 'sampling': sampling,
+                'sample_card': sample_card,
                 'access_level': permission_level,
                 'filtered_for': user_email if permission_level == 1 else 'All users' if permission_level >= 3 else 'No access'
             })
@@ -386,6 +401,7 @@ def dashboard():
                 'submitted_to_customer': 0,
                 'price_approved': 0,
                 'sampling': 0,
+                'sample_card': 0,
                 'access_level': session.get('permission_level', 1),
                 'filtered_for': session.get('user', 'Unknown'),
                 'error': str(e)
@@ -1788,6 +1804,512 @@ def serve_quotation2_view_select():
     v = '1.3.2'
     return render_template('quotation2_view_select.html', version=v)
 
+def generate_sample_card_pdf(quotation):
+    """Generate Sample Card PDF for a quotation"""
+    if not REPORTLAB_AVAILABLE:
+        logger.error("ReportLab not available for PDF generation")
+        return None
+
+    try:
+        # Create PDF buffer
+        buffer = io.BytesIO()
+
+        # Create PDF document
+        doc = SimpleDocTemplate(buffer, pagesize=A4,
+                              rightMargin=20*mm, leftMargin=20*mm,
+                              topMargin=20*mm, bottomMargin=20*mm)
+
+        # Get styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'],
+                                   fontSize=18, spaceAfter=20, alignment=1)
+        header_style = ParagraphStyle('Header', parent=styles['Heading2'],
+                                    fontSize=12, spaceAfter=10)
+        normal_style = styles['Normal']
+
+        # Build PDF content
+        story = []
+
+        # Title
+        story.append(Paragraph("SAMPLE CARD", title_style))
+        story.append(Paragraph("Fu Chang Hong Kong", header_style))
+        story.append(Spacer(1, 10*mm))
+
+        # Parse color names from JSON
+        color_names = "N/A"
+        if quotation.color_names:
+            try:
+                colors_data = json.loads(quotation.color_names) if isinstance(quotation.color_names, str) else quotation.color_names
+                if isinstance(colors_data, list):
+                    color_names = ", ".join(colors_data)
+                else:
+                    color_names = str(colors_data)
+            except:
+                color_names = str(quotation.color_names)
+
+        # Get current datetime
+        now = datetime.now()
+        current_date = now.strftime("%Y-%m-%d")
+        current_time = now.strftime("%H:%M:%S")
+
+        # Get user email from session
+        user_email = session.get('user', 'system@fuchanghk.com')
+
+        # Create customer information table
+        customer_data = [
+            ['CUSTOMER INFORMATION'],
+            [f'Customer: {quotation.customer_name or "N/A"}'],
+            [f'Contact: {quotation.key_person_name or "N/A"}'],
+            [f'Item Code: {quotation.customer_item_code or "N/A"}'],
+            [f'Date: {current_date} {current_time}'],
+            [f'By: {user_email}']
+        ]
+
+        # Create product specifications (compact format)
+        product_specs = f'Dimensions: {quotation.width or "N/A"} × {quotation.length or "N/A"} mm | Quality: {quotation.quality or "N/A"} | Surface: {quotation.flat_or_raised or "N/A"} | Print: {quotation.direct_or_reverse or "N/A"}'
+
+        # Create production details table
+        production_data = [
+            ['PRODUCTION DETAILS'],
+            [f'Colors: {quotation.num_colors or 0} colors'],
+            [f'Color Names: {color_names}'],
+            [f'Thickness: {quotation.thickness or "N/A"}'],
+            [f'Quotation ID: {quotation.id}'],
+            [f'Created: {quotation.created_at.strftime("%Y-%m-%d") if quotation.created_at else "N/A"}'],
+            [f'Revision: #{quotation.revision_count or 0}'],
+            [f'Additional Files: {len(quotation.attachments) if quotation.attachments else 0}']
+        ]
+
+        # Create customer information table
+        customer_table = Table(customer_data, colWidths=[120*mm])
+        customer_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+
+        story.append(customer_table)
+        story.append(Spacer(1, 5*mm))
+
+        # Add product specifications header and compact content
+        story.append(Paragraph("PRODUCT SPECIFICATIONS", header_style))
+        story.append(Paragraph(product_specs, normal_style))
+        story.append(Spacer(1, 5*mm))
+
+        # Create production details table
+        production_table = Table(production_data, colWidths=[120*mm])
+        production_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+
+        story.append(production_table)
+        story.append(Spacer(1, 10*mm))
+
+        # Notes & Instructions section
+        notes_data = [
+            ['NOTES & INSTRUCTIONS'],
+            ['☐ Sample approved    ☐ Modifications required'],
+            ['☐ Proceed to production    ☐ Additional samples needed'],
+            [''],
+            ['Comments: ________________________________'],
+            ['          ________________________________'],
+        ]
+
+        notes_table = Table(notes_data, colWidths=[180*mm])
+        notes_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+
+        story.append(notes_table)
+        story.append(Spacer(1, 10*mm))
+
+        # Footer
+        footer_text = f"Generated: {now.strftime('%Y-%m-%d %H:%M:%S')} | System: v1.4.14<br/>Fu Chang Hong Kong - Sample Card System"
+        story.append(Paragraph(footer_text, normal_style))
+
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+
+        return buffer
+
+    except Exception as e:
+        logger.error(f"Error generating sample card PDF: {str(e)}")
+        return None
+
+def generate_sample_card_html(quotation):
+    """Generate Sample Card as HTML (fallback when ReportLab not available)"""
+    try:
+        # Parse color names from JSON
+        color_names = "N/A"
+        if quotation.color_names:
+            try:
+                colors_data = json.loads(quotation.color_names) if isinstance(quotation.color_names, str) else quotation.color_names
+                if isinstance(colors_data, list):
+                    color_names = ", ".join(colors_data)
+                else:
+                    color_names = str(colors_data)
+            except:
+                color_names = str(quotation.color_names)
+
+        # Get current datetime
+        now = datetime.now()
+        current_date = now.strftime("%Y-%m-%d")
+        current_time = now.strftime("%H:%M:%S")
+
+        # Get user email from session
+        user_email = session.get('user', 'system@fuchanghk.com')
+
+        # Create HTML content
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Card - {quotation.customer_item_code or quotation.id}</title>
+    <style>
+        @page {{ size: A4; margin: 15mm; }}
+        body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; }}
+
+        /* Header - 20% of space */
+        .header {{
+            height: 20%;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-bottom: 2px solid #000;
+            margin-bottom: 10px;
+        }}
+        .title {{ font-size: 28px; font-weight: bold; margin-bottom: 8px; }}
+        .company {{ font-size: 20px; color: #333; }}
+
+        /* Main Content - 70% of space */
+        .main-content {{
+            height: 70%;
+            display: flex;
+            flex-direction: column;
+        }}
+
+        /* Two-column layout for main content */
+        .content-row {{
+            display: flex;
+            flex: 1;
+            gap: 15px;
+            margin-bottom: 15px;
+        }}
+
+        /* Left column - Customer & Product info */
+        .left-column {{
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }}
+
+        /* Right column - Production details */
+        .right-column {{
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }}
+
+        /* Table styles */
+        .info-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }}
+        .info-table th, .info-table td {{
+            border: 1px solid #000;
+            padding: 6px;
+            text-align: left;
+            font-size: 12px;
+        }}
+        .info-table th {{
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 11px;
+        }}
+
+        /* Compact product specifications - 1 line format */
+        .product-specs {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 8px;
+            border: 1px solid #000;
+            background-color: #f9f9f9;
+            font-size: 11px;
+        }}
+        .spec-item {{
+            white-space: nowrap;
+        }}
+        .spec-label {{
+            font-weight: bold;
+        }}
+
+        /* Production details - vertical layout */
+        .production-details {{
+            border: 1px solid #000;
+            padding: 8px;
+            height: 100%;
+        }}
+        .production-title {{
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 11px;
+            padding: 4px;
+            margin: -8px -8px 8px -8px;
+            text-align: center;
+        }}
+        .production-item {{
+            margin-bottom: 8px;
+            font-size: 11px;
+            padding: 3px 0;
+            border-bottom: 1px dotted #ccc;
+        }}
+        .production-label {{
+            font-weight: bold;
+            display: block;
+        }}
+        .production-value {{
+            color: #333;
+        }}
+
+        /* Notes section */
+        .notes-section {{
+            margin-top: auto;
+        }}
+        .notes-table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+        .notes-table th, .notes-table td {{
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+            font-size: 12px;
+        }}
+        .notes-table th {{
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }}
+        .checkbox {{
+            font-size: 14px;
+            margin-right: 8px;
+        }}
+
+        /* Footer - 10% of space */
+        .footer {{
+            height: 10%;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-top: 1px solid #ccc;
+            margin-top: 10px;
+        }}
+    </style>
+</head>
+<body>
+    <!-- Header Section - 20% of space -->
+    <div class="header">
+        <div class="title">SAMPLE CARD</div>
+        <div class="company">Fu Chang Hong Kong</div>
+    </div>
+
+    <!-- Main Content Section - 70% of space -->
+    <div class="main-content">
+        <div class="content-row">
+            <!-- Left Column - Customer & Product Info -->
+            <div class="left-column">
+                <!-- Customer Information -->
+                <table class="info-table">
+                    <tr>
+                        <th colspan="2">CUSTOMER INFORMATION</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Customer:</strong></td>
+                        <td>{quotation.customer_name or 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Contact:</strong></td>
+                        <td>{quotation.key_person_name or 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Item Code:</strong></td>
+                        <td>{quotation.customer_item_code or 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Date:</strong></td>
+                        <td>{current_date} {current_time}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>By:</strong></td>
+                        <td>{user_email}</td>
+                    </tr>
+                </table>
+
+                <!-- Product Specifications - Compact 1 line format -->
+                <div style="margin-bottom: 10px;">
+                    <div style="background-color: #f0f0f0; font-weight: bold; font-size: 11px; padding: 4px; border: 1px solid #000; margin-bottom: 2px;">
+                        PRODUCT SPECIFICATIONS
+                    </div>
+                    <div class="product-specs">
+                        <span class="spec-item"><span class="spec-label">Dimensions:</span> {quotation.width or 'N/A'} × {quotation.length or 'N/A'} mm</span>
+                        <span class="spec-item"><span class="spec-label">Quality:</span> {quotation.quality or 'N/A'}</span>
+                        <span class="spec-item"><span class="spec-label">Surface:</span> {quotation.flat_or_raised or 'N/A'}</span>
+                        <span class="spec-item"><span class="spec-label">Print:</span> {quotation.direct_or_reverse or 'N/A'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Production Details (Vertical) -->
+            <div class="right-column">
+                <div class="production-details">
+                    <div class="production-title">PRODUCTION DETAILS</div>
+
+                    <div class="production-item">
+                        <span class="production-label">Colors:</span>
+                        <span class="production-value">{quotation.num_colors or 0} colors</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Color Names:</span>
+                        <span class="production-value">{color_names}</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Thickness:</span>
+                        <span class="production-value">{quotation.thickness or 'N/A'}</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Quotation ID:</span>
+                        <span class="production-value">{quotation.id}</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Created:</span>
+                        <span class="production-value">{quotation.created_at.strftime('%Y-%m-%d') if quotation.created_at else 'N/A'}</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Revision:</span>
+                        <span class="production-value">#{quotation.revision_count or 0}</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Additional Files:</span>
+                        <span class="production-value">{len(quotation.attachments) if quotation.attachments else 0}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Section -->
+        <div class="notes-section">
+            <table class="notes-table">
+                <tr>
+                    <th>NOTES & INSTRUCTIONS</th>
+                </tr>
+                <tr>
+                    <td>
+                        <span class="checkbox">☐</span> Sample approved &nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="checkbox">☐</span> Modifications required &nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="checkbox">☐</span> Proceed to production
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <span class="checkbox">☐</span> Additional samples needed &nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="checkbox">☐</span> Quality approved &nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="checkbox">☐</span> Ready for mass production
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>Comments:</strong> _______________________________________________
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        _______________________________________________
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Footer Section - 10% of space -->
+    <div class="footer">
+        <div>Generated: {now.strftime('%Y-%m-%d %H:%M:%S')} | System: v1.4.14</div>
+        <div>Fu Chang Hong Kong - Sample Card System</div>
+    </div>
+
+    <script>
+        // Auto-print when page loads
+        window.onload = function() {{
+            // Small delay to ensure page is fully loaded
+            setTimeout(function() {{
+                window.print();
+            }}, 500);
+        }};
+
+        // Add print button for manual printing
+        document.addEventListener('DOMContentLoaded', function() {{
+            const printBtn = document.createElement('button');
+            printBtn.innerHTML = '🖨️ Print Sample Card';
+            printBtn.style.cssText = 'position:fixed;top:10px;right:10px;padding:10px 15px;background:#007bff;color:white;border:none;border-radius:5px;cursor:pointer;z-index:1000;';
+            printBtn.onclick = function() {{ window.print(); }};
+            document.body.appendChild(printBtn);
+
+            // Hide print button when printing
+            window.addEventListener('beforeprint', function() {{
+                printBtn.style.display = 'none';
+            }});
+            window.addEventListener('afterprint', function() {{
+                printBtn.style.display = 'block';
+            }});
+        }});
+    </script>
+</body>
+</html>
+        """
+
+        return html_content
+
+    except Exception as e:
+        logger.error(f"Error generating sample card HTML: {{str(e)}}")
+        return None
+
 # Status update endpoints
 @app.route('/quotation/status/<int:quotation_id>', methods=['PUT'])
 def update_quotation_status(quotation_id):
@@ -1802,7 +2324,8 @@ def update_quotation_status(quotation_id):
         status_map = {
             'submitted-to-customer': 'submitted to customer',
             'price-approved': 'price approved',
-            'start-sampling': 'sampling'
+            'start-sampling': 'sampling',
+            'sample-card': 'sample card'
         }
 
         if action not in status_map:
@@ -1839,6 +2362,68 @@ def update_quotation_status(quotation_id):
         logger.error(f"Error in update_quotation_status: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/quotation/sample-card/<int:quotation_id>', methods=['GET'])
+def download_sample_card(quotation_id):
+    """Generate and download Sample Card PDF"""
+    print(f"[DEBUG] Sample Card PDF requested for quotation {quotation_id}")
+
+    if not REPORTLAB_AVAILABLE:
+        print("[ERROR] ReportLab not available")
+        return jsonify({'error': 'PDF generation not available - reportlab package not installed'}), 500
+
+    try:
+        # Get quotation from database
+        from sqlalchemy.orm import sessionmaker
+        engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        quotation = session.query(Quotation).filter_by(id=quotation_id).first()
+        if not quotation:
+            session.close()
+            return jsonify({'error': 'Quotation not found'}), 404
+
+        # Try PDF generation first
+        if REPORTLAB_AVAILABLE:
+            pdf_buffer = generate_sample_card_pdf(quotation)
+            if pdf_buffer:
+                session.close()
+                response = make_response(pdf_buffer.getvalue())
+                response.headers['Content-Type'] = 'application/pdf'
+                response.headers['Content-Disposition'] = f'attachment; filename="Sample_Card_{quotation.customer_item_code or quotation_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+                print(f"[INFO] Sample Card PDF generated successfully for quotation {quotation_id}")
+                return response
+
+        # Fallback to HTML version
+        print("[INFO] Using HTML fallback for sample card")
+        html_content = generate_sample_card_html(quotation)
+        session.close()
+
+        if not html_content:
+            return jsonify({'error': 'Failed to generate sample card'}), 500
+
+        # Return HTML that will auto-print
+        response = make_response(html_content)
+        response.headers['Content-Type'] = 'text/html'
+        print(f"[INFO] Sample Card HTML generated successfully for quotation {quotation_id}")
+        return response
+
+    except Exception as e:
+        logger.error(f"Error generating sample card PDF: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/test-sample-card')
+def test_sample_card():
+    """Test endpoint to check sample card generation"""
+    try:
+        return jsonify({
+            'reportlab_available': REPORTLAB_AVAILABLE,
+            'message': 'Sample card system ready',
+            'fallback': 'HTML version available' if not REPORTLAB_AVAILABLE else 'PDF version available'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Register blueprints
 app.register_blueprint(ht_database_bp)
 app.register_blueprint(quotation_bp)
@@ -1868,8 +2453,4 @@ if __name__ == '__main__':
     except Exception as e:
         print('ERROR STARTING SERVER:', e) 
 
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.close()
+# SQLite pragma setup will be handled per connection

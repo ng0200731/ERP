@@ -145,6 +145,12 @@
             border-left: 4px solid #4caf50 !important;
             font-weight: 500;
         }
+        .status-sample-card {
+            background: linear-gradient(135deg, #fce4ec, #f8bbd9) !important;
+            color: #ad1457 !important;
+            border-left: 4px solid #e91e63 !important;
+            font-weight: 500;
+        }
         .sticky-action { left: 850px; z-index: 107; max-width: 100px; min-width: 80px; overflow: hidden; white-space: nowrap; background: #fff !important; box-shadow: 2px 0 6px -2px #bbb; }
 
         .quotation-table th {
@@ -161,7 +167,7 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.4.05</span>
+            <span class="version-tag">v1.4.14</span>
             {% if permission_level == 1 %}
                 <span style="background:#ffc107;color:#212529;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">Level 1: Own Records Only</span>
             {% elif permission_level >= 3 %}
@@ -335,7 +341,9 @@
         function getStatusClass(status) {
             const normalizedStatus = status.toLowerCase().replace(/\s+/g, ' ').trim();
 
-            if (normalizedStatus.includes('sampling')) {
+            if (normalizedStatus.includes('sample card')) {
+                return 'status-sample-card';
+            } else if (normalizedStatus.includes('sampling')) {
                 return 'status-sampling';
             } else if (normalizedStatus.includes('price approved')) {
                 return 'status-price-approved';
@@ -360,7 +368,8 @@
                 view: { text: 'View', style: activeStyle, disabled: false },
                 submitted: { style: disabledStyle, disabled: true },
                 priceApproved: { style: disabledStyle, disabled: true },
-                startSampling: { style: disabledStyle, disabled: true }
+                startSampling: { style: disabledStyle, disabled: true },
+                sampleCard: { style: disabledStyle, disabled: true }
             };
 
             // Normalize status for comparison (handle line breaks and extra spaces)
@@ -369,14 +378,22 @@
             console.log('[DEBUG] Normalized status:', `"${normalizedStatus}"`);
             console.log('[DEBUG] Contains sampling?', normalizedStatus.includes('sampling'));
 
-            // TEMPORARY TEST: Force sampling status for debugging
-            if (normalizedStatus.includes('sampling')) {
-                // Status 4: Only View (read-only) active - ALL OTHER BUTTONS DISABLED
+            if (normalizedStatus.includes('sample card')) {
+                // Status 5: Sample Card completed - View and Sample Card active for re-download
                 states.view = { text: 'View', style: activeStyle, disabled: false };
                 states.submitted = { style: disabledStyle, disabled: true };
                 states.priceApproved = { style: disabledStyle, disabled: true };
                 states.startSampling = { style: disabledStyle, disabled: true };
-                console.log('[DEBUG] FORCED Status 4 - sampling (only View active, all others disabled)');
+                states.sampleCard = { text: 'Sample Card', style: activeStyle, disabled: false };
+                console.log('[DEBUG] Status 5 - sample card completed (View and Sample Card active for re-download)');
+            } else if (normalizedStatus.includes('sampling')) {
+                // Status 4: Sampling active - View + Sample Card active, others disabled
+                states.view = { text: 'View', style: activeStyle, disabled: false };
+                states.submitted = { style: disabledStyle, disabled: true };
+                states.priceApproved = { style: disabledStyle, disabled: true };
+                states.startSampling = { style: disabledStyle, disabled: true };
+                states.sampleCard = { style: activeStyle, disabled: false };
+                console.log('[DEBUG] Status 4 - sampling (View + Sample Card active)');
             } else if (normalizedStatus === 'quotation complete' || normalizedStatus.includes('quotation complete (#') ||
                 normalizedStatus === '-' || normalizedStatus === '' || !currentStatus) {
                 // Status 1: View (edit) + Submitted to Customer active (includes empty/null status)
@@ -505,6 +522,7 @@
                         <div class='action-dropdown-item' data-action='submitted-to-customer' data-id='${id}' style='padding:10px 18px;cursor:pointer;${buttonStates.submitted.style}' ${buttonStates.submitted.disabled ? 'data-disabled="true"' : ''}>Submitted to Customer</div>
                         <div class='action-dropdown-item' data-action='price-approved' data-id='${id}' style='padding:10px 18px;cursor:pointer;${buttonStates.priceApproved.style}' ${buttonStates.priceApproved.disabled ? 'data-disabled="true"' : ''}>Price Approved</div>
                         <div class='action-dropdown-item' data-action='start-sampling' data-id='${id}' style='padding:10px 18px;cursor:pointer;${buttonStates.startSampling.style}' ${buttonStates.startSampling.disabled ? 'data-disabled="true"' : ''}>Start Sampling</div>
+                        <div class='action-dropdown-item' data-action='sample-card' data-id='${id}' style='padding:10px 18px;cursor:pointer;${buttonStates.sampleCard.style}' ${buttonStates.sampleCard.disabled ? 'data-disabled="true"' : ''}>Sample Card</div>
                     `;
                     console.log('[DEBUG] Dropdown HTML created:', openDropdown.innerHTML);
                     document.body.appendChild(openDropdown);
@@ -553,11 +571,36 @@
                         if (confirm('Are you sure you want to start sampling for this quotation?')) {
                             updateQuotationStatus(id, action);
                         }
+                    } else if (action === 'sample-card') {
+                        if (confirm('Download Sample Card PDF? You can download this multiple times as needed.')) {
+                            // Generate and download the PDF (no status update - allows multiple downloads)
+                            generateSampleCardPDF(id);
+                            // Note: No status update here - allows users to download multiple times
+                        }
                     }
                 }
                 });
             }
         })();
+
+        // Function to generate and download Sample Card (allows multiple downloads)
+        function generateSampleCardPDF(quotationId) {
+            console.log(`[DEBUG] Generating Sample Card for quotation ${quotationId} (multiple downloads allowed)`);
+
+            // Open sample card in new window (will auto-print if HTML, or download if PDF)
+            const sampleCardWindow = window.open(`/quotation/sample-card/${quotationId}`, '_blank');
+
+            // Fallback: if popup blocked, try direct navigation
+            if (!sampleCardWindow) {
+                console.log('[DEBUG] Popup blocked, trying direct navigation');
+                window.location.href = `/quotation/sample-card/${quotationId}`;
+            }
+
+            console.log('[DEBUG] Sample Card generation initiated - no status update (allows re-download)');
+
+            // Note: No status update here - allows users to download multiple times
+            // Status remains "sample card" and Sample Card button stays active
+        }
 
         // Function to update quotation status via API
         function updateQuotationStatus(quotationId, action) {

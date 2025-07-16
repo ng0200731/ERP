@@ -38,7 +38,7 @@
     // Define permission level in global scope
     var userPermissionLevel = "{{ permission_level }}";
     // Define global version
-    var appVersion = "v1.4.05";
+    var appVersion = "v1.4.14";
     // Global variables
   </script>
 </head>
@@ -219,6 +219,12 @@
                   <div style="font-size:2rem;margin-bottom:10px;">🔬</div>
                   <div style="font-size:2.2rem;font-weight:bold;margin-bottom:6px;">${data.sampling || 0}</div>
                   <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Sampling</div>
+                </div>
+
+                <div style="background:#e91e63;border-radius:5px;padding:20px;text-align:center;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #ad1457;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='#ad1457'" onmouseout="this.style.background='#e91e63'">
+                  <div style="font-size:2rem;margin-bottom:10px;">🎯</div>
+                  <div style="font-size:2.2rem;font-weight:bold;margin-bottom:6px;">${data.sample_card || 0}</div>
+                  <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Sample Card</div>
                 </div>
               </div>
 

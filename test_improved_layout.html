@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Card Improved Layout - v1.4.12</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .fix { background: #e7f3ff; color: #0066cc; border: 1px solid #b3d9ff; }
+        .code-block { background: #f1f3f4; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+        .layout-demo { border: 2px solid #007bff; padding: 15px; margin: 15px 0; border-radius: 8px; }
+        .layout-section { margin: 10px 0; padding: 8px; border: 1px dashed #666; }
+        .header-demo { background: #e3f2fd; text-align: center; padding: 15px; }
+        .content-demo { background: #f3e5f5; padding: 15px; display: flex; gap: 15px; }
+        .left-demo { flex: 2; background: #e8f5e8; padding: 10px; }
+        .right-demo { flex: 1; background: #fff3e0; padding: 10px; }
+        .footer-demo { background: #fce4ec; text-align: center; padding: 8px; }
+    </style>
+</head>
+<body>
+    <h1>📄 Sample Card Improved Layout v1.4.12</h1>
+    
+    <div class="status success">
+        <strong>✅ Layout Improvements Implemented:</strong>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+            <li><strong>Header:</strong> 20% of space - Clean title and company</li>
+            <li><strong>Main Content:</strong> 70% of space - Two-column efficient layout</li>
+            <li><strong>Footer:</strong> 10% of space - Compact system info</li>
+            <li><strong>Product Specs:</strong> Compact 1-line format</li>
+            <li><strong>Production Details:</strong> Vertical layout in right corner</li>
+            <li><strong>STATUS & TRACKING:</strong> Removed for cleaner design</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h3>🎯 Layout Structure Comparison:</h3>
+        
+        <h4>Before (v1.4.11) - Problems:</h4>
+        <div class="status error">
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>❌ <strong>Product Specifications:</strong> Too much vertical space wasted</li>
+                <li>❌ <strong>STATUS & TRACKING:</strong> Unnecessary section taking space</li>
+                <li>❌ <strong>Production Details:</strong> Horizontal layout, inefficient</li>
+                <li>❌ <strong>Space Distribution:</strong> Uneven, poor utilization</li>
+                <li>❌ <strong>Overall:</strong> Cluttered, hard to read</li>
+            </ul>
+        </div>
+        
+        <h4>After (v1.4.12) - Improvements:</h4>
+        <div class="status success">
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>✅ <strong>Product Specifications:</strong> Compact 1-line format</li>
+                <li>✅ <strong>STATUS & TRACKING:</strong> Removed completely</li>
+                <li>✅ <strong>Production Details:</strong> Vertical layout in top-right</li>
+                <li>✅ <strong>Space Distribution:</strong> 20% header, 70% content, 10% footer</li>
+                <li>✅ <strong>Overall:</strong> Clean, professional, efficient</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📐 New Layout Structure:</h3>
+        
+        <div class="layout-demo">
+            <div class="layout-section header-demo">
+                <strong>HEADER SECTION (20%)</strong><br>
+                SAMPLE CARD<br>
+                Fu Chang Hong Kong
+            </div>
+            
+            <div class="layout-section content-demo">
+                <div class="left-demo">
+                    <strong>LEFT COLUMN (66%)</strong><br>
+                    • Customer Information Table<br>
+                    • Product Specifications (1-line)<br>
+                    • Notes & Instructions
+                </div>
+                <div class="right-demo">
+                    <strong>RIGHT COLUMN (33%)</strong><br>
+                    • Production Details<br>
+                    • Vertical Layout<br>
+                    • Covers Full Height
+                </div>
+            </div>
+            
+            <div class="layout-section footer-demo">
+                <strong>FOOTER SECTION (10%)</strong><br>
+                Generated timestamp | System version
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔧 Specific Changes Implemented:</h3>
+        
+        <h4>1. Product Specifications - Compact Format:</h4>
+        <div class="code-block">
+            <strong>Before (Multiple Rows):</strong><br>
+            | Dimensions: 340.0 × 250.0 mm | Colors: 8 colors     |<br>
+            | Quality: Silicon             | Color Names: YELLOW  |<br>
+            | Surface: Raised              | Thickness: 0.0       |<br>
+            | Print: Direct                | Quotation ID: 15     |<br>
+            <br>
+            <strong>After (Single Line):</strong><br>
+            PRODUCT SPECIFICATIONS<br>
+            Dimensions: 340.0 × 250.0 mm | Quality: Silicon | Surface: Raised | Print: Direct
+        </div>
+        
+        <h4>2. Production Details - Vertical Layout:</h4>
+        <div class="code-block">
+            <strong>Before (Horizontal in Table):</strong><br>
+            Mixed with other data in table rows<br>
+            <br>
+            <strong>After (Vertical in Right Column):</strong><br>
+            PRODUCTION DETAILS<br>
+            Colors: 8 colors<br>
+            Color Names: YELLOW, RED<br>
+            Thickness: 0.0<br>
+            Quotation ID: 15<br>
+            Created: 2025-07-16<br>
+            Revision: #0<br>
+            Additional Files: 1
+        </div>
+        
+        <h4>3. STATUS & TRACKING - Removed:</h4>
+        <div class="code-block">
+            <strong>Before:</strong><br>
+            STATUS & TRACKING section with:<br>
+            • Status: Sample Card<br>
+            • Additional Files: 1<br>
+            • Created/Updated timestamps<br>
+            • Revision count<br>
+            <br>
+            <strong>After:</strong><br>
+            ❌ Completely removed<br>
+            ✅ Important data moved to Production Details<br>
+            ✅ More space for essential information
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📱 CSS Layout Technology:</h3>
+        
+        <h4>Modern Flexbox Layout:</h4>
+        <div class="code-block">
+            <strong>Body Structure:</strong><br>
+            body { display: flex; flex-direction: column; height: 100vh; }<br>
+            <br>
+            <strong>Space Distribution:</strong><br>
+            .header { height: 20%; }<br>
+            .main-content { height: 70%; }<br>
+            .footer { height: 10%; }<br>
+            <br>
+            <strong>Two-Column Content:</strong><br>
+            .content-row { display: flex; gap: 15px; }<br>
+            .left-column { flex: 2; }<br>
+            .right-column { flex: 1; }
+        </div>
+        
+        <h4>Responsive Design Features:</h4>
+        <div class="code-block">
+            <strong>Print Optimization:</strong><br>
+            @page { size: A4; margin: 15mm; }<br>
+            <br>
+            <strong>Compact Typography:</strong><br>
+            • Headers: 11px-12px for efficiency<br>
+            • Content: 11px-12px for readability<br>
+            • Title: 28px for prominence<br>
+            <br>
+            <strong>Space Efficiency:</strong><br>
+            • Minimal padding/margins<br>
+            • Dotted borders for separation<br>
+            • Flex layouts for optimal space usage
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 Testing Instructions:</h3>
+        
+        <h4>Test 1: Visual Layout Check</h4>
+        <ol>
+            <li><strong>Generate Sample Card:</strong> Click Sample Card for any quotation</li>
+            <li><strong>Check Header:</strong> Should be ~20% of page height</li>
+            <li><strong>Check Content:</strong> Should be ~70% with two columns</li>
+            <li><strong>Check Footer:</strong> Should be ~10% at bottom</li>
+            <li><strong>Verify Proportions:</strong> Balanced, professional appearance</li>
+        </ol>
+        
+        <h4>Test 2: Content Verification</h4>
+        <ol>
+            <li><strong>Product Specs:</strong> Should be single line, compact</li>
+            <li><strong>Production Details:</strong> Should be vertical in right column</li>
+            <li><strong>STATUS & TRACKING:</strong> Should be completely absent</li>
+            <li><strong>Customer Info:</strong> Should be clean table format</li>
+            <li><strong>Notes Section:</strong> Should have checkboxes and comment lines</li>
+        </ol>
+        
+        <h4>Test 3: Print Quality</h4>
+        <ol>
+            <li><strong>Print Preview:</strong> Use browser's print preview</li>
+            <li><strong>Check A4 Fit:</strong> Should fit perfectly on A4 page</li>
+            <li><strong>Check Readability:</strong> All text should be clear</li>
+            <li><strong>Check Spacing:</strong> No overlapping or cramped sections</li>
+            <li><strong>Save as PDF:</strong> Test PDF generation quality</li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h3>🚀 Expected Results:</h3>
+        
+        <div class="status success">
+            <strong>✅ PASS Criteria:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Layout Structure:</strong>
+                    <ul>
+                        <li>Header takes exactly 20% of vertical space</li>
+                        <li>Main content takes exactly 70% of vertical space</li>
+                        <li>Footer takes exactly 10% of vertical space</li>
+                    </ul>
+                </li>
+                <li><strong>Content Organization:</strong>
+                    <ul>
+                        <li>Product Specifications in compact 1-line format</li>
+                        <li>Production Details in vertical right column</li>
+                        <li>STATUS & TRACKING section completely removed</li>
+                        <li>Customer information in clean table</li>
+                    </ul>
+                </li>
+                <li><strong>Visual Quality:</strong>
+                    <ul>
+                        <li>Professional, clean appearance</li>
+                        <li>Efficient space utilization</li>
+                        <li>Easy to read and understand</li>
+                        <li>Perfect A4 page fit</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>💡 Benefits of New Layout:</h3>
+        
+        <div class="status info">
+            <strong>User Experience Improvements:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Faster Reading:</strong> Information organized logically</li>
+                <li><strong>Better Printing:</strong> Optimal use of A4 page space</li>
+                <li><strong>Professional Look:</strong> Clean, modern design</li>
+                <li><strong>Essential Focus:</strong> Only important information shown</li>
+                <li><strong>Space Efficiency:</strong> No wasted vertical space</li>
+                <li><strong>Clear Structure:</strong> Easy to find specific information</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📊 Summary:</h3>
+        
+        <div class="status success">
+            <strong>🎉 Layout Optimization Complete:</strong><br>
+            The Sample Card now features a professional, space-efficient layout with proper proportions (20% header, 70% content, 10% footer), compact product specifications, vertical production details, and removal of unnecessary STATUS & TRACKING section. The result is a clean, readable document that maximizes information density while maintaining professional appearance.
+        </div>
+    </div>
+</body>
+</html>

@@ -346,6 +346,12 @@ def api_update_quotation(quotation_id):
         quotation.last_updated = datetime.utcnow()
         quotation.revision_count = (quotation.revision_count or 0) + 1
 
+        # Update status to show revision number
+        if quotation.revision_count > 1:
+            quotation.status = f'quotation complete (#{quotation.revision_count})'
+        else:
+            quotation.status = 'quotation complete'
+
         session.commit()
         session.close()
 

@@ -1,0 +1,253 @@
+<!-- Dashboard Content for Right Frame -->
+<style>
+  .dashboard-container {
+    padding: 30px;
+    max-width: 1000px;
+    margin: 0 auto;
+    font-family: Arial, sans-serif;
+  }
+
+  .dashboard-header {
+    text-align: center;
+    margin-bottom: 35px;
+  }
+
+  .dashboard-header h1 {
+    color: #333;
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+    font-weight: normal;
+  }
+
+  .dashboard-subtitle {
+    color: #666;
+    font-size: 1rem;
+  }
+  
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 15px;
+    margin-top: 25px;
+  }
+
+  .metric-card {
+    border-radius: 5px;
+    padding: 20px;
+    text-align: center;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: all 0.2s;
+    border: 1px solid;
+    background: #3498db;
+    font-family: Arial, sans-serif;
+  }
+
+  .metric-card:hover {
+    background: #217dbb;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  }
+
+  .metric-card.quotations {
+    background: #3498db;
+    border-color: #2980b9;
+  }
+
+  .metric-card.quotations:hover {
+    background: #217dbb;
+  }
+
+  .metric-card.submitted {
+    background: #9b59b6;
+    border-color: #8e44ad;
+  }
+
+  .metric-card.submitted:hover {
+    background: #8e44ad;
+  }
+
+  .metric-card.price-approved {
+    background: #27ae60;
+    border-color: #229954;
+  }
+
+  .metric-card.price-approved:hover {
+    background: #229954;
+  }
+
+  .metric-card.sampling {
+    background: #e67e22;
+    border-color: #d35400;
+  }
+
+  .metric-card.sampling:hover {
+    background: #d35400;
+  }
+  
+  .metric-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+
+  .metric-number {
+    font-size: 2.2rem;
+    font-weight: bold;
+    margin-bottom: 6px;
+  }
+
+  .metric-label {
+    font-size: 0.9rem;
+    font-weight: normal;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  
+
+  
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-size: 1rem;
+  }
+
+  .error {
+    text-align: center;
+    padding: 40px;
+    color: #e53935;
+    font-size: 1rem;
+  }
+  
+  .refresh-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 5px;
+    font-size: 15px;
+    cursor: pointer;
+    margin-top: 25px;
+    transition: background 0.2s;
+  }
+
+  .refresh-btn:hover {
+    background: #217dbb;
+  }
+  
+  .last-updated {
+    text-align: center;
+    margin-top: 20px;
+    color: #666;
+    font-size: 0.85rem;
+  }
+</style>
+
+<div class="dashboard-container">
+  <div class="dashboard-header">
+    <h1>📊 Dashboard</h1>
+    <div class="dashboard-subtitle">Real-time business metrics overview</div>
+    <div style="position:absolute;top:10px;right:15px;font-size:0.75rem;color:#999;background:#f0f0f0;padding:3px 8px;border-radius:3px;">v1.4.01</div>
+  </div>
+  
+  <div id="dashboard-content">
+    <div class="loading">
+      <div>Loading dashboard metrics...</div>
+    </div>
+  </div>
+  
+  <div style="text-align: center;">
+    <button class="refresh-btn" onclick="loadDashboardMetrics()">🔄 Refresh Data</button>
+  </div>
+  
+  <div class="last-updated" id="last-updated"></div>
+
+  <div style="text-align:center;margin-top:15px;font-size:0.8rem;color:#999;">
+    Dashboard v1.4.01 | <span id="refresh-status">Ready</span>
+  </div>
+</div>
+
+<script>
+function loadDashboardMetrics() {
+  $('#refresh-status').text('Loading...');
+  $('#dashboard-content').html('<div class="loading">Loading dashboard metrics...</div>');
+  
+  $.ajax({
+    url: '/dashboard',
+    method: 'GET',
+    success: function(data) {
+      console.log('Dashboard data received:', data);
+      
+      const metricsHtml = `
+        <div class="metrics-grid">
+          <div class="metric-card quotations">
+            <div class="metric-icon">📋</div>
+            <div class="metric-number">${data.total_quotations || 0}</div>
+            <div class="metric-label">Total Quotations</div>
+          </div>
+
+          <div class="metric-card submitted">
+            <div class="metric-icon">📤</div>
+            <div class="metric-number">${data.submitted_to_customer || 0}</div>
+            <div class="metric-label">Quoted to Customer</div>
+          </div>
+
+          <div class="metric-card price-approved">
+            <div class="metric-icon">✅</div>
+            <div class="metric-number">${data.price_approved || 0}</div>
+            <div class="metric-label">Price Approved</div>
+          </div>
+
+          <div class="metric-card sampling">
+            <div class="metric-icon">🔬</div>
+            <div class="metric-number">${data.sampling || 0}</div>
+            <div class="metric-label">Sampling</div>
+          </div>
+        </div>
+      `;
+      
+      $('#dashboard-content').html(metricsHtml);
+
+      // Update last updated time
+      const now = new Date();
+      const timeString = now.toLocaleString();
+      $('#last-updated').text(`Last updated: ${timeString}`);
+      $('#refresh-status').text('Loaded successfully');
+
+      if (data.error) {
+        console.warn('Dashboard loaded with error:', data.error);
+        $('#refresh-status').text('Loaded with warnings');
+      }
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading dashboard:', error);
+      $('#refresh-status').text('Error loading data');
+      $('#dashboard-content').html(`
+        <div class="error">
+          <div>❌ Error loading dashboard metrics</div>
+          <div style="margin-top: 10px; font-size: 0.9rem;">Status: ${xhr.status} ${xhr.statusText}</div>
+          <div style="margin-top: 5px; font-size: 0.8rem;">Please try refreshing the page or check console for details</div>
+        </div>
+      `);
+    }
+  });
+}
+
+// Load dashboard metrics when the page loads
+$(document).ready(function() {
+  console.log('[DASHBOARD v1.4.01] Loading dashboard...');
+
+  // Check if this is a hard refresh
+  if (performance.navigation.type === 1) {
+    console.log('[DASHBOARD] Hard refresh detected');
+    $('#refresh-status').text('Hard refresh detected');
+  } else if (performance.navigation.type === 0) {
+    console.log('[DASHBOARD] Normal page load');
+    $('#refresh-status').text('Normal load');
+  }
+
+  loadDashboardMetrics();
+
+  // Auto-refresh every 5 minutes
+  setInterval(loadDashboardMetrics, 5 * 60 * 1000);
+});
+</script>

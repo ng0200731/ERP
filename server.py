@@ -309,6 +309,51 @@ def serve_index():
     user_email = session.get('user', None)
     return render_template('index.html', permission_level=permission_level, user_email=user_email)
 
+@app.route('/dashboard')
+def dashboard():
+    """Dashboard page that serves the dashboard template"""
+    # Check if this is an AJAX request for metrics data
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
+        try:
+            from sqlalchemy.orm import sessionmaker
+            engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
+            Session = sessionmaker(bind=engine)
+            db_session = Session()
+
+            # Count total quotations
+            total_quotations = db_session.query(Quotation).count()
+
+            # Count submitted to customer quotations (quoted to customer)
+            submitted_to_customer = db_session.query(Quotation).filter(Quotation.status == 'submitted to customer').count()
+
+            # Count price approved quotations
+            price_approved = db_session.query(Quotation).filter(Quotation.status == 'price approved').count()
+
+            # Count sampling quotations
+            sampling = db_session.query(Quotation).filter(Quotation.status == 'sampling').count()
+
+            db_session.close()
+
+            return jsonify({
+                'total_quotations': total_quotations,
+                'submitted_to_customer': submitted_to_customer,
+                'price_approved': price_approved,
+                'sampling': sampling
+            })
+
+        except Exception as e:
+            logger.error(f"Error fetching dashboard metrics: {str(e)}")
+            return jsonify({
+                'total_quotations': 0,
+                'submitted_to_customer': 0,
+                'price_approved': 0,
+                'sampling': 0,
+                'error': str(e)
+            })
+    else:
+        # Serve the dashboard template for regular page loads
+        return render_template('dashboard.html')
+
 @app.route('/check_permission')
 def check_permission():
     # Return the user's permission level as JSON

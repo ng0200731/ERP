@@ -1,0 +1,200 @@
+<!-- Bootstrap CSS -->
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+  .tab-content { background: #fff; padding: 32px 40px; border-radius: 10px; box-shadow: 0 2px 16px #eee; min-width: 600px; }
+  .nav-tabs { justify-content: center; margin-bottom: 0; }
+  .nav-tabs .nav-link { font-size: 18px; padding: 10px 32px; }
+  .container { margin-top: 40px; display: flex; flex-direction: column; align-items: center; }
+  h2 { margin-bottom: 24px; }
+  #rules-list .rule-content { width: 220px !important; min-width: 220px; max-width: 220px; }
+  #rules-list .rule-add, #rules-list .rule-del { width: 36px; min-width: 36px; max-width: 36px; text-align: center; padding-left: 0; padding-right: 0; }
+  #rules-section-flex { display: flex; gap: 48px; align-items: flex-start; }
+  .rules-panel, .convert-panel {
+    background: #f8f9fa;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px #e0e0e0;
+    padding: 24px 20px 20px 20px;
+    min-width: 340px;
+    max-width: 520px;
+    flex: 1;
+  }
+  .convert-panel {
+    min-width: 240px;
+    max-width: 400px;
+    border-left: 3px solid #e0e0e0;
+    display: none; /* Hide by default */
+  }
+  .convert-disabled {
+    pointer-events: none;
+    opacity: 0.5;
+    filter: grayscale(0.2);
+  }
+  #updating-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .spinner {
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #3498db;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 18px;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .convert-panel-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.7);
+    z-index: 10;
+    border-radius: 10px;
+    cursor: not-allowed;
+    display: none;
+  }
+  .convert-panel.position-relative { position: relative; }
+</style>
+
+<div class="container">
+  <h2>Admin User Approvals</h2>
+  <ul class="nav nav-tabs" id="adminTab" role="tablist">
+    <li class="nav-item">
+      <a class="nav-link active" id="authorized-person-tab" data-toggle="tab" href="#authorized-person" role="tab">Authorized Person</a>
+    </li>
+  </ul>
+  <div class="tab-content w-100" id="adminTabContent">
+    <div class="tab-pane fade show active" id="authorized-person" role="tabpanel">
+      <h3>Authorized Persons</h3>
+      <div id="rules-section-flex">
+        <div class="rules-panel" style="overflow-x:auto;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <label style="font-weight:600; font-size:1.1rem; margin-bottom:0;">Rules</label>
+            <button class="btn btn-primary btn-sm rule-search">Search</button>
+            <button class="btn btn-secondary btn-sm rule-cancel">Reset</button>
+          </div>
+          <div id="rules-list">
+            <!-- Default rule row will be rendered by JavaScript -->
+            <div class="rule-row" data-idx="0" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <select class="rule-name form-control" style="width:140px;display:inline-block;">
+                <option value="">-- Select --</option>
+                <option value="email">Email</option>
+                <option value="status">Status</option>
+                <option value="permission">Permission Level</option>
+              </select>
+              <select class="rule-cond form-control" style="width:140px;display:inline-block;">
+                <option value="">-- Select --</option>
+                <option value="contains">contains</option>
+                <option value="not_contains">not contains</option>
+                <option value="starts_with">starts with</option>
+                <option value="ends_with">ends with</option>
+                <option value="equal">equal to</option>
+                <option value="not_equal">not equal</option>
+              </select>
+              <input type="text" class="rule-content form-control" style="width:220px;display:inline-block;" value="" placeholder="Enter value...">
+              <button class="btn btn-success btn-sm rule-add" style="margin-left:8px;">+</button>
+            </div>
+          </div>
+        </div>
+        <div id="convert-panel-container"></div>
+      </div>
+      <div id="user-filter-row" style="display:none;">
+        <input id="user-filter-input" class="form-control" style="width:220px;display:inline-block;" placeholder="Filter by email...">
+        <button class="btn btn-secondary btn-sm" id="batch-set-level">Set Level for Selected</button>
+        <select id="batch-level-select" class="form-control" style="width:180px;display:inline-block;">
+          <option value="">-- Select Level --</option>
+          <option value="none">-- No Level --</option>
+          <option value="1">Level 1 (Add/Edit)</option>
+          <option value="2">Level 2 (Add/Edit/Delete)</option>
+          <option value="3">Level 3 (Admin)</option>
+        </select>
+      </div>
+      <table class="table" id="users-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all-users"></th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Permission Level</th>
+            <th>Last Login</th>
+            <th>Last Updated</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal" tabindex="-1" role="dialog" id="userModal">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="userModalTitle">Add User</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="userForm">
+          <div class="form-group">
+            <label for="userEmail">Email</label>
+            <input type="email" class="form-control" id="userEmail" required>
+          </div>
+          <div class="form-group">
+            <label for="userLevel">Permission Level</label>
+            <select class="form-control" id="userLevel">
+              <option value="1">Level 1 (Add/Edit)</option>
+              <option value="2">Level 2 (Add/Edit/Delete)</option>
+              <option value="3">Level 3 (Admin)</option>
+            </select>
+          </div>
+          <input type="hidden" id="userId">
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="saveUserBtn">Save</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- jQuery (required for Bootstrap 4) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Bootstrap JS -->
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<!-- Custom App JS -->
+<script src="/static/js/app2.js"></script>
+<!-- Complete original admin functionality -->
+<script src="/static/js/admin_original.js"></script>
+
+<script>
+  // Ensure everything is loaded and ready
+  $(document).ready(function() {
+    console.log('Document ready - initializing admin interface');
+    // Initialize the rules UI
+    renderRules();
+    // Fetch users with a slight delay to ensure all functions are defined
+    setTimeout(function() {
+      console.log('Fetching users...');
+      fetchAndRenderUsers(true);
+    }, 500);
+  });
+</script>
+
+<div id="updating-overlay">
+  <div class="spinner"></div>
+  <div style="color:#fff;font-size:1.5rem;font-weight:600;">Updating...</div>
+</div>

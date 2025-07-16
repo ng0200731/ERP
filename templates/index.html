@@ -38,7 +38,7 @@
     // Define permission level in global scope
     var userPermissionLevel = "{{ permission_level }}";
     // Define global version
-    var appVersion = "v1.2.81";
+    var appVersion = "v1.4.01";
     // Global variables
   </script>
 </head>
@@ -75,7 +75,16 @@
     </div>
     <div class="right-frame" id="right-frame">
       <!-- Dynamic content goes here -->
-      <div id="welcome">Please select an option from the left.</div>
+      <div id="dashboard-default" style="padding:40px;text-align:center;">
+        <!-- Dashboard will be loaded here by default -->
+        <div style="color:#7f8c8d;font-size:1.1rem;">
+          <div style="margin-bottom:20px;">📊 Loading Dashboard v1.4.01...</div>
+          <div style="font-size:0.9rem;">Please wait while we load your dashboard metrics</div>
+          <div style="margin-top:20px;">
+            <button onclick="loadFallbackDashboard()" style="background:#3498db;color:white;border:none;padding:8px 18px;border-radius:5px;font-size:15px;cursor:pointer;">Force Load Dashboard</button>
+          </div>
+        </div>
+      </div>
       <!-- Static Quotation Create UI (no JS, no rules, just UI) -->
       <div id="quotation-create-form" style="display:none; padding:32px;max-width:600px; margin-top:40px;">
         <h2>Create Quotation</h2>
@@ -165,8 +174,117 @@
       showQuotationCreateForm2();
     });
 
+    // Fallback dashboard function
+    function loadFallbackDashboard() {
+      console.log('[INDEX v1.4.01] Loading fallback dashboard...');
+
+      // Clear any existing content
+      $('#right-frame').empty();
+
+      // Get dashboard data via AJAX
+      $.ajax({
+        url: '/dashboard?format=json',
+        method: 'GET',
+        success: function(data) {
+          const dashboardHtml = `
+            <div style="padding:30px;font-family:Arial,sans-serif;background:#f7fafd;min-height:400px;position:relative;">
+              <div style="position:absolute;top:10px;right:15px;font-size:0.75rem;color:#999;background:#f0f0f0;padding:3px 8px;border-radius:3px;">v1.4.01</div>
+              <div style="text-align:center;margin-bottom:25px;">
+                <h1 style="color:#333;font-size:1.8rem;margin-bottom:5px;font-weight:normal;">📊 Dashboard</h1>
+                <div style="color:#666;font-size:0.9rem;">Business metrics overview</div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:15px;max-width:1000px;margin:0 auto;">
+                <div style="background:#3498db;border-radius:5px;padding:20px;text-align:center;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #2980b9;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='#217dbb'" onmouseout="this.style.background='#3498db'">
+                  <div style="font-size:2rem;margin-bottom:10px;">📋</div>
+                  <div style="font-size:2.2rem;font-weight:bold;margin-bottom:6px;">${data.total_quotations || 0}</div>
+                  <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Total Quotations</div>
+                </div>
+
+                <div style="background:#9b59b6;border-radius:5px;padding:20px;text-align:center;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #8e44ad;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='#8e44ad'" onmouseout="this.style.background='#9b59b6'">
+                  <div style="font-size:2rem;margin-bottom:10px;">📤</div>
+                  <div style="font-size:2.2rem;font-weight:bold;margin-bottom:6px;">${data.submitted_to_customer || 0}</div>
+                  <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Quoted to Customer</div>
+                </div>
+
+                <div style="background:#27ae60;border-radius:5px;padding:20px;text-align:center;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #229954;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='#229954'" onmouseout="this.style.background='#27ae60'">
+                  <div style="font-size:2rem;margin-bottom:10px;">✅</div>
+                  <div style="font-size:2.2rem;font-weight:bold;margin-bottom:6px;">${data.price_approved || 0}</div>
+                  <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Price Approved</div>
+                </div>
+
+                <div style="background:#e67e22;border-radius:5px;padding:20px;text-align:center;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #d35400;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='#d35400'" onmouseout="this.style.background='#e67e22'">
+                  <div style="font-size:2rem;margin-bottom:10px;">🔬</div>
+                  <div style="font-size:2.2rem;font-weight:bold;margin-bottom:6px;">${data.sampling || 0}</div>
+                  <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Sampling</div>
+                </div>
+              </div>
+
+              <div style="text-align:center;margin-top:25px;">
+                <button onclick="loadFallbackDashboard()" style="background:#3498db;color:white;border:none;padding:8px 18px;border-radius:5px;font-size:15px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#217dbb'" onmouseout="this.style.background='#3498db'">🔄 Refresh Data</button>
+              </div>
+
+              <div style="text-align:center;margin-top:20px;color:#666;font-size:0.85rem;">
+                Last updated: ${new Date().toLocaleString()}
+              </div>
+
+              <div style="text-align:center;margin-top:10px;font-size:0.8rem;color:#999;">
+                Dashboard v1.4.01 | Fallback Mode
+              </div>
+            </div>
+          `;
+
+          $('#right-frame').html(dashboardHtml);
+        },
+        error: function(xhr, status, error) {
+          console.error('Fallback dashboard error:', error);
+          $('#right-frame').html(`
+            <div style="padding:40px;text-align:center;color:#e74c3c;">
+              <h2>❌ Dashboard Error</h2>
+              <p>Unable to load dashboard data</p>
+              <p>Status: ${xhr.status} ${xhr.statusText}</p>
+              <button onclick="location.reload()" style="background:#e74c3c;color:white;border:none;padding:12px 24px;border-radius:6px;font-size:1rem;cursor:pointer;margin-top:20px;">Refresh Page</button>
+            </div>
+          `);
+        }
+      });
+    }
+
     // Add handler for View Records button
     $(document).ready(function() {
+      // Load dashboard by default when page loads
+      console.log('[INDEX v1.4.01] Loading dashboard...');
+
+      // Force clear any cached content first
+      $('#right-frame').empty();
+
+      // Set a timeout to force fallback dashboard if main doesn't load
+      var dashboardTimeout = setTimeout(function() {
+        console.log('[INDEX] Dashboard load timeout - forcing fallback');
+        loadFallbackDashboard();
+      }, 3000);
+
+      // Try to load main dashboard
+      $('#right-frame').load('/dashboard', function(response, status, xhr) {
+        clearTimeout(dashboardTimeout); // Cancel timeout since we got a response
+
+        if (status == "error") {
+          console.error('[INDEX] Dashboard load error:', xhr.status, xhr.statusText);
+          console.log('[INDEX] Falling back to inline dashboard...');
+          // Load fallback dashboard immediately
+          loadFallbackDashboard();
+        } else {
+          console.log('[INDEX] Dashboard loaded successfully');
+          console.log('[INDEX] Response length:', response.length);
+
+          // Check if we actually got dashboard content
+          if (response.length < 100 || !response.includes('dashboard')) {
+            console.warn('[INDEX] Dashboard response seems invalid, using fallback');
+            loadFallbackDashboard();
+          }
+        }
+      });
+
       $('#btn-view-quotations').click(function() {
         $('#right-frame').load('/view_quotations_simple');
       });

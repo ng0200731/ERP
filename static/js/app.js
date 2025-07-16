@@ -85,7 +85,7 @@ let editStep1Data = {};
 let editStep2Data = {};
 
 $(function() {
-  $('#right-frame').empty();
+  // Don't clear right-frame on load to allow dashboard to load
   console.log('[INFO] Document ready, initializing app...');
   
   // Add network status monitoring

@@ -3006,8 +3006,9 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc, canEdit = true)
   $('#right-frame').html(`
     <form id="view-quotation-form" style="padding:32px;max-width:900px; min-height:100vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.20 [quotation_create.js]</span></h2>
+        <h2>View Quotation <span style='font-size:1rem;color:#888;'>v1.3.21 [quotation_create.js]</span></h2>
         <div id="view-mode-buttons" style="display:flex; gap:12px; align-items:center;">
+          <button id="dashboard-btn" type="button" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;" onclick="if(window.parent && window.parent.loadDashboard) { window.parent.loadDashboard(); } else if(window.loadDashboard) { window.loadDashboard(); }">📊 Dashboard</button>
           <button id="return-to-records-btn" type="button" style="background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">← Return to Records</button>
           ${canEdit ? '<button id="edit-toggle-btn" type="button" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Edit</button>' : '<span style="color:#999; font-style:italic;">Read-only (Status beyond completion)</span>'}
         </div>
@@ -3296,11 +3297,20 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc, canEdit = true)
 
   // Return to Records button handler
   $(document).off('click', '#return-to-records-btn').on('click', '#return-to-records-btn', function() {
+    // Close all dropdowns before navigating
+    if (window.closeAllDropdowns) {
+      window.closeAllDropdowns();
+    }
     // Load the quotation records page
     $('#right-frame').load('/view_quotations_simple');
   });
 
   $(document).off('click', '#edit-toggle-btn').on('click', '#edit-toggle-btn', function() {
+    // Close all dropdowns before entering edit mode
+    if (window.closeAllDropdowns) {
+      window.closeAllDropdowns();
+    }
+
     // Check if editing is allowed based on status
     if (!window.currentQuotationCanEdit) {
       alert('This quotation cannot be edited because its status is beyond completion.');

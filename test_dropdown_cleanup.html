@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dropdown Cleanup Test - v1.4.04</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-btn { padding: 8px 16px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .test-btn:hover { background: #0056b3; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Dropdown Cleanup Test v1.4.04</h1>
+    
+    <div class="status info">
+        <strong>Test Purpose:</strong> Verify that action dropdowns close properly when navigating or clicking buttons.
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 Test Instructions:</h3>
+        <ol>
+            <li>Go to <strong>Quotation Records</strong> page</li>
+            <li>Click an <strong>Action</strong> button to open the dropdown menu</li>
+            <li>Try the following actions and verify the dropdown closes:</li>
+            <ul>
+                <li>✅ Click outside the dropdown</li>
+                <li>✅ Click on any navigation button (Customer, Create, etc.)</li>
+                <li>✅ Click "Return to Records" from a quotation view</li>
+                <li>✅ Click "Edit" button in quotation view</li>
+                <li>✅ Scroll the page</li>
+                <li>✅ Switch browser tabs (blur event)</li>
+                <li>✅ Resize the window</li>
+            </ul>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h3>🎯 Expected Behavior:</h3>
+        <div class="status success">
+            <strong>✅ PASS:</strong> Dropdown should close immediately in all scenarios above
+        </div>
+        <div class="status" style="background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;">
+            <strong>❌ FAIL:</strong> Dropdown remains visible after navigation or actions
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔧 Technical Implementation:</h3>
+        <ul>
+            <li><strong>Global cleanup function:</strong> <code>window.closeAllDropdowns()</code></li>
+            <li><strong>Quotation dropdown cleanup:</strong> <code>window.closeQuotationDropdown()</code></li>
+            <li><strong>Event listeners:</strong> click, scroll, blur, resize, visibilitychange</li>
+            <li><strong>Navigation hooks:</strong> All navigation buttons call cleanup</li>
+            <li><strong>DOM observer:</strong> Watches for content changes in right-frame</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h3>🚀 Test Navigation:</h3>
+        <button class="test-btn" onclick="testNavigation('Customer')">Test Customer Navigation</button>
+        <button class="test-btn" onclick="testNavigation('Create')">Test Create Navigation</button>
+        <button class="test-btn" onclick="testNavigation('Quotation Records')">Test Quotation Records</button>
+        <button class="test-btn" onclick="testNavigation('Development')">Test Development</button>
+    </div>
+    
+    <div id="test-results" class="test-section" style="display: none;">
+        <h3>📊 Test Results:</h3>
+        <div id="results-content"></div>
+    </div>
+    
+    <script>
+        function testNavigation(section) {
+            const resultsDiv = document.getElementById('test-results');
+            const contentDiv = document.getElementById('results-content');
+            
+            resultsDiv.style.display = 'block';
+            contentDiv.innerHTML = `
+                <div class="status info">
+                    <strong>Testing ${section} Navigation...</strong><br>
+                    1. Open quotation records page<br>
+                    2. Click an Action button to open dropdown<br>
+                    3. Click ${section} navigation button<br>
+                    4. Verify dropdown closes automatically
+                </div>
+            `;
+            
+            // Simulate the test by checking if cleanup functions exist
+            setTimeout(() => {
+                let testResult = '';
+                
+                if (typeof window.closeAllDropdowns === 'function') {
+                    testResult += '<div class="status success">✅ Global cleanup function exists</div>';
+                } else {
+                    testResult += '<div class="status" style="background: #f8d7da; color: #721c24;">❌ Global cleanup function missing</div>';
+                }
+                
+                if (typeof window.closeQuotationDropdown === 'function') {
+                    testResult += '<div class="status success">✅ Quotation dropdown cleanup exists</div>';
+                } else {
+                    testResult += '<div class="status" style="background: #f8d7da; color: #721c24;">❌ Quotation dropdown cleanup missing</div>';
+                }
+                
+                contentDiv.innerHTML += testResult;
+                contentDiv.innerHTML += `
+                    <div class="status info">
+                        <strong>Manual Test Required:</strong> Please test manually in the actual application to verify dropdown behavior.
+                    </div>
+                `;
+            }, 1000);
+        }
+        
+        // Check if we're in the main application context
+        if (window.parent && window.parent !== window) {
+            document.body.innerHTML += `
+                <div class="status success">
+                    <strong>✅ Running in application context</strong><br>
+                    Global functions available: ${typeof window.parent.closeAllDropdowns === 'function' ? 'Yes' : 'No'}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

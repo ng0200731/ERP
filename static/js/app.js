@@ -108,18 +108,31 @@ $(function() {
   });
 
   // Left frame navigation
+  // Dashboard button - return to main landing page
+  $('#btn-dashboard').click(function() {
+    // Close all dropdowns before navigating
+    if (window.closeAllDropdowns) {
+      window.closeAllDropdowns();
+    }
+    // Load the dashboard by calling the same function as the main page
+    loadDashboard();
+  });
+
   $('#btn-customer').click(function() {
     $('#customer-nested').toggle();
   });
   $('#btn-development').click(function() {
+    if (window.closeAllDropdowns) window.closeAllDropdowns();
     $('#right-frame').html('<h2>Development Section</h2><p>Coming soon...</p>');
   });
   $('#btn-create').click(function() {
+    if (window.closeAllDropdowns) window.closeAllDropdowns();
     slide1Data = {};
     slide2Data = {};
     showCreateSlide1();
   });
   $('#btn-modify').click(function() {
+    if (window.closeAllDropdowns) window.closeAllDropdowns();
     console.log('[INFO] Modify button clicked, showing modify screen');
     showModify();
   });
@@ -191,6 +204,7 @@ $(function() {
     $('#quotation-nested').toggle();
   });
   $('#btn-quotation-create').on('click', function() {
+    if (window.closeAllDropdowns) window.closeAllDropdowns();
     showQuotationCreateForm();
   });
 
@@ -199,21 +213,160 @@ $(function() {
     $('#quotation2-nested').toggle();
   });
   $('#btn-quotation2-create2').click(function() {
+    if (window.closeAllDropdowns) window.closeAllDropdowns();
     showQuotationCreateForm2();
   });
   // Handle Quotation 2 Create (HT) button click
   $('#btn-quotation2-create2').on('click', function() {
+    if (window.closeAllDropdowns) window.closeAllDropdowns();
     showQuotationCreateForm2();
   });
   // Handle Quotation 2 View (HT) button click
   $('#btn-quotation2-view2').on('click', function() {
+    if (window.closeAllDropdowns) window.closeAllDropdowns();
     showQuotationCreateForm2(true); // pass viewMode=true
   });
   $('#btn-view-quotations').click(function() {
+    // Close all dropdowns before navigating
+    if (window.closeAllDropdowns) {
+      window.closeAllDropdowns();
+    }
     $('#right-frame').load('/view_quotations_simple');
   });
+
+  // Dashboard loading function (expose globally)
+  window.loadDashboard = function loadDashboard() {
+    console.log('[APP] Loading dashboard...');
+
+    // Force clear any cached content first
+    $('#right-frame').empty();
+
+    // Set a timeout to force fallback dashboard if main doesn't load
+    var dashboardTimeout = setTimeout(function() {
+      console.log('[APP] Dashboard load timeout - forcing fallback');
+      loadFallbackDashboard();
+    }, 3000);
+
+    // Try to load main dashboard
+    $('#right-frame').load('/dashboard', function(response, status, xhr) {
+      clearTimeout(dashboardTimeout); // Cancel timeout since we got a response
+
+      if (status == "error") {
+        console.error('[APP] Dashboard load error:', xhr.status, xhr.statusText);
+        console.log('[APP] Falling back to inline dashboard...');
+        // Load fallback dashboard immediately
+        loadFallbackDashboard();
+      } else {
+        console.log('[APP] Dashboard loaded successfully');
+        console.log('[APP] Response length:', response.length);
+
+        // Check if we actually got dashboard content
+        if (response.length < 100 || !response.includes('dashboard')) {
+          console.warn('[APP] Dashboard response seems invalid, using fallback');
+          loadFallbackDashboard();
+        }
+      }
+    });
+  }
+
+  // Fallback dashboard function (expose globally)
+  window.loadFallbackDashboard = function loadFallbackDashboard() {
+    console.log('[APP] Loading fallback dashboard...');
+
+    // Clear any existing content
+    $('#right-frame').empty();
+
+    // Show loading message first
+    $('#right-frame').html(`
+      <div style="padding:40px;text-align:center;">
+        <div style="color:#7f8c8d;font-size:1.1rem;">
+          <div style="margin-bottom:20px;">📊 Loading Dashboard v1.4.04...</div>
+          <div style="font-size:0.9rem;">Fetching your dashboard metrics...</div>
+        </div>
+      </div>
+    `);
+
+    // Fetch dashboard data and render
+    fetch('/dashboard?format=json')
+      .then(response => response.json())
+      .then(data => {
+        const dashboardHtml = generateDashboardHTML(data);
+        $('#right-frame').html(dashboardHtml);
+
+        // Update access control information in fallback dashboard
+        if (data.access_level && data.filtered_for) {
+          let accessBadge = '';
+          let accessText = '';
+
+          if (data.access_level === 1) {
+            accessBadge = '<span style="background:#ffc107;color:#212529;padding:4px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;margin-left:10px;">Level 1: Own Records Only</span>';
+            accessText = `Showing metrics for quotations created by: ${data.filtered_for}`;
+          } else if (data.access_level >= 3) {
+            accessBadge = '<span style="background:#28a745;color:white;padding:4px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;margin-left:10px;">Level 3: All Records</span>';
+            accessText = 'Showing metrics for all quotations in the system';
+          } else {
+            accessBadge = '<span style="background:#dc3545;color:white;padding:4px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;margin-left:10px;">No Access</span>';
+            accessText = 'No access to quotation data';
+          }
+
+          $('#fallback-access-info').html(accessBadge + '<br><small style="color:#888;">' + accessText + '</small>');
+        }
+      })
+      .catch(error => {
+        console.error('[APP] Error loading dashboard data:', error);
+        $('#right-frame').html(`
+          <div style="padding:40px;text-align:center;">
+            <div style="color:#e74c3c;font-size:1.1rem;">
+              <div style="margin-bottom:20px;">❌ Dashboard Load Error</div>
+              <div style="font-size:0.9rem;">Unable to load dashboard metrics</div>
+              <div style="margin-top:20px;">
+                <button onclick="loadDashboard()" style="background:#3498db;color:white;border:none;padding:8px 18px;border-radius:5px;font-size:15px;cursor:pointer;">🔄 Retry</button>
+              </div>
+            </div>
+          </div>
+        `);
+      });
+  }
+
+  // Generate dashboard HTML (helper function)
+  function generateDashboardHTML(data) {
+    return `
+      <div style="padding:30px;font-family:Arial,sans-serif;background:#f7fafd;min-height:400px;position:relative;">
+        <div style="position:absolute;top:10px;right:15px;font-size:0.75rem;color:#999;background:#f0f0f0;padding:3px 8px;border-radius:3px;">v1.4.04</div>
+        <div style="text-align:center;margin-bottom:25px;">
+          <h1 style="color:#333;font-size:1.8rem;margin-bottom:5px;font-weight:normal;">📊 Dashboard</h1>
+          <div style="color:#666;font-size:0.9rem;">Business metrics overview</div>
+          <div id="fallback-access-info" style="margin-top:10px;font-size:0.85rem;color:#666;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:25px;">
+          <div style="background:#3498db;color:white;padding:25px;border-radius:12px;text-align:center;box-shadow:0 4px 12px rgba(52,152,219,0.3);">
+            <div style="font-size:2.2rem;font-weight:bold;margin-bottom:8px;">${data.total_quotations || 0}</div>
+            <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Total Quotations</div>
+          </div>
+          <div style="background:#9b59b6;color:white;padding:25px;border-radius:12px;text-align:center;box-shadow:0 4px 12px rgba(155,89,182,0.3);">
+            <div style="font-size:2.2rem;font-weight:bold;margin-bottom:8px;">${data.submitted_to_customer || 0}</div>
+            <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Quoted to Customer</div>
+          </div>
+          <div style="background:#27ae60;color:white;padding:25px;border-radius:12px;text-align:center;box-shadow:0 4px 12px rgba(39,174,96,0.3);">
+            <div style="font-size:2.2rem;font-weight:bold;margin-bottom:8px;">${data.price_approved || 0}</div>
+            <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Price Approved</div>
+          </div>
+          <div style="background:#e67e22;color:white;padding:25px;border-radius:12px;text-align:center;box-shadow:0 4px 12px rgba(230,126,34,0.3);">
+            <div style="font-size:2.2rem;font-weight:bold;margin-bottom:8px;">${data.sampling || 0}</div>
+            <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Sampling</div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:25px;">
+          <button onclick="loadDashboard()" style="background:#3498db;color:white;border:none;padding:8px 18px;border-radius:5px;font-size:15px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#217dbb'" onmouseout="this.style.background='#3498db'">🔄 Refresh Data</button>
+        </div>
+        <div style="text-align:center;margin-top:10px;font-size:0.8rem;color:#999;">
+          Dashboard v1.4.04 | Navigation Mode
+        </div>
+      </div>
+    `;
+  }
 });
-  
+
   // --- Create Customer Flow ---
   
   function showCreateSlide1() {
@@ -998,6 +1151,15 @@ function renderSearchResultsWithKeyPeople(list) {
       $('.action-dropdown').fadeOut(100);
     }
   });
+
+  // Global function to close all dropdowns
+  window.closeAllDropdowns = function() {
+    $('.action-dropdown').fadeOut(100);
+    // Also close quotation action dropdowns if they exist
+    if (window.closeQuotationDropdown && typeof window.closeQuotationDropdown === 'function') {
+      window.closeQuotationDropdown();
+    }
+  };
 
   // Remove previous handlers to avoid duplicates
   $('#search-results').off('click', '.action-edit');

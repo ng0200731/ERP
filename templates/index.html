@@ -38,7 +38,7 @@
     // Define permission level in global scope
     var userPermissionLevel = "{{ permission_level }}";
     // Define global version
-    var appVersion = "v1.4.01";
+    var appVersion = "v1.4.05";
     // Global variables
   </script>
 </head>
@@ -51,6 +51,7 @@
   </div>
   <div class="container">
     <div class="left-frame">
+      <button id="btn-dashboard" style="background:#28a745;color:white;font-weight:bold;margin-bottom:8px;">📊 Dashboard</button>
       <button id="btn-customer">Customer</button>
       <div id="customer-nested" style="display:none; margin-left: 10px;">
         <button id="btn-create">Create</button>
@@ -188,10 +189,11 @@
         success: function(data) {
           const dashboardHtml = `
             <div style="padding:30px;font-family:Arial,sans-serif;background:#f7fafd;min-height:400px;position:relative;">
-              <div style="position:absolute;top:10px;right:15px;font-size:0.75rem;color:#999;background:#f0f0f0;padding:3px 8px;border-radius:3px;">v1.4.01</div>
+              <div style="position:absolute;top:10px;right:15px;font-size:0.75rem;color:#999;background:#f0f0f0;padding:3px 8px;border-radius:3px;">v1.4.03</div>
               <div style="text-align:center;margin-bottom:25px;">
                 <h1 style="color:#333;font-size:1.8rem;margin-bottom:5px;font-weight:normal;">📊 Dashboard</h1>
                 <div style="color:#666;font-size:0.9rem;">Business metrics overview</div>
+                <div id="fallback-access-info" style="margin-top:10px;font-size:0.85rem;color:#666;"></div>
               </div>
 
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:15px;max-width:1000px;margin:0 auto;">
@@ -229,12 +231,31 @@
               </div>
 
               <div style="text-align:center;margin-top:10px;font-size:0.8rem;color:#999;">
-                Dashboard v1.4.01 | Fallback Mode
+                Dashboard v1.4.03 | Fallback Mode
               </div>
             </div>
           `;
 
           $('#right-frame').html(dashboardHtml);
+
+          // Update access control information in fallback dashboard
+          if (data.access_level && data.filtered_for) {
+            let accessBadge = '';
+            let accessText = '';
+
+            if (data.access_level === 1) {
+              accessBadge = '<span style="background:#ffc107;color:#212529;padding:4px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;margin-left:10px;">Level 1: Own Records Only</span>';
+              accessText = `Showing metrics for quotations created by: ${data.filtered_for}`;
+            } else if (data.access_level >= 3) {
+              accessBadge = '<span style="background:#28a745;color:white;padding:4px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;margin-left:10px;">Level 3: All Records</span>';
+              accessText = 'Showing metrics for all quotations in the system';
+            } else {
+              accessBadge = '<span style="background:#dc3545;color:white;padding:4px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;margin-left:10px;">No Access</span>';
+              accessText = 'No access to quotation data';
+            }
+
+            $('#fallback-access-info').html(accessBadge + '<br><small style="color:#888;">' + accessText + '</small>');
+          }
         },
         error: function(xhr, status, error) {
           console.error('Fallback dashboard error:', error);

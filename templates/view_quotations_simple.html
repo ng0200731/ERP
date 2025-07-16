@@ -42,6 +42,10 @@
         .refresh-btn:hover {
             background: #0056b3;
         }
+
+        .dashboard-btn:hover {
+            background: #218838 !important;
+        }
         
         .quotation-table {
             width: 100%;
@@ -157,16 +161,42 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.3.13</span>
+            <span class="version-tag">v1.4.05</span>
+            {% if permission_level == 1 %}
+                <span style="background:#ffc107;color:#212529;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">Level 1: Own Records Only</span>
+            {% elif permission_level >= 3 %}
+                <span style="background:#28a745;color:white;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">Level 3: All Records</span>
+            {% else %}
+                <span style="background:#dc3545;color:white;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">No Access</span>
+            {% endif %}
         </div>
-        <button class="refresh-btn" onclick="loadData()">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 3a5 5 0 0 0-5 5H1l3.5 3.5L8 8H6a2 2 0 1 1 2 2v2a4 4 0 1 0-4-4H2a6 6 0 1 1 6 6v-2a4 4 0 0 0 0-8z"/>
-            </svg>
-            Refresh Data
-        </button>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <button class="dashboard-btn" onclick="if(window.parent && window.parent.loadDashboard) { window.parent.loadDashboard(); } else if(window.loadDashboard) { window.loadDashboard(); }" style="background:#28a745;color:white;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background-color 0.2s;">
+                <span>📊</span>
+                Dashboard
+            </button>
+            <button class="refresh-btn" onclick="loadData()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 3a5 5 0 0 0-5 5H1l3.5 3.5L8 8H6a2 2 0 1 1 2 2v2a4 4 0 1 0-4-4H2a6 6 0 1 1 6 6v-2a4 4 0 0 0 0-8z"/>
+                </svg>
+                Refresh Data
+            </button>
+        </div>
     </div>
-    
+
+    <!-- User Info Display -->
+    {% if user_email %}
+    <div style="padding:10px 20px;background:#e9ecef;border-left:4px solid #007bff;margin:0 20px 20px 20px;border-radius:4px;">
+        <strong>Logged in as:</strong> {{ user_email }}
+        <span style="color:#666;">(Permission Level {{ permission_level }})</span>
+        {% if permission_level == 1 %}
+            - <em>You can only view quotations you created</em>
+        {% elif permission_level >= 3 %}
+            - <em>You can view all quotations</em>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <div class="table-container">
         <table class="quotation-table">
             <thead>
@@ -220,7 +250,17 @@
 
         function createTableRows(data) {
             if (!data || data.length === 0) {
-                return '<tr><td colspan="16" style="text-align: center;">No quotation records found.</td></tr>';
+                // Get user permission level from template variables (if available)
+                const permissionLevel = {{ permission_level|default(1) }};
+                let message = 'No quotation records found.';
+
+                if (permissionLevel === 1) {
+                    message = 'No quotation records found that you created. Only quotations you create will appear here.';
+                } else if (permissionLevel >= 3) {
+                    message = 'No quotation records found in the system.';
+                }
+
+                return `<tr><td colspan="19" style="text-align: center; padding: 40px; color: #666; font-style: italic;">${message}</td></tr>`;
             }
 
             return data.map(row => {
@@ -278,11 +318,13 @@
                         throw new Error(data.error);
                     }
                     document.getElementById('quotation-table-body').innerHTML = createTableRows(data);
+                    updateLastUpdated();
                 })
                 .catch(error => {
                     console.error('Error loading data:', error);
-                    document.getElementById('quotation-table-body').innerHTML = 
+                    document.getElementById('quotation-table-body').innerHTML =
                         `<tr><td colspan="16" style="text-align: center; color: red;">Error loading data: ${error.message}</td></tr>`;
+                    updateLastUpdated();
                 });
         }
 
@@ -371,17 +413,64 @@
             let openBtn = null;
             function closeDropdown() {
                 if (openDropdown) {
-                    document.body.removeChild(openDropdown);
+                    try {
+                        document.body.removeChild(openDropdown);
+                    } catch (e) {
+                        // Element might already be removed
+                    }
                     openDropdown = null;
                     openBtn = null;
                 }
             }
+
+            // Expose closeDropdown globally for external access
+            window.closeQuotationDropdown = closeDropdown;
+
+            // Close dropdown on various events
             document.addEventListener('click', function(e) {
                 if (openDropdown && (!e.target.classList.contains('action-btn') && !e.target.classList.contains('action-dropdown-item'))) {
                     closeDropdown();
                 }
             });
             document.addEventListener('scroll', closeDropdown, true);
+
+            // Close dropdown when navigating away or page content changes
+            window.addEventListener('beforeunload', closeDropdown);
+            window.addEventListener('pagehide', closeDropdown);
+            window.addEventListener('blur', closeDropdown);
+
+            // Close dropdown on page visibility change
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden) {
+                    closeDropdown();
+                }
+            });
+
+            // Close dropdown on window resize (mobile orientation change, etc.)
+            window.addEventListener('resize', closeDropdown);
+
+            // Close dropdown when clicking on navigation links
+            document.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A' || e.target.closest('a') ||
+                    e.target.classList.contains('btn') || e.target.closest('.btn') ||
+                    e.target.id === 'return-to-records' || e.target.closest('#return-to-records')) {
+                    closeDropdown();
+                }
+            });
+
+            // Close dropdown when right-frame content changes
+            const rightFrame = document.getElementById('right-frame');
+            if (rightFrame) {
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                            closeDropdown();
+                        }
+                    });
+                });
+                observer.observe(rightFrame, { childList: true, subtree: true });
+            }
+
             document.addEventListener('click', function(e) {
                 if (e.target.classList.contains('action-btn')) {
                     closeDropdown();
@@ -501,6 +590,28 @@
                 alert('Error updating status. Please try again.');
             });
         }
+
+        // Add last updated info with access control details
+        function updateLastUpdated() {
+            const now = new Date().toLocaleString();
+            const permissionLevel = {{ permission_level|default(1) }};
+            const userEmail = '{{ user_email|default("") }}';
+
+            let accessInfo = '';
+            if (permissionLevel === 1) {
+                accessInfo = ` | Showing only quotations created by ${userEmail}`;
+            } else if (permissionLevel >= 3) {
+                accessInfo = ' | Showing all quotations (Admin access)';
+            }
+
+            document.getElementById('last-updated').innerHTML =
+                `<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; color: #666; font-size: 0.9em;">
+                    <strong>Last updated:</strong> ${now}${accessInfo}
+                    <br><small>Version v1.4.02 | Access Level: ${permissionLevel}</small>
+                </div>`;
+        }
     </script>
+
+    <div id="last-updated"></div>
 </body>
 </html>

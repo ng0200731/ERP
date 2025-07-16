@@ -315,22 +315,58 @@ def dashboard():
     # Check if this is an AJAX request for metrics data
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
         try:
+            # Get user permission level and email from session
+            permission_level = session.get('permission_level', 1)
+            user_email = session.get('user', None)
+
             from sqlalchemy.orm import sessionmaker
             engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
             Session = sessionmaker(bind=engine)
             db_session = Session()
 
-            # Count total quotations
-            total_quotations = db_session.query(Quotation).count()
+            # Apply access control based on permission level
+            if permission_level == 1:
+                # Level 1: Only show metrics for own created quotations
+                if user_email:
+                    # Case-insensitive email comparison using ilike
+                    base_query = db_session.query(Quotation).filter(Quotation.creator_email.ilike(user_email))
+                else:
+                    # No user email, return zero counts
+                    db_session.close()
+                    return jsonify({
+                        'total_quotations': 0,
+                        'submitted_to_customer': 0,
+                        'price_approved': 0,
+                        'sampling': 0,
+                        'access_level': permission_level,
+                        'filtered_for': 'No user email'
+                    })
+            elif permission_level >= 3:
+                # Level 3: Show metrics for all quotations
+                base_query = db_session.query(Quotation)
+            else:
+                # Level 2 or other: No access
+                db_session.close()
+                return jsonify({
+                    'total_quotations': 0,
+                    'submitted_to_customer': 0,
+                    'price_approved': 0,
+                    'sampling': 0,
+                    'access_level': permission_level,
+                    'filtered_for': 'No access'
+                })
+
+            # Count total quotations (with access control applied)
+            total_quotations = base_query.count()
 
             # Count submitted to customer quotations (quoted to customer)
-            submitted_to_customer = db_session.query(Quotation).filter(Quotation.status == 'submitted to customer').count()
+            submitted_to_customer = base_query.filter(Quotation.status == 'submitted to customer').count()
 
             # Count price approved quotations
-            price_approved = db_session.query(Quotation).filter(Quotation.status == 'price approved').count()
+            price_approved = base_query.filter(Quotation.status == 'price approved').count()
 
             # Count sampling quotations
-            sampling = db_session.query(Quotation).filter(Quotation.status == 'sampling').count()
+            sampling = base_query.filter(Quotation.status == 'sampling').count()
 
             db_session.close()
 
@@ -338,7 +374,9 @@ def dashboard():
                 'total_quotations': total_quotations,
                 'submitted_to_customer': submitted_to_customer,
                 'price_approved': price_approved,
-                'sampling': sampling
+                'sampling': sampling,
+                'access_level': permission_level,
+                'filtered_for': user_email if permission_level == 1 else 'All users' if permission_level >= 3 else 'No access'
             })
 
         except Exception as e:
@@ -348,6 +386,8 @@ def dashboard():
                 'submitted_to_customer': 0,
                 'price_approved': 0,
                 'sampling': 0,
+                'access_level': session.get('permission_level', 1),
+                'filtered_for': session.get('user', 'Unknown'),
                 'error': str(e)
             })
     else:
@@ -1193,12 +1233,29 @@ def save_quotation():
 @app.route('/quotation/list', methods=['GET'])
 def list_quotations():
     try:
+        # Get user permission level and email from session
+        permission_level = session.get('permission_level', 1)
+        user_email = session.get('user', None)
+
         engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
         Session = sessionmaker(bind=engine)
-        session = Session()
-        
-        # Query all quotations ordered by last_updated in descending order
-        quotations = session.query(Quotation).order_by(Quotation.last_updated.desc()).all()
+        db_session = Session()
+
+        # Apply access control based on permission level
+        if permission_level == 1:
+            # Level 1: Can only view own created quotations
+            if user_email:
+                quotations = db_session.query(Quotation).filter(
+                    Quotation.creator_email.ilike(user_email)
+                ).order_by(Quotation.last_updated.desc()).all()
+            else:
+                quotations = []  # Empty list if no user email
+        elif permission_level >= 3:
+            # Level 3: Can view all quotations
+            quotations = db_session.query(Quotation).order_by(Quotation.last_updated.desc()).all()
+        else:
+            # Level 2 or other: No access
+            quotations = []  # Empty list
         
         # Convert to dictionary format
         records = []
@@ -1232,7 +1289,7 @@ def list_quotations():
             }
             records.append(record)
         
-        session.close()
+        db_session.close()
         return jsonify(records)
     except Exception as e:
         logger.error(f"Error listing quotations: {str(e)}")
@@ -1249,18 +1306,42 @@ def view_quotations():
 @app.route('/view_quotations_simple')
 def view_quotations_simple():
     try:
+        # Get user permission level and email from session
+        permission_level = session.get('permission_level', 1)
+        user_email = session.get('user', None)
+
         engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
         df = pd.read_sql_table('quotations', engine)
+
+        # Apply access control based on permission level
+        if permission_level == 1:
+            # Level 1: Can only view own created quotations
+            if user_email:
+                # Case-insensitive email comparison
+                df = df[df['creator_email'].str.lower() == user_email.lower()]
+            else:
+                df = df.iloc[0:0]  # Empty dataframe if no user email
+        elif permission_level >= 3:
+            # Level 3: Can view all quotations
+            pass  # No filtering needed
+        else:
+            # Level 2 or other: No access (empty result)
+            df = df.iloc[0:0]  # Empty dataframe
+
         records = df.to_dict('records')
         # Format the last_updated datetime
         for record in records:
             if record['last_updated']:
                 dt = pd.to_datetime(record['last_updated'])
                 record['last_updated'] = dt.strftime('%m/%d/%Y, %I:%M:%S %p')
-        return render_template('view_quotations_simple.html', records=records)
+
+        return render_template('view_quotations_simple.html', records=records,
+                             permission_level=permission_level, user_email=user_email)
     except Exception as e:
         logger.error(f"Error in view_quotations_simple: {str(e)}")
-        return render_template('view_quotations_simple.html', records=[], error=str(e))
+        return render_template('view_quotations_simple.html', records=[], error=str(e),
+                             permission_level=session.get('permission_level', 1),
+                             user_email=session.get('user', None))
 
 @app.route('/uploads/artwork_images/<filename>')
 def uploaded_artwork_image(filename):

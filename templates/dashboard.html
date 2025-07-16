@@ -146,7 +146,8 @@
   <div class="dashboard-header">
     <h1>📊 Dashboard</h1>
     <div class="dashboard-subtitle">Real-time business metrics overview</div>
-    <div style="position:absolute;top:10px;right:15px;font-size:0.75rem;color:#999;background:#f0f0f0;padding:3px 8px;border-radius:3px;">v1.4.01</div>
+    <div style="position:absolute;top:10px;right:15px;font-size:0.75rem;color:#999;background:#f0f0f0;padding:3px 8px;border-radius:3px;">v1.4.03</div>
+    <div id="access-info" style="margin-top:10px;font-size:0.85rem;color:#666;"></div>
   </div>
   
   <div id="dashboard-content">
@@ -162,7 +163,7 @@
   <div class="last-updated" id="last-updated"></div>
 
   <div style="text-align:center;margin-top:15px;font-size:0.8rem;color:#999;">
-    Dashboard v1.4.01 | <span id="refresh-status">Ready</span>
+    Dashboard v1.4.03 | <span id="refresh-status">Ready</span>
   </div>
 </div>
 
@@ -206,6 +207,25 @@ function loadDashboardMetrics() {
       `;
       
       $('#dashboard-content').html(metricsHtml);
+
+      // Update access control information
+      if (data.access_level && data.filtered_for) {
+        let accessBadge = '';
+        let accessText = '';
+
+        if (data.access_level === 1) {
+          accessBadge = '<span style="background:#ffc107;color:#212529;padding:4px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;margin-left:10px;">Level 1: Own Records Only</span>';
+          accessText = `Showing metrics for quotations created by: ${data.filtered_for}`;
+        } else if (data.access_level >= 3) {
+          accessBadge = '<span style="background:#28a745;color:white;padding:4px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;margin-left:10px;">Level 3: All Records</span>';
+          accessText = 'Showing metrics for all quotations in the system';
+        } else {
+          accessBadge = '<span style="background:#dc3545;color:white;padding:4px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;margin-left:10px;">No Access</span>';
+          accessText = 'No access to quotation data';
+        }
+
+        $('#access-info').html(accessBadge + '<br><small style="color:#888;">' + accessText + '</small>');
+      }
 
       // Update last updated time
       const now = new Date();

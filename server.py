@@ -1816,24 +1816,60 @@ def generate_sample_card_pdf(quotation):
 
         # Create PDF document
         doc = SimpleDocTemplate(buffer, pagesize=A4,
-                              rightMargin=20*mm, leftMargin=20*mm,
-                              topMargin=20*mm, bottomMargin=20*mm)
+                              rightMargin=15*mm, leftMargin=15*mm,
+                              topMargin=15*mm, bottomMargin=15*mm)
 
         # Get styles
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'],
-                                   fontSize=18, spaceAfter=20, alignment=1)
+                                   fontSize=16, spaceAfter=5, alignment=0, fontName='Helvetica-Bold')
         header_style = ParagraphStyle('Header', parent=styles['Heading2'],
-                                    fontSize=12, spaceAfter=10)
-        normal_style = styles['Normal']
+                                    fontSize=11, spaceAfter=5, fontName='Helvetica-Bold')
+        normal_style = ParagraphStyle('Normal', parent=styles['Normal'],
+                                    fontSize=10, spaceAfter=3)
+        small_style = ParagraphStyle('Small', parent=styles['Normal'],
+                                   fontSize=9, spaceAfter=2)
 
         # Build PDF content
         story = []
 
-        # Title
-        story.append(Paragraph("SAMPLE CARD", title_style))
-        story.append(Paragraph("Fu Chang Hong Kong", header_style))
-        story.append(Spacer(1, 10*mm))
+        # Add coordinate rulers for easy positioning reference
+        # Top ruler (X-axis) - every 10mm from 0 to 210mm
+        top_ruler_data = []
+        x_numbers = []
+        for i in range(0, 220, 10):  # 0, 10, 20, 30... up to 210
+            x_numbers.append(str(i))
+        top_ruler_data.append(x_numbers)
+
+        top_ruler = Table(top_ruler_data, colWidths=[10*mm] * 22)
+        top_ruler.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 6),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.red),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.lightgrey),
+        ]))
+        story.append(top_ruler)
+        story.append(Spacer(1, 2*mm))
+
+        # Header with Y-coordinate and title
+        header_data = [
+            ['20', 'FCL', 'Sample Submission Card :']
+        ]
+        header_table = Table(header_data, colWidths=[10*mm, 30*mm, 150*mm])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Y-coordinate centered
+            ('ALIGN', (1, 0), (-1, -1), 'LEFT'),  # Header text left
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (0, 0), 6),  # Y-coordinate small
+            ('FONTSIZE', (1, 0), (-1, -1), 12),  # Header text normal
+            ('TEXTCOLOR', (0, 0), (0, 0), colors.red),  # Y-coordinate red
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        story.append(header_table)
+        story.append(Spacer(1, 5*mm))
 
         # Parse color names from JSON
         color_names = "N/A"
@@ -1849,108 +1885,222 @@ def generate_sample_card_pdf(quotation):
 
         # Get current datetime
         now = datetime.now()
-        current_date = now.strftime("%Y-%m-%d")
-        current_time = now.strftime("%H:%M:%S")
+        current_date = now.strftime("%d %b, %Y")
 
         # Get user email from session
         user_email = session.get('user', 'system@fuchanghk.com')
 
-        # Create customer information table
-        customer_data = [
-            ['CUSTOMER INFORMATION'],
-            [f'Customer: {quotation.customer_name or "N/A"}'],
-            [f'Contact: {quotation.key_person_name or "N/A"}'],
-            [f'Item Code: {quotation.customer_item_code or "N/A"}'],
-            [f'Date: {current_date} {current_time}'],
-            [f'By: {user_email}']
+        # Main form table - EXACT 6-column layout as per image
+        # Row 1: Type | For Approval | # Revision | 1 | Date | 5th Sept, 2024
+        # Row 2: Customer Name | teacny | Key person | PVR | | |
+        # Row 3: Item Code | UFG-49354 | Size | 223 X 325 | | |
+        # Row 4: Internal Code | (empty) | login email | eric.brilliant | | |
+
+        # Extract email prefix (before @)
+        email_prefix = 'N/A'
+        if user_email:
+            email_prefix = user_email.split('@')[0] if '@' in user_email else user_email
+
+        # Wrap customer name if too long to fit within X=130mm limit
+        customer_name = quotation.customer_name or 'N/A'
+        if len(customer_name) > 35:  # Approximate character limit for 80mm width
+            customer_name = customer_name[:35] + '...'
+
+        main_data = [
+            ['40', 'Type', 'For Approval', '# Revision', '', 'Date', current_date],
+            ['50', 'Customer Name', customer_name, '1', '', 'Key person', quotation.key_person_name or 'N/A'],
+            ['60', 'Item Code', quotation.customer_item_code or 'N/A', '', '', 'Size', f'{quotation.width or "N/A"} X {quotation.length or "N/A"}'],
+            ['70', 'Internal Code', '', '', '', 'sender', email_prefix]
         ]
 
-        # Create product specifications (compact format)
-        product_specs = f'Dimensions: {quotation.width or "N/A"} × {quotation.length or "N/A"} mm | Quality: {quotation.quality or "N/A"} | Surface: {quotation.flat_or_raised or "N/A"} | Print: {quotation.direct_or_reverse or "N/A"}'
+        # Create main table with adjusted column widths:
+        # Y-coord(10mm) + Col1(30mm) + Col2(50mm) + Col3(20mm) + Spacer(20mm) + Col4(25mm) + Col5(25mm)
+        # X positions: 0-10mm, 10-40mm, 40-90mm, 90-110mm, 110-130mm, 130-155mm, 155-180mm
+        # # Revision starts at X=90mm (close to 100mm), 2nd grey column starts at X=130mm (close to 140mm)
+        main_table = Table(main_data, colWidths=[10*mm, 30*mm, 50*mm, 20*mm, 20*mm, 25*mm, 25*mm])
+        # Apply styling with horizontal lines only and background colors
+        main_table.setStyle(TableStyle([
+            # Y-coordinate column styling
+            ('FONTSIZE', (0, 0), (0, -1), 6),  # Y-coordinate small
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),  # Y-coordinate bold
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Y-coordinate centered
 
-        # Create production details table
-        production_data = [
-            ['PRODUCTION DETAILS'],
-            [f'Colors: {quotation.num_colors or 0} colors'],
-            [f'Color Names: {color_names}'],
-            [f'Thickness: {quotation.thickness or "N/A"}'],
-            [f'Quotation ID: {quotation.id}'],
-            [f'Created: {quotation.created_at.strftime("%Y-%m-%d") if quotation.created_at else "N/A"}'],
-            [f'Revision: #{quotation.revision_count or 0}'],
-            [f'Additional Files: {len(quotation.attachments) if quotation.attachments else 0}']
-        ]
+            # Background colors for label columns (light grey) - columns 2 and 6 (moved to X=130mm)
+            ('BACKGROUND', (1, 0), (1, -1), colors.lightgrey),  # Column 2: Type, Customer Name, Item Code, Internal Code
+            ('BACKGROUND', (5, 0), (5, -1), colors.lightgrey),  # Column 6: Date, Key person, Size, sender (moved to X=130mm)
 
-        # Create customer information table
-        customer_table = Table(customer_data, colWidths=[120*mm])
-        customer_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
+            # Horizontal lines only - no vertical lines, no outer borders
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.black),  # Below header
+            ('LINEBELOW', (0, 1), (-1, 1), 0.5, colors.black),  # Below row 2
+            ('LINEBELOW', (0, 2), (-1, 2), 0.5, colors.black),  # Below row 3
+            ('LINEBELOW', (0, 3), (-1, 3), 2, colors.black),    # Bottom border (thick)
 
-        story.append(customer_table)
-        story.append(Spacer(1, 5*mm))
+            # Font and alignment for main content
+            ('FONTSIZE', (1, 0), (-1, -1), 10),
+            ('ALIGN', (1, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
 
-        # Add product specifications header and compact content
-        story.append(Paragraph("PRODUCT SPECIFICATIONS", header_style))
-        story.append(Paragraph(product_specs, normal_style))
-        story.append(Spacer(1, 5*mm))
+            # Label columns (bold) - columns 2, 4, and 6 (adjusted for new layout)
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (3, 0), (3, -1), 'Helvetica-Bold'),    # # Revision still bold but no grey background
+            ('FONTNAME', (5, 0), (5, -1), 'Helvetica-Bold'),    # Column 6 bold for ALL rows (Date, Key person, etc.)
 
-        # Create production details table
-        production_table = Table(production_data, colWidths=[120*mm])
-        production_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
+            # Text wrapping for customer name column (column 2)
+            ('WORDWRAP', (2, 1), (2, 1), 'LTR'),  # Enable word wrap for customer name
 
-        story.append(production_table)
-        story.append(Spacer(1, 10*mm))
-
-        # Notes & Instructions section
-        notes_data = [
-            ['NOTES & INSTRUCTIONS'],
-            ['☐ Sample approved    ☐ Modifications required'],
-            ['☐ Proceed to production    ☐ Additional samples needed'],
-            [''],
-            ['Comments: ________________________________'],
-            ['          ________________________________'],
-        ]
-
-        notes_table = Table(notes_data, colWidths=[180*mm])
-        notes_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ]))
 
-        story.append(notes_table)
+        story.append(main_table)
+        story.append(Spacer(1, 115*mm))  # Large spacer to move Internal inspection to Y=200mm
+
+        # Internal inspection section - moved to Y=200mm, width X=10-200mm
+        inspection_header_data = [['200', 'Internal inspection :']]
+        inspection_header_table = Table(inspection_header_data, colWidths=[10*mm, 190*mm])  # Total width 200mm (10+190)
+        inspection_header_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (0, 0), 6),  # Y-coordinate small
+            ('FONTSIZE', (1, 0), (1, 0), 12),  # Header text normal
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (0, 0), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Y-coordinate centered
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),  # Header text left
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(inspection_header_table)
+        story.append(Spacer(1, 3*mm))
+
+        # Inspection table - adjusted for Y=200mm+ and width X=10-200mm
+        inspection_data = [
+            ['210', 'Size', ':', 'OK □', 'NG □', '|', 'Color', ':', 'OK □', 'NG □', '|', 'Material', ':', 'OK □', 'NG □'],
+            ['220', 'Others', ':', '', '', '', '', '', '', '', '', '', '', '', '']
+        ]
+
+        # Adjusted column widths to fit X=10-200mm (total 190mm content width)
+        inspection_table = Table(inspection_data, colWidths=[10*mm, 18*mm, 5*mm, 18*mm, 18*mm, 10*mm, 18*mm, 5*mm, 18*mm, 18*mm, 10*mm, 18*mm, 5*mm, 18*mm, 18*mm])
+        inspection_table.setStyle(TableStyle([
+            # Y-coordinate column styling
+            ('FONTSIZE', (0, 0), (0, -1), 6),  # Y-coordinate small
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),  # Y-coordinate bold
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Y-coordinate centered
+
+            # Background for label cells only (adjusted for Y-coord column)
+            ('BACKGROUND', (1, 0), (1, -1), colors.lightgrey),  # Size
+            ('BACKGROUND', (6, 0), (6, 0), colors.lightgrey),   # Color
+            ('BACKGROUND', (11, 0), (11, 0), colors.lightgrey), # Material
+
+            # Vertical lines between sections (adjusted for Y-coord column)
+            ('LINEAFTER', (5, 0), (5, 0), 1, colors.black),
+            ('LINEAFTER', (10, 0), (10, 0), 1, colors.black),
+
+            # Horizontal lines only - no vertical lines, no outer borders
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.black),  # Below header
+            ('LINEBELOW', (0, 1), (-1, 1), 2, colors.black),    # Bottom border (thick)
+
+            # Font and alignment for main content
+            ('FONTSIZE', (1, 0), (-1, -1), 10),
+            ('ALIGN', (1, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+
+            # Bold for labels (adjusted for Y-coord column)
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (6, 0), (6, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (11, 0), (11, 0), 'Helvetica-Bold'),
+
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+
+        story.append(inspection_table)
         story.append(Spacer(1, 10*mm))
 
-        # Footer
-        footer_text = f"Generated: {now.strftime('%Y-%m-%d %H:%M:%S')} | System: v1.4.14<br/>Fu Chang Hong Kong - Sample Card System"
-        story.append(Paragraph(footer_text, normal_style))
+        # Customer Comments section - positioned under Internal inspection, width X=10-200mm
+        comments_header_data = [['240', 'Customer Comments :']]
+        comments_header_table = Table(comments_header_data, colWidths=[10*mm, 190*mm])  # Total width 200mm (10+190)
+        comments_header_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (0, 0), 6),  # Y-coordinate small
+            ('FONTSIZE', (1, 0), (1, 0), 12),  # Header text normal
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (0, 0), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Y-coordinate centered
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),  # Header text left
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(comments_header_table)
+        story.append(Spacer(1, 3*mm))
+
+        # Comments table - new layout matching the required format
+        comments_data = [
+            ['250', 'Comments', ':', ''],
+            ['280', 'PIC', ':', 'Date', ':']
+        ]
+
+        comments_table = Table(comments_data, colWidths=[10*mm, 30*mm, 5*mm, 75*mm, 5*mm, 30*mm, 45*mm])  # Total width 200mm
+        comments_table.setStyle(TableStyle([
+            # Y-coordinate column styling
+            ('FONTSIZE', (0, 0), (0, -1), 6),  # Y-coordinate small
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),  # Y-coordinate bold
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Y-coordinate centered
+
+            # Background for label columns (Comments, PIC, Date)
+            ('BACKGROUND', (1, 0), (1, 0), colors.lightgrey),  # Comments label
+            ('BACKGROUND', (1, 1), (1, 1), colors.lightgrey),  # PIC label
+            ('BACKGROUND', (4, 1), (4, 1), colors.lightgrey),  # Date label
+
+            # Lines under Comments section and PIC/Date section
+            ('LINEBELOW', (3, 0), (3, 0), 1, colors.black),    # Line under Comments
+            ('LINEBELOW', (2, 1), (2, 1), 1, colors.black),    # Line under PIC
+            ('LINEBELOW', (5, 1), (-1, 1), 1, colors.black),   # Line under Date
+
+            # Font and alignment for main content
+            ('FONTSIZE', (1, 0), (-1, -1), 10),
+            ('ALIGN', (1, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+
+            # Bold for labels
+            ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),  # Comments
+            ('FONTNAME', (1, 1), (1, 1), 'Helvetica-Bold'),  # PIC
+            ('FONTNAME', (4, 1), (4, 1), 'Helvetica-Bold'),  # Date
+
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+
+            # Make comment rows taller
+            ('ROWBACKGROUNDS', (0, 1), (-1, 2), [colors.white, colors.white]),
+        ]))
+
+        story.append(comments_table)
+        story.append(Spacer(1, 10*mm))
+
+        # Footer disclaimer - using smaller font
+        disclaimer_text = """The content and objective this opinion, can confirm that you have reviewed and approved the design and quality of the product as requested. Should clients have any issue the internal due to negligence in the signing or printing process, individual involved, findings and demonstrated factors. Final sample application requires signing on the schedule form and under the intended conditions to ensure proper submission and quality."""
+
+        # Create small disclaimer style
+        disclaimer_style = ParagraphStyle('Disclaimer', parent=styles['Normal'],
+                                         fontSize=8, spaceAfter=2)
+
+        story.append(Paragraph(disclaimer_text, disclaimer_style))
+        story.append(Spacer(1, 5*mm))
+
+        # System footer
+        footer_text = f"Generated: {now.strftime('%Y-%m-%d %H:%M:%S')} | System: v1.4.28<br/>Fu Chang Hong Kong - Sample Submission Card System"
+        # Create extra small style for footer
+        extra_small_style = ParagraphStyle('ExtraSmall', parent=styles['Normal'],
+                                         fontSize=7, spaceAfter=1)
+
+        story.append(Paragraph(footer_text, extra_small_style))
 
         # Build PDF
         doc.build(story)
@@ -2025,13 +2175,13 @@ def generate_sample_card_html(quotation):
 
         /* Left column - Customer & Product info */
         .left-column {{
-            flex: 2;
+            flex: 3;
             display: flex;
             flex-direction: column;
             gap: 10px;
         }}
 
-        /* Right column - Production details */
+        /* Right column - Production details - reduced to half width */
         .right-column {{
             flex: 1;
             display: flex;
@@ -2073,9 +2223,8 @@ def generate_sample_card_html(quotation):
             font-weight: bold;
         }}
 
-        /* Production details - vertical layout */
+        /* Production details - vertical layout - removed outer border */
         .production-details {{
-            border: 1px solid #000;
             padding: 8px;
             height: 100%;
         }}
@@ -2101,8 +2250,12 @@ def generate_sample_card_html(quotation):
             color: #333;
         }}
 
-        /* Notes section */
+        /* Notes section - moved to bottom of page */
         .notes-section {{
+            position: fixed;
+            bottom: 60px;
+            left: 15mm;
+            right: 15mm;
             margin-top: auto;
         }}
         .notes-table {{
@@ -2124,26 +2277,11 @@ def generate_sample_card_html(quotation):
             margin-right: 8px;
         }}
 
-        /* Footer - 10% of space */
-        .footer {{
-            height: 10%;
-            text-align: center;
-            font-size: 10px;
-            color: #666;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            border-top: 1px solid #ccc;
-            margin-top: 10px;
-        }}
+        /* Footer removed as requested */
     </style>
 </head>
 <body>
-    <!-- Header Section - 20% of space -->
-    <div class="header">
-        <div class="title">SAMPLE CARD</div>
-        <div class="company">Fu Chang Hong Kong</div>
-    </div>
+    <!-- Header Section removed as requested -->
 
     <!-- Main Content Section - 70% of space -->
     <div class="main-content">
@@ -2167,10 +2305,7 @@ def generate_sample_card_html(quotation):
                         <td><strong>Item Code:</strong></td>
                         <td>{quotation.customer_item_code or 'N/A'}</td>
                     </tr>
-                    <tr>
-                        <td><strong>Date:</strong></td>
-                        <td>{current_date} {current_time}</td>
-                    </tr>
+                    <!-- Date row removed as requested -->
                     <tr>
                         <td><strong>By:</strong></td>
                         <td>{user_email}</td>
@@ -2183,10 +2318,11 @@ def generate_sample_card_html(quotation):
                         PRODUCT SPECIFICATIONS
                     </div>
                     <div class="product-specs">
-                        <span class="spec-item"><span class="spec-label">Dimensions:</span> {quotation.width or 'N/A'} × {quotation.length or 'N/A'} mm</span>
+                        <span class="spec-item"><span class="spec-label">Dimensions:</span> {quotation.width or 'N/A'} X {quotation.length or 'N/A'} mm</span>
                         <span class="spec-item"><span class="spec-label">Quality:</span> {quotation.quality or 'N/A'}</span>
                         <span class="spec-item"><span class="spec-label">Surface:</span> {quotation.flat_or_raised or 'N/A'}</span>
                         <span class="spec-item"><span class="spec-label">Print:</span> {quotation.direct_or_reverse or 'N/A'}</span>
+                        <span class="spec-item"><span class="spec-label">Thickness:</span> {quotation.thickness or 'N/A'}</span>
                     </div>
                 </div>
             </div>
@@ -2203,18 +2339,22 @@ def generate_sample_card_html(quotation):
 
                     <div class="production-item">
                         <span class="production-label">Color Names:</span>
-                        <span class="production-value">{color_names}</span>
+                        <div class="production-value">"""
+
+        # Process color names - 1 row 1 name with smaller font
+        if color_names and color_names != "N/A":
+            color_list = color_names.split(", ") if ", " in color_names else [color_names]
+            for color in color_list:
+                html_content += f'<div style="font-size: 8px; margin-bottom: 1px;">{color.strip()}</div>'
+        else:
+            html_content += '<div style="font-size: 8px;">N/A</div>'
+
+        html_content += """                        </div>
                     </div>
 
-                    <div class="production-item">
-                        <span class="production-label">Thickness:</span>
-                        <span class="production-value">{quotation.thickness or 'N/A'}</span>
-                    </div>
+                    <!-- Thickness moved to Product Specifications -->
 
-                    <div class="production-item">
-                        <span class="production-label">Quotation ID:</span>
-                        <span class="production-value">{quotation.id}</span>
-                    </div>
+                    <!-- Quotation ID removed as requested -->
 
                     <div class="production-item">
                         <span class="production-label">Created:</span>
@@ -2226,10 +2366,7 @@ def generate_sample_card_html(quotation):
                         <span class="production-value">#{quotation.revision_count or 0}</span>
                     </div>
 
-                    <div class="production-item">
-                        <span class="production-label">Additional Files:</span>
-                        <span class="production-value">{len(quotation.attachments) if quotation.attachments else 0}</span>
-                    </div>
+                    <!-- Additional Files removed as requested -->
                 </div>
             </div>
         </div>
@@ -2242,36 +2379,29 @@ def generate_sample_card_html(quotation):
                 </tr>
                 <tr>
                     <td>
-                        <span class="checkbox">☐</span> Sample approved &nbsp;&nbsp;&nbsp;&nbsp;
-                        <span class="checkbox">☐</span> Modifications required &nbsp;&nbsp;&nbsp;&nbsp;
-                        <span class="checkbox">☐</span> Proceed to production
+                        <span class="checkbox">[ ]</span> Sample approved &nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="checkbox">[ ]</span> Modifications required &nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="checkbox">[ ]</span> Proceed to production
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <span class="checkbox">☐</span> Additional samples needed &nbsp;&nbsp;&nbsp;&nbsp;
-                        <span class="checkbox">☐</span> Quality approved &nbsp;&nbsp;&nbsp;&nbsp;
-                        <span class="checkbox">☐</span> Ready for mass production
+                        <span class="checkbox">[ ]</span> Additional samples needed
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <strong>Comments:</strong> _______________________________________________
+                        <strong>Comments:</strong>
                     </td>
                 </tr>
-                <tr>
-                    <td>
-                        _______________________________________________
-                    </td>
-                </tr>
+                <!-- Second underline removed as requested -->
             </table>
         </div>
     </div>
 
-    <!-- Footer Section - 10% of space -->
-    <div class="footer">
-        <div>Generated: {now.strftime('%Y-%m-%d %H:%M:%S')} | System: v1.4.14</div>
-        <div>Fu Chang Hong Kong - Sample Card System</div>
+    <!-- Footer - Version number only -->
+    <div style="position: fixed; bottom: 5px; right: 15mm; font-size: 8px; color: #666;">
+        v1.4.32
     </div>
 
     <script>

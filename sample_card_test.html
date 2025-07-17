@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Sample Card Test Layout</title>
+    <style>
+        @page { size: A4; margin: 15mm; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        /* Main Content - 80% of space */
+        .main-content {
+            height: 80%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Two-column layout for main content */
+        .content-row {
+            display: flex;
+            flex: 1;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        /* Left column - Customer & Product info */
+        .left-column {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Right column - Production details - reduced width */
+        .right-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Table styles */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        .info-table th, .info-table td {
+            border: 1px solid #000;
+            padding: 6px;
+            text-align: left;
+            font-size: 12px;
+        }
+        .info-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 11px;
+        }
+
+        /* Compact product specifications */
+        .product-specs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 8px;
+            border: 1px solid #000;
+            background-color: #f9f9f9;
+            font-size: 11px;
+        }
+        .spec-item {
+            white-space: nowrap;
+        }
+        .spec-label {
+            font-weight: bold;
+        }
+
+        /* Production details - NO BORDER */
+        .production-details {
+            padding: 8px;
+            height: 100%;
+        }
+        .production-title {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 11px;
+            padding: 4px;
+            margin: -8px -8px 8px -8px;
+            text-align: center;
+        }
+        .production-item {
+            margin-bottom: 8px;
+            font-size: 11px;
+            padding: 3px 0;
+            border-bottom: 1px dotted #ccc;
+        }
+        .production-label {
+            font-weight: bold;
+            display: block;
+        }
+        .production-value {
+            color: #333;
+        }
+
+        /* Notes section - at bottom */
+        .notes-section {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+        }
+        .notes-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .notes-table th, .notes-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+            font-size: 12px;
+        }
+        .notes-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        .checkbox {
+            font-size: 14px;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- NO HEADER - removed as requested -->
+
+    <!-- Main Content Section -->
+    <div class="main-content">
+        <div class="content-row">
+            <!-- Left Column - Customer & Product Info -->
+            <div class="left-column">
+                <!-- Customer Information -->
+                <table class="info-table">
+                    <tr>
+                        <th colspan="2">CUSTOMER INFORMATION</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Customer:</strong></td>
+                        <td>Ic_Avery Dennison Vietnam Apparel Solutions Vietnam</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Contact:</strong></td>
+                        <td>Tran Huynh</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Item Code:</strong></td>
+                        <td>RAISED SILICONE WITH ONE SIDE COLOR</td>
+                    </tr>
+                    <!-- DATE ROW REMOVED -->
+                    <tr>
+                        <td><strong>By:</strong></td>
+                        <td>eric.brilliant@gmail.com</td>
+                    </tr>
+                </table>
+
+                <!-- Product Specifications -->
+                <div style="margin-bottom: 10px;">
+                    <div style="background-color: #f0f0f0; font-weight: bold; font-size: 11px; padding: 4px; border: 1px solid #000; margin-bottom: 2px;">
+                        PRODUCT SPECIFICATIONS
+                    </div>
+                    <div class="product-specs">
+                        <span class="spec-item"><span class="spec-label">Dimensions:</span> 340.0 X 250.0 mm</span>
+                        <span class="spec-item"><span class="spec-label">Quality:</span> Silicon</span>
+                        <span class="spec-item"><span class="spec-label">Surface:</span> Raised</span>
+                        <span class="spec-item"><span class="spec-label">Print:</span> Direct</span>
+                        <span class="spec-item"><span class="spec-label">Thickness:</span> 0.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Production Details (NO BORDER) -->
+            <div class="right-column">
+                <div class="production-details">
+                    <div class="production-title">PRODUCTION DETAILS</div>
+
+                    <div class="production-item">
+                        <span class="production-label">Colors:</span>
+                        <span class="production-value">8 colors</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Color Names:</span>
+                        <div class="production-value">
+                            <div style="font-size: 8px; margin-bottom: 1px;">ALMOST YELLOW</div>
+                            <div style="font-size: 8px; margin-bottom: 1px;">F22 AE</div>
+                            <div style="font-size: 8px; margin-bottom: 1px;">SUPER BLUE</div>
+                            <div style="font-size: 8px; margin-bottom: 1px;">16 AF25</div>
+                        </div>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Created:</span>
+                        <span class="production-value">2025-07-16</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Revision:</span>
+                        <span class="production-value">#0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes & Instructions Section - Fixed at bottom -->
+    <div class="notes-section">
+        <table class="notes-table">
+            <tr>
+                <th>NOTES & INSTRUCTIONS</th>
+            </tr>
+            <tr>
+                <td>
+                    <span class="checkbox">[ ]</span> Sample approved &nbsp;&nbsp;&nbsp;&nbsp;
+                    <span class="checkbox">[ ]</span> Modifications required &nbsp;&nbsp;&nbsp;&nbsp;
+                    <span class="checkbox">[ ]</span> Proceed to production
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <span class="checkbox">[ ]</span> Additional samples needed
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <strong>Comments:</strong>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Footer - Version number only -->
+    <div style="position: fixed; bottom: 5px; right: 20px; font-size: 8px; color: #666;">
+        v1.4.32
+    </div>
+
+</body>
+</html>

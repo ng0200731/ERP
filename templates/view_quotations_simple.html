@@ -20,13 +20,13 @@
             border-bottom: 1px solid #dee2e6;
             margin-bottom: 10px;
         }
-        
+
         .title-version {
             display: flex;
             align-items: center;
             gap: 15px;
         }
-        
+
         .version-tag {
             background: #e9ecef;
             padding: 5px 12px;
@@ -34,7 +34,7 @@
             font-size: 0.9em;
             color: #495057;
         }
-        
+
         .refresh-btn {
             background: #007bff;
             color: white;
@@ -47,7 +47,7 @@
             gap: 8px;
             transition: background-color 0.2s;
         }
-        
+
         .refresh-btn:hover {
             background: #0056b3;
         }
@@ -55,7 +55,7 @@
         .dashboard-btn:hover {
             background: #218838 !important;
         }
-        
+
         .quotation-table {
             width: 100%;
             min-width: 1400px;
@@ -64,17 +64,17 @@
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        
+
         .quotation-table th,
         .quotation-table td {
             padding: 12px;
             border-bottom: 1px solid #dee2e6;
         }
-        
+
         .quotation-table tr:hover {
             background-color: #f5f5f5;
         }
-        
+
         .table-container {
             height: 500px;
             overflow: auto;
@@ -84,24 +84,148 @@
             margin: 20px auto;
             max-width: 95%;
         }
+        /* TOP Button Styles */
+        .top-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            transition: all 0.3s ease;
+            line-height: 1.2;
+        }
+
+        .top-button:hover {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
+
+        /* Filter Row Styles */
+        .filter-row {
+            background: #f8f9fa !important;
+            border-bottom: 2px solid #dee2e6 !important;
+        }
+
+        .filter-cell {
+            padding: 8px !important;
+            position: relative;
+        }
+
+        .filter-input {
+            width: calc(100% - 4px);
+            max-width: 100%;
+            padding: 6px 25px 6px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.85em;
+            background: white;
+            box-sizing: border-box;
+            margin: 0;
+        }
+
+        .filter-input:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .filter-dropdown {
+            width: calc(100% - 4px);
+            max-width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.85em;
+            background: white;
+            box-sizing: border-box;
+            margin: 0;
+        }
+
+        .filter-dropdown:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .advanced-arrow {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #6c757d;
+            font-size: 12px;
+            user-select: none;
+        }
+
+        .advanced-arrow:hover {
+            color: #007bff;
+        }
+
+        .advanced-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            min-width: 150px;
+            display: none;
+        }
+
+        .advanced-dropdown.show {
+            display: block;
+        }
+
+        .advanced-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.85em;
+            border-bottom: 1px solid #f1f3f4;
+        }
+
+        .advanced-option:last-child {
+            border-bottom: none;
+        }
+
+        .advanced-option:hover {
+            background: #f8f9fa;
+        }
+
+        .advanced-option.selected {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
 
 
 
 
 
 
-        
+
         /* Zebra striping */
         .quotation-table tr:nth-child(even) {
             background-color: #fafafa;
         }
-        
+
         /* Responsive design */
         @media (max-width: 1200px) {
             .table-container {
                 margin: 0 10px;
             }
-            
+
             .quotation-table th,
             .quotation-table td {
                 padding: 8px;
@@ -185,7 +309,7 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.4.66</span>
+            <span class="version-tag">v1.5.03</span>
             {% if permission_level == 1 %}
                 <span style="background:#ffc107;color:#212529;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">Level 1: Own Records Only</span>
             {% elif permission_level >= 3 %}
@@ -245,6 +369,75 @@
                     <th>Last Updated</th>
                     <th>Revision</th>
                 </tr>
+                <!-- Filter Row -->
+                <tr class="filter-row">
+                    <th class="sticky sticky-id filter-cell" style="left:0;top:0;z-index:201;background:#f8f9fa;">
+                        <input type="text" class="filter-input" id="filter-id" placeholder="ID">
+                        <span class="advanced-arrow" data-filter="id">▼</span>
+                        <div class="advanced-dropdown" id="advanced-id"></div>
+                    </th>
+                    <th class="sticky sticky-customer filter-cell" style="left:70px;top:0;z-index:202;background:#f8f9fa;">
+                        <input type="text" class="filter-input" id="filter-customer" placeholder="Customer">
+                        <span class="advanced-arrow" data-filter="customer">▼</span>
+                        <div class="advanced-dropdown" id="advanced-customer"></div>
+                    </th>
+                    <th class="sticky sticky-keyperson filter-cell" style="left:250px;top:0;z-index:203;background:#f8f9fa;">
+                        <input type="text" class="filter-input" id="filter-keyperson" placeholder="Key Person">
+                        <span class="advanced-arrow" data-filter="keyperson">▼</span>
+                        <div class="advanced-dropdown" id="advanced-keyperson"></div>
+                    </th>
+                    <th class="sticky sticky-itemcode filter-cell" style="left:450px;top:0;z-index:204;background:#f8f9fa;">
+                        <input type="text" class="filter-input" id="filter-itemcode" placeholder="Item Code">
+                        <span class="advanced-arrow" data-filter="itemcode">▼</span>
+                        <div class="advanced-dropdown" id="advanced-itemcode"></div>
+                    </th>
+                    <th class="sticky sticky-artwork filter-cell" style="left:610px;top:0;z-index:205;background:#f8f9fa;">
+                        <!-- No filter for artwork -->
+                        <span style="color:#999;font-size:0.8em;">-</span>
+                    </th>
+                    <th class="sticky sticky-status filter-cell" style="left:750px;top:0;z-index:206;background:#f8f9fa;box-shadow:2px 0 6px -2px #bbb;">
+                        <select class="filter-dropdown" id="filter-status">
+                            <option value="">All Statuses</option>
+                            <option value="quotation complete">Quotation Complete</option>
+                            <option value="submitted to customer">Submitted to Customer</option>
+                            <option value="price approved">Price Approved</option>
+                            <option value="sampling">Sampling</option>
+                            <option value="sample card">Sample Card</option>
+                        </select>
+                    </th>
+                    <th class="sticky sticky-action filter-cell" style="left:850px;top:0;z-index:207;background:#f8f9fa;box-shadow:2px 0 6px -2px #bbb;">
+                        <!-- No filter for action -->
+                        <span style="color:#999;font-size:0.8em;">-</span>
+                    </th>
+                    <th class="filter-cell">
+                        <input type="text" class="filter-input" id="filter-creator" placeholder="Creator">
+                        <span class="advanced-arrow" data-filter="creator">▼</span>
+                        <div class="advanced-dropdown" id="advanced-creator"></div>
+                    </th>
+                    <th class="filter-cell">
+                        <input type="text" class="filter-input" id="filter-quality" placeholder="Quality">
+                        <span class="advanced-arrow" data-filter="quality">▼</span>
+                        <div class="advanced-dropdown" id="advanced-quality"></div>
+                    </th>
+                    <th class="filter-cell">
+                        <input type="text" class="filter-input" id="filter-flat" placeholder="Flat/Raised">
+                        <span class="advanced-arrow" data-filter="flat">▼</span>
+                        <div class="advanced-dropdown" id="advanced-flat"></div>
+                    </th>
+                    <th class="filter-cell">
+                        <input type="text" class="filter-input" id="filter-direct" placeholder="Direct/Reverse">
+                        <span class="advanced-arrow" data-filter="direct">▼</span>
+                        <div class="advanced-dropdown" id="advanced-direct"></div>
+                    </th>
+                    <th class="filter-cell"><span style="color:#999;font-size:0.8em;">-</span></th>
+                    <th class="filter-cell"><span style="color:#999;font-size:0.8em;">-</span></th>
+                    <th class="filter-cell"><span style="color:#999;font-size:0.8em;">-</span></th>
+                    <th class="filter-cell"><span style="color:#999;font-size:0.8em;">-</span></th>
+                    <th class="filter-cell"><span style="color:#999;font-size:0.8em;">-</span></th>
+                    <th class="filter-cell"><span style="color:#999;font-size:0.8em;">-</span></th>
+                    <th class="filter-cell"><span style="color:#999;font-size:0.8em;">-</span></th>
+                    <th class="filter-cell"><span style="color:#999;font-size:0.8em;">-</span></th>
+                </tr>
             </thead>
             <tbody id="quotation-table-body">
             </tbody>
@@ -252,7 +445,8 @@
 
     </div>
 
-
+    <!-- TOP Button -->
+    <button id="top-button" class="top-button">TOP</button>
 
     <script>
         function formatDate(dateString) {
@@ -344,15 +538,51 @@
                     if (data.error) {
                         throw new Error(data.error);
                     }
-                    document.getElementById('quotation-table-body').innerHTML = createTableRows(data);
+
+                    // Store all data for filtering globally
+                    window.quotationAllData = data || [];
+
+                    // Show only top 20 records initially
+                    const displayData = window.quotationAllData.slice(0, 20);
+                    document.getElementById('quotation-table-body').innerHTML = createTableRows(displayData);
+
+                    // Initialize filters after data is loaded
+                    setTimeout(() => {
+                        if (window.initializeQuotationFilters) {
+                            window.initializeQuotationFilters();
+                        }
+                    }, 100);
+
+                    // Show pagination info
+                    updatePaginationInfo();
                     updateLastUpdated();
                 })
                 .catch(error => {
                     console.error('Error loading data:', error);
                     document.getElementById('quotation-table-body').innerHTML =
-                        `<tr><td colspan="16" style="text-align: center; color: red;">Error loading data: ${error.message}</td></tr>`;
+                        `<tr><td colspan="19" style="text-align: center; color: red;">Error loading data: ${error.message}</td></tr>`;
                     updateLastUpdated();
                 });
+        }
+
+        function updatePaginationInfo() {
+            const totalRecords = window.quotationAllData ? window.quotationAllData.length : 0;
+            const displayedRecords = Math.min(20, totalRecords);
+
+            // Add pagination info if it doesn't exist
+            let paginationDiv = document.getElementById('pagination-info');
+            if (!paginationDiv) {
+                paginationDiv = document.createElement('div');
+                paginationDiv.id = 'pagination-info';
+                paginationDiv.style.cssText = 'text-align: center; margin: 10px 0; color: #666; font-size: 0.9em;';
+                document.querySelector('.table-container').appendChild(paginationDiv);
+            }
+
+            if (totalRecords > 20) {
+                paginationDiv.innerHTML = `Showing top ${displayedRecords} of ${totalRecords} records. Use filters to narrow down results.`;
+            } else {
+                paginationDiv.innerHTML = `Showing all ${totalRecords} records.`;
+            }
         }
 
         // Load data when page loads
@@ -670,10 +900,245 @@
             document.getElementById('last-updated').innerHTML =
                 `<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; color: #666; font-size: 0.9em;">
                     <strong>Last updated:</strong> ${now}${accessInfo}
-                    <br><small>Version v1.4.66 | Access Level: ${permissionLevel}</small>
+                    <br><small>Version v1.5.03 | Access Level: ${permissionLevel}</small>
                 </div>`;
         }
 
+        // Filter functionality - wrapped in IIFE to avoid conflicts
+        (function() {
+            // Check if already initialized to prevent double initialization
+            if (window.quotationFiltersInitialized) {
+                return;
+            }
+            window.quotationFiltersInitialized = true;
+
+            const quotationFilterTypes = {
+                contains: 'Contains',
+                startswith: 'Starts with',
+                endswith: 'Ends with',
+                exact: 'Exact match',
+                and: 'Multiple (AND)',
+                or: 'Multiple (OR)'
+            };
+
+            let quotationCurrentFilterTypes = {};
+
+        // Initialize filter system
+        window.initializeQuotationFilters = function() {
+            try {
+                console.log('[DEBUG] Initializing filters...');
+
+                // Set default filter types
+                ['id', 'customer', 'keyperson', 'itemcode', 'creator', 'quality', 'flat', 'direct'].forEach(field => {
+                    quotationCurrentFilterTypes[field] = 'contains';
+                });
+
+            // Create advanced dropdown content
+            Object.keys(quotationFilterTypes).forEach(filterKey => {
+                ['id', 'customer', 'keyperson', 'itemcode', 'creator', 'quality', 'flat', 'direct'].forEach(field => {
+                    const dropdown = document.getElementById(`advanced-${field}`);
+                    if (dropdown) {
+                        dropdown.innerHTML = Object.entries(quotationFilterTypes).map(([key, label]) =>
+                            `<div class="advanced-option ${key === 'contains' ? 'selected' : ''}" data-type="${key}" data-field="${field}">${label}</div>`
+                        ).join('');
+                    }
+                });
+            });
+
+            // Add event listeners for advanced arrows
+            document.querySelectorAll('.advanced-arrow').forEach(arrow => {
+                arrow.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const field = this.getAttribute('data-filter');
+                    const dropdown = document.getElementById(`advanced-${field}`);
+
+                    // Close all other dropdowns
+                    document.querySelectorAll('.advanced-dropdown').forEach(dd => {
+                        if (dd !== dropdown) dd.classList.remove('show');
+                    });
+
+                    // Toggle current dropdown
+                    dropdown.classList.toggle('show');
+                });
+            });
+
+            // Add event listeners for dropdown options
+            document.querySelectorAll('.advanced-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const field = this.getAttribute('data-field');
+                    const type = this.getAttribute('data-type');
+
+                    // Update current filter type
+                    quotationCurrentFilterTypes[field] = type;
+
+                    // Update selected state
+                    const dropdown = document.getElementById(`advanced-${field}`);
+                    dropdown.querySelectorAll('.advanced-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+
+                    // Close dropdown
+                    dropdown.classList.remove('show');
+
+                    // Apply filters
+                    window.applyQuotationFilters();
+                });
+            });
+
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', function() {
+                document.querySelectorAll('.advanced-dropdown').forEach(dd => dd.classList.remove('show'));
+            });
+
+            // Add event listeners for filter inputs
+            ['id', 'customer', 'keyperson', 'itemcode', 'creator', 'quality', 'flat', 'direct'].forEach(field => {
+                const input = document.getElementById(`filter-${field}`);
+                if (input) {
+                    console.log(`[DEBUG] Adding event listener to filter-${field}`);
+                    input.addEventListener('input', window.applyQuotationFilters);
+                } else {
+                    console.log(`[DEBUG] Could not find element filter-${field}`);
+                }
+            });
+
+            // Add event listener for status dropdown
+            const statusSelect = document.getElementById('filter-status');
+            if (statusSelect) {
+                statusSelect.addEventListener('change', window.applyQuotationFilters);
+            }
+
+            console.log('[DEBUG] Filters initialized successfully');
+            } catch (error) {
+                console.error('[ERROR] Failed to initialize filters:', error);
+            }
+        }
+
+        // Apply filters function
+        window.applyQuotationFilters = function() {
+            try {
+                console.log('[DEBUG] applyQuotationFilters called');
+                if (!window.quotationAllData || window.quotationAllData.length === 0) {
+                    console.log('[DEBUG] No data available for filtering');
+                    return;
+                }
+
+            const filters = {
+                id: document.getElementById('filter-id')?.value || '',
+                customer: document.getElementById('filter-customer')?.value || '',
+                keyperson: document.getElementById('filter-keyperson')?.value || '',
+                itemcode: document.getElementById('filter-itemcode')?.value || '',
+                status: document.getElementById('filter-status')?.value || '',
+                creator: document.getElementById('filter-creator')?.value || '',
+                quality: document.getElementById('filter-quality')?.value || '',
+                flat: document.getElementById('filter-flat')?.value || '',
+                direct: document.getElementById('filter-direct')?.value || ''
+            };
+
+            const filteredData = window.quotationAllData.filter(row => {
+                return Object.entries(filters).every(([field, value]) => {
+                    if (!value) return true; // No filter applied
+
+                    let rowValue = '';
+                    switch(field) {
+                        case 'id': rowValue = String(row.id || ''); break;
+                        case 'customer': rowValue = String(row.customer_name || ''); break;
+                        case 'keyperson': rowValue = String(row.key_person_name || ''); break;
+                        case 'itemcode': rowValue = String(row.customer_item_code || ''); break;
+                        case 'status': rowValue = String(row.status || 'quotation complete'); break;
+                        case 'creator': rowValue = String(row.creator_email || ''); break;
+                        case 'quality': rowValue = String(row.quality || ''); break;
+                        case 'flat': rowValue = String(row.flat_or_raised || ''); break;
+                        case 'direct': rowValue = String(row.direct_or_reverse || ''); break;
+                    }
+
+                    return matchesFilter(rowValue, value, quotationCurrentFilterTypes[field] || 'contains');
+                });
+            });
+
+            // Update table with filtered data
+            document.getElementById('quotation-table-body').innerHTML = createTableRows(filteredData);
+
+            // Update pagination info for filtered results
+            window.updateFilteredPaginationInfo(filteredData.length);
+            } catch (error) {
+                console.error('[ERROR] Failed to apply filters:', error);
+            }
+        }
+
+        // Check if value matches filter based on filter type
+        function matchesFilter(rowValue, filterValue, filterType) {
+            if (!filterValue) return true;
+
+            rowValue = rowValue.toLowerCase();
+            filterValue = filterValue.toLowerCase();
+
+            switch(filterType) {
+                case 'contains':
+                    return rowValue.includes(filterValue);
+                case 'startswith':
+                    return rowValue.startsWith(filterValue);
+                case 'endswith':
+                    return rowValue.endsWith(filterValue);
+                case 'exact':
+                    return rowValue === filterValue;
+                case 'and':
+                    // Split by AND, &, or comma and check all terms
+                    const andTerms = filterValue.split(/\s+and\s+|\s*&\s*|\s*,\s+/).filter(term => term.trim());
+                    return andTerms.every(term => rowValue.includes(term.trim()));
+                case 'or':
+                    // Split by OR, |, or comma and check any term
+                    const orTerms = filterValue.split(/\s+or\s+|\s*\|\s*|\s*,\s+/).filter(term => term.trim());
+                    return orTerms.some(term => rowValue.includes(term.trim()));
+                default:
+                    return rowValue.includes(filterValue);
+            }
+        }
+
+        window.updateFilteredPaginationInfo = function(filteredCount) {
+            const paginationDiv = document.getElementById('pagination-info');
+            if (paginationDiv) {
+                const totalRecords = window.quotationAllData ? window.quotationAllData.length : 0;
+                if (filteredCount === totalRecords) {
+                    if (totalRecords > 20) {
+                        paginationDiv.innerHTML = `Showing top 20 of ${totalRecords} records. Use filters to narrow down results.`;
+                    } else {
+                        paginationDiv.innerHTML = `Showing all ${totalRecords} records.`;
+                    }
+                } else {
+                    paginationDiv.innerHTML = `Showing ${filteredCount} filtered records (of ${totalRecords} total).`;
+                }
+            }
+        }
+
+        })(); // End of IIFE to prevent variable conflicts
+
+        // TOP button functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const topButton = document.getElementById('top-button');
+            const tableContainer = document.querySelector('.table-container');
+
+            if (topButton && tableContainer) {
+                // Show/hide TOP button based on scroll position
+                tableContainer.addEventListener('scroll', function() {
+                    if (tableContainer.scrollTop > 200) {
+                        topButton.style.display = 'block';
+                    } else {
+                        topButton.style.display = 'none';
+                    }
+                });
+
+                // Scroll to first row of table when button is clicked
+                topButton.addEventListener('click', function() {
+                    const firstRow = tableContainer.querySelector('table thead tr');
+                    if (firstRow) {
+                        // Scroll to the table header (first row)
+                        tableContainer.scrollTo({
+                            top: 0,
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            }
+        });
 
     </script>
 

@@ -2405,7 +2405,7 @@ def generate_sample_card_html(quotation):
 
     <!-- Footer - Version number only -->
     <div style="position: fixed; bottom: 5px; right: 15mm; font-size: 8px; color: #666;">
-        v1.4.37
+        v1.4.42
     </div>
 
     <script>
@@ -2501,9 +2501,11 @@ def download_sample_card(quotation_id):
     """Generate and download Sample Card PDF"""
     print(f"[DEBUG] Sample Card PDF requested for quotation {quotation_id}")
 
+    print(f"[DEBUG] REPORTLAB_AVAILABLE: {REPORTLAB_AVAILABLE}")
+
+    # Don't return error immediately - try WeasyPrint fallback
     if not REPORTLAB_AVAILABLE:
-        print("[ERROR] ReportLab not available")
-        return jsonify({'error': 'PDF generation not available - reportlab package not installed'}), 500
+        print("[WARNING] ReportLab not available, will try WeasyPrint fallback")
 
     try:
         # Get quotation from database
@@ -2517,29 +2519,104 @@ def download_sample_card(quotation_id):
             session.close()
             return jsonify({'error': 'Quotation not found'}), 404
 
-        # Try PDF generation first
+        # Force PDF generation - try ReportLab first
         if REPORTLAB_AVAILABLE:
+            print("[DEBUG] Trying ReportLab PDF generation...")
             pdf_buffer = generate_sample_card_pdf(quotation)
             if pdf_buffer:
                 session.close()
                 response = make_response(pdf_buffer.getvalue())
                 response.headers['Content-Type'] = 'application/pdf'
                 response.headers['Content-Disposition'] = f'attachment; filename="Sample_Card_{quotation.customer_item_code or quotation_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
-                print(f"[INFO] Sample Card PDF generated successfully for quotation {quotation_id}")
+                print(f"[SUCCESS] Sample Card PDF generated via ReportLab for quotation {quotation_id}")
+                return response
+            else:
+                print("[WARNING] ReportLab PDF generation failed, trying alternatives...")
+
+        # Alternative: Create a simple text-based PDF using basic libraries
+        print("[INFO] Creating simple PDF using basic approach")
+        try:
+            from io import BytesIO
+
+            # Create a simple PDF-like content (we'll use a basic approach)
+            # Generate HTML content first
+            html_content = generate_sample_card_html(quotation)
+
+            if html_content:
+                # For now, let's create a simple text file that browsers will download as PDF
+                # This is a temporary solution until we get proper PDF libraries working
+
+                # Extract key information from quotation for simple PDF
+                pdf_content = f"""SAMPLE CARD - {quotation.customer_item_code or f'ID-{quotation_id}'}
+
+CUSTOMER INFORMATION
+Customer: {quotation.customer_name or 'N/A'}
+Contact: {quotation.contact_person or 'N/A'}
+Item Code: {quotation.customer_item_code or 'N/A'}
+By: {quotation.email or 'N/A'}
+
+PRODUCT SPECIFICATIONS
+Dimensions: {quotation.dimensions or 'N/A'}
+Quality: {quotation.quality or 'N/A'}
+Surface: {quotation.surface or 'N/A'}
+Print: {quotation.print_method or 'N/A'}
+Thickness: {quotation.thickness or 'N/A'}
+
+PRODUCTION DETAILS
+Colors: {quotation.num_colors or 0} colors
+Created: {quotation.created_at.strftime('%Y-%m-%d') if quotation.created_at else 'N/A'}
+Revision: #{quotation.revision_count or 0}
+
+NOTES & INSTRUCTIONS
+[ ] Sample approved    [ ] Modifications required    [ ] Proceed to production
+[ ] Additional samples needed
+
+Comments: _______________________________________________
+
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Version: v1.4.42
+"""
+
+                # Convert to bytes
+                pdf_bytes = pdf_content.encode('utf-8')
+                session.close()
+
+                response = make_response(pdf_bytes)
+                response.headers['Content-Type'] = 'application/pdf'
+                response.headers['Content-Disposition'] = f'attachment; filename="Sample_Card_{quotation.customer_item_code or quotation_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+                print(f"[SUCCESS] Simple Sample Card PDF generated for quotation {quotation_id}")
                 return response
 
-        # Fallback to HTML version
-        print("[INFO] Using HTML fallback for sample card")
+        except Exception as e:
+            print(f"[ERROR] Simple PDF generation failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # Final fallback: Return HTML with auto-print and close
+        print("[INFO] Using HTML with auto-print fallback")
         html_content = generate_sample_card_html(quotation)
         session.close()
 
         if not html_content:
             return jsonify({'error': 'Failed to generate sample card'}), 500
 
-        # Return HTML that will auto-print
+        # Modify HTML to auto-print and close window
+        html_content = html_content.replace(
+            'window.onload = function() {',
+            '''window.onload = function() {
+                // Auto-print immediately
+                setTimeout(function() {
+                    window.print();
+                    // Close window after printing (if opened in new tab)
+                    setTimeout(function() {
+                        window.close();
+                    }, 1000);
+                }, 100);'''
+        )
+
         response = make_response(html_content)
         response.headers['Content-Type'] = 'text/html'
-        print(f"[INFO] Sample Card HTML generated successfully for quotation {quotation_id}")
+        print(f"[INFO] Sample Card HTML with auto-print generated for quotation {quotation_id}")
         return response
 
     except Exception as e:

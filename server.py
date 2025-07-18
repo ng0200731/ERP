@@ -2135,6 +2135,10 @@ def generate_sample_card_html(quotation):
         # Get user email from session
         user_email = session.get('user', 'system@fuchanghk.com')
 
+        # Prepare date values
+        created_date = quotation.created_at.strftime('%Y-%m-%d') if quotation.created_at else 'N/A'
+        revision_number = quotation.revision_count or 0
+
         # Create HTML content
         html_content = f"""
 <!DOCTYPE html>
@@ -2358,12 +2362,12 @@ def generate_sample_card_html(quotation):
 
                     <div class="production-item">
                         <span class="production-label">Created:</span>
-                        <span class="production-value">{quotation.created_at.strftime('%Y-%m-%d') if quotation.created_at else 'N/A'}</span>
+                        <span class="production-value">""" + created_date + """</span>
                     </div>
 
                     <div class="production-item">
                         <span class="production-label">Revision:</span>
-                        <span class="production-value">#{quotation.revision_count or 0}</span>
+                        <span class="production-value">#""" + str(revision_number) + """</span>
                     </div>
 
                     <!-- Additional Files removed as requested -->
@@ -2401,7 +2405,7 @@ def generate_sample_card_html(quotation):
 
     <!-- Footer - Version number only -->
     <div style="position: fixed; bottom: 5px; right: 15mm; font-size: 8px; color: #666;">
-        v1.4.32
+        v1.4.37
     </div>
 
     <script>
@@ -2437,7 +2441,7 @@ def generate_sample_card_html(quotation):
         return html_content
 
     except Exception as e:
-        logger.error(f"Error generating sample card HTML: {{str(e)}}")
+        logger.error(f"Error generating sample card HTML: {str(e)}")
         return None
 
 # Status update endpoints

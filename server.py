@@ -53,13 +53,157 @@ except Exception as e:
 CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True}})
 app.secret_key = 'your-very-secret-key-2025-04-16'  # Set a unique, secret value for session support
 
-# Configure Flask-Mail (update with your SMTP settings)
+# Configure Flask-Mail (Gmail as primary)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'eric.brilliant@gmail.com'
 app.config['MAIL_PASSWORD'] = 'opqx pfna kagb bznr'
 mail = Mail(app)
+
+# 163.com backup email configuration with multiple ports (prioritized by reliability)
+BACKUP_MAIL_CONFIGS = [
+    {
+        'MAIL_SERVER': 'smtp.163.com',
+        'MAIL_PORT': 465,
+        'MAIL_USE_SSL': True,
+        'MAIL_USE_TLS': False,
+        'MAIL_USERNAME': '19902475292@163.com',
+        'MAIL_PASSWORD': 'JDy8MigeNmsESZRa',
+        'NAME': '163.com SSL (465) - TESTED WORKING'
+    },
+    {
+        'MAIL_SERVER': 'smtp.163.com',
+        'MAIL_PORT': 994,
+        'MAIL_USE_SSL': True,
+        'MAIL_USE_TLS': False,
+        'MAIL_USERNAME': '19902475292@163.com',
+        'MAIL_PASSWORD': 'JDy8MigeNmsESZRa',
+        'NAME': '163.com SSL (994)'
+    },
+    {
+        'MAIL_SERVER': 'smtp.163.com',
+        'MAIL_PORT': 25,
+        'MAIL_USE_TLS': True,
+        'MAIL_USE_SSL': False,
+        'MAIL_USERNAME': '19902475292@163.com',
+        'MAIL_PASSWORD': 'JDy8MigeNmsESZRa',
+        'NAME': '163.com Standard (25)'
+    }
+]
+
+def send_email_with_fallback(subject, recipients, body=None, html=None, attachments=None):
+    """
+    Send email with automatic fallback from Gmail to 163.com
+    Returns: (success: bool, message: str, service_used: str)
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email import encoders
+    import os
+
+    # Ensure recipients is a list
+    if isinstance(recipients, str):
+        recipients = [recipients]
+
+    def try_gmail():
+        """Try sending via Gmail"""
+        try:
+            msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=recipients)
+            if body:
+                msg.body = body
+            if html:
+                msg.html = html
+            if attachments:
+                for attachment in attachments:
+                    if isinstance(attachment, dict):
+                        msg.attach(
+                            filename=attachment.get('filename'),
+                            content_type=attachment.get('content_type'),
+                            data=attachment.get('data'),
+                            disposition=attachment.get('disposition', 'attachment'),
+                            headers=attachment.get('headers', {})
+                        )
+            mail.send(msg)
+            return True, "Email sent successfully via Gmail", "Gmail"
+        except Exception as e:
+            return False, f"Gmail failed: {str(e)}", "Gmail"
+
+    def try_163com():
+        """Try sending via 163.com with multiple port configurations"""
+        last_error = None
+
+        for config in BACKUP_MAIL_CONFIGS:
+            try:
+                # Create message
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = subject
+                msg['From'] = config['MAIL_USERNAME']
+                msg['To'] = ', '.join(recipients)
+
+                # Add body
+                if body:
+                    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+                if html:
+                    msg.attach(MIMEText(html, 'html', 'utf-8'))
+
+                # Add attachments
+                if attachments:
+                    for attachment in attachments:
+                        if isinstance(attachment, dict):
+                            part = MIMEBase('application', 'octet-stream')
+                            part.set_payload(attachment.get('data', b''))
+                            encoders.encode_base64(part)
+                            part.add_header(
+                                'Content-Disposition',
+                                f"{attachment.get('disposition', 'attachment')}; filename= {attachment.get('filename', 'attachment')}"
+                            )
+                            msg.attach(part)
+
+                # Try different connection methods based on config
+                if config.get('MAIL_USE_SSL', False):
+                    # Use SSL connection (ports 465, 994)
+                    server = smtplib.SMTP_SSL(config['MAIL_SERVER'], config['MAIL_PORT'], timeout=10)
+                else:
+                    # Use regular SMTP with optional TLS (ports 587, 25)
+                    server = smtplib.SMTP(config['MAIL_SERVER'], config['MAIL_PORT'], timeout=10)
+                    if config.get('MAIL_USE_TLS', False):
+                        server.starttls()
+
+                # Login and send
+                server.login(config['MAIL_USERNAME'], config['MAIL_PASSWORD'])
+                server.send_message(msg)
+                server.quit()
+
+                return True, f"Email sent successfully via {config['NAME']}", config['NAME']
+
+            except Exception as e:
+                last_error = f"{config['NAME']}: {str(e)}"
+                logger.warning(f"163.com attempt failed with {config['NAME']}: {e}")
+                continue
+
+        # All 163.com configurations failed
+        return False, f"All 163.com configurations failed. Last error: {last_error}", "163.com"
+
+    # Try Gmail first
+    success, message, service = try_gmail()
+    if success:
+        logger.info(f"Email sent via Gmail to {recipients}: {subject}")
+        return success, message, service
+
+    # If Gmail fails, try 163.com
+    logger.warning(f"Gmail failed, trying 163.com fallback: {message}")
+    success, message, service = try_163com()
+    if success:
+        logger.info(f"Email sent via 163.com fallback to {recipients}: {subject}")
+        return success, message, service
+
+    # Both failed
+    error_msg = f"Both email services failed. Gmail: {message}"
+    logger.error(f"Email sending failed completely to {recipients}: {error_msg}")
+    return False, error_msg, "Both failed"
 
 # --- Flask-Login Setup ---
 login_manager = LoginManager()
@@ -147,16 +291,17 @@ def add_customer():
         email_message = None
         if 'keyPeople' in data and data['keyPeople'] and 'email' in data['keyPeople'][0]:
             user_email = '859543169@qq.com'  # Hardcoded for testing
-            try:
-                msg = Message('We received your request', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-                msg.body = 'Thank you for your request. Our team has received it and will review it soon.'
-                mail.send(msg)
+            success, message, service = send_email_with_fallback(
+                subject='We received your request',
+                recipients=[user_email],
+                body='Thank you for your request. Our team has received it and will review it soon.'
+            )
+            if success:
                 email_status = 'success'
-                email_message = 'Confirmation email sent successfully.'
-            except Exception as e:
-                logger.error(f'Error sending confirmation email: {e}')
+                email_message = f'Confirmation email sent successfully via {service}.'
+            else:
                 email_status = 'error'
-                email_message = f'Error sending confirmation email: {e}'
+                email_message = f'Error sending confirmation email: {message}'
         logger.info(f"Customer added successfully: ID {customer_id}, {data.get('company')}")
         return jsonify({'email_status': email_status, 'email_message': email_message, 'customer_id': customer_id}), 201
     except Exception as e:
@@ -486,19 +631,24 @@ def login():
             session['pending_code'] = code
             session['pending_email'] = email
             session['permission_level'] = user['permission_level'] if 'permission_level' in user.keys() else 1
-            msg = Message('Your Access Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
-            msg.body = f'Your access code is: {code}'
-            mail.send(msg)
+            success, message, service = send_email_with_fallback(
+                subject='Your Access Code',
+                recipients=[email],
+                body=f'Your access code is: {code}'
+            )
+            if not success:
+                logger.error(f'Failed to send access code email: {message}')
             conn.close()
             return render_template('enter_code.html', email=email)
         elif user:
             # Send 'await authorization' email
-            try:
-                msg = Message('Authorization in progress', sender=app.config['MAIL_USERNAME'], recipients=[email])
-                msg.body = 'Authorization in progress. Please wait for admin approval.'
-                mail.send(msg)
-            except Exception as e:
-                print(f'Error sending authorization in progress email: {e}')
+            success, message, service = send_email_with_fallback(
+                subject='Authorization in progress',
+                recipients=[email],
+                body='Authorization in progress. Please wait for admin approval.'
+            )
+            if not success:
+                print(f'Error sending authorization in progress email: {message}')
             conn.close()
             return 'Authorization in progress. Please wait for admin approval.'
         else:
@@ -513,12 +663,13 @@ def login():
                 print(f'Error inserting new user: {e}')
             
             # Send acknowledgment email to the real user
-            try:
-                msg = Message('We received your login request', sender=app.config['MAIL_USERNAME'], recipients=[email])
-                msg.body = 'Thank you for your login request. Our team has received it and will review it soon.'
-                mail.send(msg)
-            except Exception as e:
-                print(f'Error sending login acknowledgment email: {e}')
+            success, message, service = send_email_with_fallback(
+                subject='We received your login request',
+                recipients=[email],
+                body='Thank you for your login request. Our team has received it and will review it soon.'
+            )
+            if not success:
+                print(f'Error sending login acknowledgment email: {message}')
             conn.close()
             return 'Request submitted. Waiting for admin approval.'
     return render_template('login.html')
@@ -580,12 +731,13 @@ def admin_approve():
         conn.execute('UPDATE users SET is_approved=1, approved_at=? WHERE email=?', (now, email))
         conn.commit()
         # Optionally, send approval email
-        try:
-            msg = Message('Your account is approved', sender=app.config['MAIL_USERNAME'], recipients=[email])
-            msg.body = 'Your account has been approved. You may now log in.'
-            mail.send(msg)
-        except Exception as e:
-            print(f'[ERROR] Error sending approval email: {e}')
+        success, message, service = send_email_with_fallback(
+            subject='Your account is approved',
+            recipients=[email],
+            body='Your account has been approved. You may now log in.'
+        )
+        if not success:
+            print(f'[ERROR] Error sending approval email: {message}')
         return jsonify({'success': True})
     except Exception as e:
         print(f'[ERROR] Error approving user: {e}')
@@ -735,10 +887,7 @@ def edit_user(user_id):
                         permission_level = current_user['permission_level']
                     
                     # Send detailed activation email
-                    msg = Message('Your account has been activated', 
-                                sender=app.config['MAIL_USERNAME'], 
-                                recipients=[current_user['email']])
-                    msg.body = f'''Hello,
+                    activation_body = f'''Hello,
 
 Your account has been activated with Level {permission_level} permissions.
 
@@ -748,8 +897,15 @@ Thank you for your patience.
 Best regards,
 Customer Management Team
 '''
-                    mail.send(msg)
-                    print(f"[INFO] Activation email sent to {current_user['email']}")
+                    success, message, service = send_email_with_fallback(
+                        subject='Your account has been activated',
+                        recipients=[current_user['email']],
+                        body=activation_body
+                    )
+                    if success:
+                        print(f"[INFO] Activation email sent to {current_user['email']} via {service}")
+                    else:
+                        print(f"[ERROR] Failed to send activation email: {message}")
                 except Exception as e:
                     print(f"[ERROR] Failed to send activation email: {e}")
     
@@ -1219,18 +1375,29 @@ def save_quotation():
 '''
                 # Change email subject to new format (item code)
                 subject = f'FCL / HT Quotation / {item_code}'
-                msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-                msg.html = html_body
-                # Attach the artwork image inline if present
+
+                # Prepare attachments for fallback function
+                attachments = []
                 if artwork_image_path and os.path.exists(artwork_image_path):
                     with open(artwork_image_path, 'rb') as img_file:
-                        msg.attach(filename=os.path.basename(artwork_image_path),
-                                   content_type='image/jpeg',
-                                   data=img_file.read(),
-                                   disposition='inline',
-                                   headers={'Content-ID': f'<{img_cid}>'})
-                mail.send(msg)
-                print(f"[INFO] Quotation email sent to {user_email}")
+                        attachments.append({
+                            'filename': os.path.basename(artwork_image_path),
+                            'content_type': 'image/jpeg',
+                            'data': img_file.read(),
+                            'disposition': 'inline',
+                            'headers': {'Content-ID': f'<{img_cid}>'}
+                        })
+
+                success, message, service = send_email_with_fallback(
+                    subject=subject,
+                    recipients=[user_email],
+                    html=html_body,
+                    attachments=attachments if attachments else None
+                )
+                if success:
+                    print(f"[INFO] Quotation email sent to {user_email} via {service}")
+                else:
+                    print(f"[ERROR] Failed to send quotation email: {message}")
             except Exception as e:
                 print(f"[ERROR] Failed to send quotation email: {e}")
             # --- End email logic ---
@@ -1718,17 +1885,29 @@ def api_get_quotation(quotation_id):
 '''
                 revision_count = quotation.revision_count or 0
                 subject = f'FCL / HT Quotation / {item_code} (#{revision_count} revision)'
-                msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-                msg.html = html_body
+
+                # Prepare attachments for fallback function
+                attachments = []
                 if artwork_image_path and os.path.exists(artwork_image_path):
                     with open(artwork_image_path, 'rb') as img_file:
-                        msg.attach(filename=os.path.basename(artwork_image_path),
-                                   content_type='image/jpeg',
-                                   data=img_file.read(),
-                                   disposition='inline',
-                                   headers={'Content-ID': f'<{img_cid}>'})
-                mail.send(msg)
-                print(f"[INFO] Quotation update email sent to {user_email}")
+                        attachments.append({
+                            'filename': os.path.basename(artwork_image_path),
+                            'content_type': 'image/jpeg',
+                            'data': img_file.read(),
+                            'disposition': 'inline',
+                            'headers': {'Content-ID': f'<{img_cid}>'}
+                        })
+
+                success, message, service = send_email_with_fallback(
+                    subject=subject,
+                    recipients=[user_email],
+                    html=html_body,
+                    attachments=attachments if attachments else None
+                )
+                if success:
+                    print(f"[INFO] Quotation update email sent to {user_email} via {service}")
+                else:
+                    print(f"[ERROR] Failed to send quotation update email: {message}")
             except Exception as e:
                 print(f"[ERROR] Failed to send quotation update email: {e}")
             # --- End email logic ---

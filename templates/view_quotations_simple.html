@@ -49,6 +49,7 @@
         
         .quotation-table {
             width: 100%;
+            min-width: 1400px;
             border-collapse: collapse;
             margin-top: 10px;
             background: white;
@@ -66,11 +67,37 @@
         }
         
         .table-container {
-            max-height: calc(100vh - 150px);
+            max-height: calc(100vh - 180px);
             overflow-y: auto;
-            margin: 0 20px;
+            overflow-x: auto;
+            margin: 0 20px 20px 20px;
             border: 1px solid #dee2e6;
             border-radius: 5px;
+            padding-bottom: 5px;
+        }
+
+        /* Make scroll bars more visible */
+        .table-container::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .table-container::-webkit-scrollbar-corner {
+            background: #f1f1f1;
         }
         
         /* Zebra striping */
@@ -81,7 +108,7 @@
         /* Responsive design */
         @media (max-width: 1200px) {
             .table-container {
-                margin: 0 10px;
+                margin: 0 10px 20px 10px;
             }
             
             .quotation-table th,
@@ -167,7 +194,7 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.4.53</span>
+            <span class="version-tag">v1.4.55</span>
             {% if permission_level == 1 %}
                 <span style="background:#ffc107;color:#212529;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">Level 1: Own Records Only</span>
             {% elif permission_level >= 3 %}

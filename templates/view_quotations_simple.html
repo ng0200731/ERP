@@ -167,7 +167,7 @@
     <div class="header-container">
         <div class="title-version">
             <h2 style="margin: 0;">Quotation Records</h2>
-            <span class="version-tag">v1.4.42</span>
+            <span class="version-tag">v1.4.53</span>
             {% if permission_level == 1 %}
                 <span style="background:#ffc107;color:#212529;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:500;">Level 1: Own Records Only</span>
             {% elif permission_level >= 3 %}
@@ -572,10 +572,9 @@
                             updateQuotationStatus(id, action);
                         }
                     } else if (action === 'sample-card') {
-                        if (confirm('Download Sample Card PDF? You can download this multiple times as needed.')) {
-                            // Generate and download the PDF (no status update - allows multiple downloads)
-                            generateSampleCardPDF(id);
-                            // Note: No status update here - allows users to download multiple times
+                        if (confirm('Open Sample Card? This will update the status to "sample card".')) {
+                            // Update status to "sample card" and then download PDF
+                            updateQuotationStatus(id, action);
                         }
                     }
                 }
@@ -583,23 +582,15 @@
             }
         })();
 
-        // Function to generate and download Sample Card (allows multiple downloads)
+        // Function to generate and download Sample Card file
         function generateSampleCardPDF(quotationId) {
-            console.log(`[DEBUG] Generating Sample Card for quotation ${quotationId} (multiple downloads allowed)`);
+            console.log(`[DEBUG] Opening Sample Card for quotation ${quotationId}`);
 
-            // Open sample card in new window (will auto-print if HTML, or download if PDF)
-            const sampleCardWindow = window.open(`/quotation/sample-card/${quotationId}`, '_blank');
+            // Open Sample Card in new tab
+            const url = `/quotation/sample-card/${quotationId}`;
+            window.open(url, '_blank');
 
-            // Fallback: if popup blocked, try direct navigation
-            if (!sampleCardWindow) {
-                console.log('[DEBUG] Popup blocked, trying direct navigation');
-                window.location.href = `/quotation/sample-card/${quotationId}`;
-            }
-
-            console.log('[DEBUG] Sample Card generation initiated - no status update (allows re-download)');
-
-            // Note: No status update here - allows users to download multiple times
-            // Status remains "sample card" and Sample Card button stays active
+            console.log('[DEBUG] Sample Card opened in new tab');
         }
 
         // Function to update quotation status via API
@@ -625,7 +616,15 @@
                     // Success - reload the data to reflect changes
                     console.log('[DEBUG] Status updated successfully, reloading data...');
                     loadData();
-                    alert('Status updated successfully!');
+
+                    // Special handling for sample-card action: trigger PDF download after status update
+                    if (action === 'sample-card') {
+                        console.log('[DEBUG] Sample card status updated, triggering PDF download...');
+                        generateSampleCardPDF(quotationId);
+                        alert('Status updated to "sample card" and Sample Card opened!');
+                    } else {
+                        alert('Status updated successfully!');
+                    }
                 }
             })
             .catch(error => {

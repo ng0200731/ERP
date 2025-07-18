@@ -2519,19 +2519,129 @@ def download_sample_card(quotation_id):
             session.close()
             return jsonify({'error': 'Quotation not found'}), 404
 
-        # Force PDF generation - try ReportLab first
-        if REPORTLAB_AVAILABLE:
-            print("[DEBUG] Trying ReportLab PDF generation...")
-            pdf_buffer = generate_sample_card_pdf(quotation)
-            if pdf_buffer:
-                session.close()
-                response = make_response(pdf_buffer.getvalue())
-                response.headers['Content-Type'] = 'application/pdf'
-                response.headers['Content-Disposition'] = f'attachment; filename="Sample_Card_{quotation.customer_item_code or quotation_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
-                print(f"[SUCCESS] Sample Card PDF generated via ReportLab for quotation {quotation_id}")
-                return response
-            else:
-                print("[WARNING] ReportLab PDF generation failed, trying alternatives...")
+        # Create a simple HTML file that can be printed to PDF
+        print("[INFO] Creating HTML Sample Card")
+        try:
+            # Create HTML content
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Sample Card - {quotation.customer_item_code or f'ID-{quotation_id}'}</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                    .header {{ text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }}
+                    .section {{ margin-bottom: 20px; }}
+                    .section-title {{ font-size: 16px; font-weight: bold; margin-bottom: 10px; }}
+                    .row {{ display: flex; margin-bottom: 5px; }}
+                    .label {{ width: 120px; font-weight: bold; }}
+                    .value {{ flex: 1; }}
+                    .checkbox {{ margin-right: 20px; }}
+                    .comments {{ margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px; }}
+                    .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
+                    @media print {{
+                        body {{ margin: 0; }}
+                        button {{ display: none; }}
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="header">SAMPLE CARD - {quotation.customer_item_code or f'ID-{quotation_id}'}</div>
+
+                <div class="section">
+                    <div class="section-title">CUSTOMER INFORMATION</div>
+                    <div class="row">
+                        <div class="label">Customer:</div>
+                        <div class="value">{quotation.customer_name or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Contact:</div>
+                        <div class="value">{quotation.contact_person or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Item Code:</div>
+                        <div class="value">{quotation.customer_item_code or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">By:</div>
+                        <div class="value">{quotation.email or 'N/A'}</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">PRODUCT SPECIFICATIONS</div>
+                    <div class="row">
+                        <div class="label">Dimensions:</div>
+                        <div class="value">{quotation.dimensions or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Quality:</div>
+                        <div class="value">{quotation.quality or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Surface:</div>
+                        <div class="value">{quotation.surface or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Print:</div>
+                        <div class="value">{quotation.print_method or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Thickness:</div>
+                        <div class="value">{quotation.thickness or 'N/A'}</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">PRODUCTION DETAILS</div>
+                    <div class="row">
+                        <div class="label">Colors:</div>
+                        <div class="value">{quotation.num_colors or 0} colors</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Created:</div>
+                        <div class="value">{quotation.created_at.strftime('%Y-%m-%d') if quotation.created_at else 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Revision:</div>
+                        <div class="value">#{quotation.revision_count or 0}</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">NOTES & INSTRUCTIONS</div>
+                    <div class="row">
+                        <div class="checkbox">☐ Sample approved</div>
+                        <div class="checkbox">☐ Modifications required</div>
+                        <div class="checkbox">☐ Proceed to production</div>
+                    </div>
+                    <div class="row">
+                        <div class="checkbox">☐ Additional samples needed</div>
+                    </div>
+                    <div class="comments">
+                        Comments: _______________________________________________
+                    </div>
+                </div>
+
+                <div class="footer">
+                    Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Version: v1.4.52
+                </div>
+
+                <button onclick="window.print()" style="margin-top: 20px; padding: 10px;">Print as PDF</button>
+            </body>
+            </html>
+            """
+
+            session.close()
+            response = make_response(html_content)
+            response.headers['Content-Type'] = 'text/html'
+            print(f"[SUCCESS] HTML Sample Card generated for quotation {quotation_id}")
+            return response
+
+        except Exception as e:
+            print(f"[ERROR] HTML Sample Card generation failed: {e}")
+            import traceback
+            traceback.print_exc()
 
         # Alternative: Create a simple text-based PDF using basic libraries
         print("[INFO] Creating simple PDF using basic approach")
@@ -2574,17 +2684,17 @@ NOTES & INSTRUCTIONS
 Comments: _______________________________________________
 
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Version: v1.4.42
+Version: v1.4.48
 """
 
-                # Convert to bytes
+                # Convert to bytes and return as text file (since we don't have proper PDF libraries)
                 pdf_bytes = pdf_content.encode('utf-8')
                 session.close()
 
                 response = make_response(pdf_bytes)
-                response.headers['Content-Type'] = 'application/pdf'
+                response.headers['Content-Type'] = 'application/octet-stream'
                 response.headers['Content-Disposition'] = f'attachment; filename="Sample_Card_{quotation.customer_item_code or quotation_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
-                print(f"[SUCCESS] Simple Sample Card PDF generated for quotation {quotation_id}")
+                print(f"[SUCCESS] Simple Sample Card text file generated for quotation {quotation_id}")
                 return response
 
         except Exception as e:

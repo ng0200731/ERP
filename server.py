@@ -149,17 +149,32 @@ def send_email_with_fallback(subject, recipients, body=None, html=None, attachme
                 if html:
                     msg.attach(MIMEText(html, 'html', 'utf-8'))
 
-                # Add attachments
+                # Add attachments (preserving inline image embedding)
                 if attachments:
                     for attachment in attachments:
                         if isinstance(attachment, dict):
-                            part = MIMEBase('application', 'octet-stream')
-                            part.set_payload(attachment.get('data', b''))
-                            encoders.encode_base64(part)
-                            part.add_header(
-                                'Content-Disposition',
-                                f"{attachment.get('disposition', 'attachment')}; filename= {attachment.get('filename', 'attachment')}"
-                            )
+                            # Determine content type and create appropriate MIME part
+                            content_type = attachment.get('content_type', 'application/octet-stream')
+                            if content_type.startswith('image/'):
+                                # Handle image attachments (for inline embedding)
+                                from email.mime.image import MIMEImage
+                                part = MIMEImage(attachment.get('data', b''))
+                            else:
+                                # Handle other file types
+                                part = MIMEBase('application', 'octet-stream')
+                                part.set_payload(attachment.get('data', b''))
+                                encoders.encode_base64(part)
+
+                            # Set Content-Disposition
+                            disposition = attachment.get('disposition', 'attachment')
+                            filename = attachment.get('filename', 'attachment')
+                            part.add_header('Content-Disposition', f'{disposition}; filename="{filename}"')
+
+                            # Add Content-ID header for inline images (critical for embedding)
+                            headers = attachment.get('headers', {})
+                            for header_name, header_value in headers.items():
+                                part.add_header(header_name, header_value)
+
                             msg.attach(part)
 
                 # Try different connection methods based on config

@@ -1,0 +1,345 @@
+<!-- Change Tracking Modal -->
+<div id="change-tracking-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>📝 Record Change Details</h3>
+            <button class="modal-close" onclick="closeChangeModal()">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <form id="change-tracking-form">
+                <!-- Change Type Selection -->
+                <div class="form-group">
+                    <label><strong>Change Type:</strong></label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="change_type" value="internal" onchange="toggleChangeReason()">
+                            <span>🏢 Internal</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="change_type" value="external" onchange="toggleChangeReason()">
+                            <span>👤 External (Customer Request)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Internal Change Reason -->
+                <div id="internal-reason-section" class="form-group" style="display: none;">
+                    <label for="change-reason"><strong>Internal Reason:</strong></label>
+                    <select id="change-reason" name="change_reason">
+                        <option value="">Select reason...</option>
+                        <option value="manual_error">Manual Error</option>
+                        <option value="boss_change">Boss Change</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <!-- Other Reason Detail (for internal "other") -->
+                <div id="other-reason-section" class="form-group" style="display: none;">
+                    <label for="other-reason-detail"><strong>Please specify:</strong></label>
+                    <textarea id="other-reason-detail" name="other_reason_detail" 
+                              placeholder="Enter details (max 50 words)..." 
+                              maxlength="500" rows="2"></textarea>
+                    <small class="word-count">0/50 words</small>
+                </div>
+
+                <!-- External Proof Section -->
+                <div id="external-proof-section" class="form-group" style="display: none;">
+                    <label><strong>Customer Request Proof:</strong></label>
+                    
+                    <!-- Text Proof -->
+                    <div class="proof-subsection">
+                        <label for="proof-text">Copy/Paste Customer Request:</label>
+                        <textarea id="proof-text" name="proof_text" 
+                                  placeholder="Paste customer email, message, or request details here (max 50 words)..." 
+                                  maxlength="500" rows="3"></textarea>
+                        <small class="word-count">0/50 words</small>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="proof-subsection">
+                        <label>Upload Supporting Files:</label>
+                        <div class="file-upload-area" id="file-upload-area">
+                            <input type="file" id="proof-files" name="proof_files" 
+                                   multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.eml,.msg" 
+                                   onchange="handleFileUpload(event)">
+                            <div class="upload-text">
+                                📎 Click to browse or drag files here<br>
+                                <small>Supported: Images (JPG, PNG, GIF), PDF, Email files</small>
+                            </div>
+                        </div>
+                        <div id="uploaded-files-list"></div>
+                    </div>
+                </div>
+
+                <!-- Changes Summary -->
+                <div class="form-group">
+                    <label><strong>Changes to be recorded:</strong></label>
+                    <div id="changes-summary" class="changes-summary">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeChangeModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveChanges()" id="save-changes-btn" disabled>
+                💾 Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+}
+
+.radio-group {
+    display: flex;
+    gap: 20px;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 10px 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.radio-option:hover {
+    border-color: #007bff;
+    background: #f8f9fa;
+}
+
+.radio-option input[type="radio"]:checked + span {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.radio-option input[type="radio"] {
+    margin: 0;
+}
+
+select, textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.word-count {
+    color: #666;
+    font-size: 12px;
+    float: right;
+    margin-top: 5px;
+}
+
+.proof-subsection {
+    margin-bottom: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.file-upload-area {
+    border: 2px dashed #ced4da;
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.file-upload-area:hover {
+    border-color: #007bff;
+    background: #f8f9fa;
+}
+
+.file-upload-area input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-text {
+    color: #666;
+}
+
+.changes-summary {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.change-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.change-item:last-child {
+    border-bottom: none;
+}
+
+.change-field {
+    font-weight: 600;
+    color: #007bff;
+}
+
+.change-values {
+    color: #666;
+    font-size: 14px;
+}
+
+/* Button Styles */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #0056b3;
+}
+
+.btn-primary:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+}
+
+#uploaded-files-list {
+    margin-top: 10px;
+}
+
+.uploaded-file {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    margin-bottom: 5px;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-remove {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.file-remove:hover {
+    background: #c82333;
+}
+</style>

@@ -2,7 +2,7 @@ import os
 print('!!! TEST MARKER 123 !!!')
 print('server.py absolute path:', os.path.abspath(__file__))
 print('STARTING SERVER.PY')
-from flask import Flask, request, jsonify, send_from_directory, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, send_from_directory, render_template, session, redirect, url_for, make_response
 from flask_cors import CORS
 import sqlite3
 from datetime import datetime, timezone, timedelta
@@ -18,6 +18,17 @@ import pandas as pd
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import json
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.units import mm
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    print("Warning: reportlab not installed. PDF generation will not work.")
+    REPORTLAB_AVAILABLE = False
+import io
 from sqlalchemy import event, text
 
 # Set up logging
@@ -42,13 +53,172 @@ except Exception as e:
 CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True}})
 app.secret_key = 'your-very-secret-key-2025-04-16'  # Set a unique, secret value for session support
 
-# Configure Flask-Mail (update with your SMTP settings)
+# Configure Flask-Mail (Gmail as primary)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'eric.brilliant@gmail.com'
 app.config['MAIL_PASSWORD'] = 'opqx pfna kagb bznr'
 mail = Mail(app)
+
+# 163.com backup email configuration with multiple ports (prioritized by reliability)
+BACKUP_MAIL_CONFIGS = [
+    {
+        'MAIL_SERVER': 'smtp.163.com',
+        'MAIL_PORT': 465,
+        'MAIL_USE_SSL': True,
+        'MAIL_USE_TLS': False,
+        'MAIL_USERNAME': '19902475292@163.com',
+        'MAIL_PASSWORD': 'JDy8MigeNmsESZRa',
+        'NAME': '163.com SSL (465) - TESTED WORKING'
+    },
+    {
+        'MAIL_SERVER': 'smtp.163.com',
+        'MAIL_PORT': 994,
+        'MAIL_USE_SSL': True,
+        'MAIL_USE_TLS': False,
+        'MAIL_USERNAME': '19902475292@163.com',
+        'MAIL_PASSWORD': 'JDy8MigeNmsESZRa',
+        'NAME': '163.com SSL (994)'
+    },
+    {
+        'MAIL_SERVER': 'smtp.163.com',
+        'MAIL_PORT': 25,
+        'MAIL_USE_TLS': True,
+        'MAIL_USE_SSL': False,
+        'MAIL_USERNAME': '19902475292@163.com',
+        'MAIL_PASSWORD': 'JDy8MigeNmsESZRa',
+        'NAME': '163.com Standard (25)'
+    }
+]
+
+def send_email_with_fallback(subject, recipients, body=None, html=None, attachments=None):
+    """
+    Send email with automatic fallback from Gmail to 163.com
+    Returns: (success: bool, message: str, service_used: str)
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email import encoders
+    import os
+
+    # Ensure recipients is a list
+    if isinstance(recipients, str):
+        recipients = [recipients]
+
+    def try_gmail():
+        """Try sending via Gmail"""
+        try:
+            msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=recipients)
+            if body:
+                msg.body = body
+            if html:
+                msg.html = html
+            if attachments:
+                for attachment in attachments:
+                    if isinstance(attachment, dict):
+                        msg.attach(
+                            filename=attachment.get('filename'),
+                            content_type=attachment.get('content_type'),
+                            data=attachment.get('data'),
+                            disposition=attachment.get('disposition', 'attachment'),
+                            headers=attachment.get('headers', {})
+                        )
+            mail.send(msg)
+            return True, "Email sent successfully via Gmail", "Gmail"
+        except Exception as e:
+            return False, f"Gmail failed: {str(e)}", "Gmail"
+
+    def try_163com():
+        """Try sending via 163.com with multiple port configurations"""
+        last_error = None
+
+        for config in BACKUP_MAIL_CONFIGS:
+            try:
+                # Create message
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = subject
+                msg['From'] = config['MAIL_USERNAME']
+                msg['To'] = ', '.join(recipients)
+
+                # Add body
+                if body:
+                    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+                if html:
+                    msg.attach(MIMEText(html, 'html', 'utf-8'))
+
+                # Add attachments (preserving inline image embedding)
+                if attachments:
+                    for attachment in attachments:
+                        if isinstance(attachment, dict):
+                            # Determine content type and create appropriate MIME part
+                            content_type = attachment.get('content_type', 'application/octet-stream')
+                            if content_type.startswith('image/'):
+                                # Handle image attachments (for inline embedding)
+                                from email.mime.image import MIMEImage
+                                part = MIMEImage(attachment.get('data', b''))
+                            else:
+                                # Handle other file types
+                                part = MIMEBase('application', 'octet-stream')
+                                part.set_payload(attachment.get('data', b''))
+                                encoders.encode_base64(part)
+
+                            # Set Content-Disposition
+                            disposition = attachment.get('disposition', 'attachment')
+                            filename = attachment.get('filename', 'attachment')
+                            part.add_header('Content-Disposition', f'{disposition}; filename="{filename}"')
+
+                            # Add Content-ID header for inline images (critical for embedding)
+                            headers = attachment.get('headers', {})
+                            for header_name, header_value in headers.items():
+                                part.add_header(header_name, header_value)
+
+                            msg.attach(part)
+
+                # Try different connection methods based on config
+                if config.get('MAIL_USE_SSL', False):
+                    # Use SSL connection (ports 465, 994)
+                    server = smtplib.SMTP_SSL(config['MAIL_SERVER'], config['MAIL_PORT'], timeout=10)
+                else:
+                    # Use regular SMTP with optional TLS (ports 587, 25)
+                    server = smtplib.SMTP(config['MAIL_SERVER'], config['MAIL_PORT'], timeout=10)
+                    if config.get('MAIL_USE_TLS', False):
+                        server.starttls()
+
+                # Login and send
+                server.login(config['MAIL_USERNAME'], config['MAIL_PASSWORD'])
+                server.send_message(msg)
+                server.quit()
+
+                return True, f"Email sent successfully via {config['NAME']}", config['NAME']
+
+            except Exception as e:
+                last_error = f"{config['NAME']}: {str(e)}"
+                logger.warning(f"163.com attempt failed with {config['NAME']}: {e}")
+                continue
+
+        # All 163.com configurations failed
+        return False, f"All 163.com configurations failed. Last error: {last_error}", "163.com"
+
+    # Try Gmail first
+    success, message, service = try_gmail()
+    if success:
+        logger.info(f"Email sent via Gmail to {recipients}: {subject}")
+        return success, message, service
+
+    # If Gmail fails, try 163.com
+    logger.warning(f"Gmail failed, trying 163.com fallback: {message}")
+    success, message, service = try_163com()
+    if success:
+        logger.info(f"Email sent via 163.com fallback to {recipients}: {subject}")
+        return success, message, service
+
+    # Both failed
+    error_msg = f"Both email services failed. Gmail: {message}"
+    logger.error(f"Email sending failed completely to {recipients}: {error_msg}")
+    return False, error_msg, "Both failed"
 
 # --- Flask-Login Setup ---
 login_manager = LoginManager()
@@ -136,16 +306,17 @@ def add_customer():
         email_message = None
         if 'keyPeople' in data and data['keyPeople'] and 'email' in data['keyPeople'][0]:
             user_email = '859543169@qq.com'  # Hardcoded for testing
-            try:
-                msg = Message('We received your request', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-                msg.body = 'Thank you for your request. Our team has received it and will review it soon.'
-                mail.send(msg)
+            success, message, service = send_email_with_fallback(
+                subject='We received your request',
+                recipients=[user_email],
+                body='Thank you for your request. Our team has received it and will review it soon.'
+            )
+            if success:
                 email_status = 'success'
-                email_message = 'Confirmation email sent successfully.'
-            except Exception as e:
-                logger.error(f'Error sending confirmation email: {e}')
+                email_message = f'Confirmation email sent successfully via {service}.'
+            else:
                 email_status = 'error'
-                email_message = f'Error sending confirmation email: {e}'
+                email_message = f'Error sending confirmation email: {message}'
         logger.info(f"Customer added successfully: ID {customer_id}, {data.get('company')}")
         return jsonify({'email_status': email_status, 'email_message': email_message, 'customer_id': customer_id}), 201
     except Exception as e:
@@ -368,6 +539,9 @@ def dashboard():
             # Count sampling quotations
             sampling = base_query.filter(Quotation.status == 'sampling').count()
 
+            # Count sample card quotations
+            sample_card = base_query.filter(Quotation.status == 'sample card').count()
+
             db_session.close()
 
             return jsonify({
@@ -375,6 +549,7 @@ def dashboard():
                 'submitted_to_customer': submitted_to_customer,
                 'price_approved': price_approved,
                 'sampling': sampling,
+                'sample_card': sample_card,
                 'access_level': permission_level,
                 'filtered_for': user_email if permission_level == 1 else 'All users' if permission_level >= 3 else 'No access'
             })
@@ -386,6 +561,7 @@ def dashboard():
                 'submitted_to_customer': 0,
                 'price_approved': 0,
                 'sampling': 0,
+                'sample_card': 0,
                 'access_level': session.get('permission_level', 1),
                 'filtered_for': session.get('user', 'Unknown'),
                 'error': str(e)
@@ -470,19 +646,24 @@ def login():
             session['pending_code'] = code
             session['pending_email'] = email
             session['permission_level'] = user['permission_level'] if 'permission_level' in user.keys() else 1
-            msg = Message('Your Access Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
-            msg.body = f'Your access code is: {code}'
-            mail.send(msg)
+            success, message, service = send_email_with_fallback(
+                subject='Your Access Code',
+                recipients=[email],
+                body=f'Your access code is: {code}'
+            )
+            if not success:
+                logger.error(f'Failed to send access code email: {message}')
             conn.close()
             return render_template('enter_code.html', email=email)
         elif user:
             # Send 'await authorization' email
-            try:
-                msg = Message('Authorization in progress', sender=app.config['MAIL_USERNAME'], recipients=[email])
-                msg.body = 'Authorization in progress. Please wait for admin approval.'
-                mail.send(msg)
-            except Exception as e:
-                print(f'Error sending authorization in progress email: {e}')
+            success, message, service = send_email_with_fallback(
+                subject='Authorization in progress',
+                recipients=[email],
+                body='Authorization in progress. Please wait for admin approval.'
+            )
+            if not success:
+                print(f'Error sending authorization in progress email: {message}')
             conn.close()
             return 'Authorization in progress. Please wait for admin approval.'
         else:
@@ -497,12 +678,13 @@ def login():
                 print(f'Error inserting new user: {e}')
             
             # Send acknowledgment email to the real user
-            try:
-                msg = Message('We received your login request', sender=app.config['MAIL_USERNAME'], recipients=[email])
-                msg.body = 'Thank you for your login request. Our team has received it and will review it soon.'
-                mail.send(msg)
-            except Exception as e:
-                print(f'Error sending login acknowledgment email: {e}')
+            success, message, service = send_email_with_fallback(
+                subject='We received your login request',
+                recipients=[email],
+                body='Thank you for your login request. Our team has received it and will review it soon.'
+            )
+            if not success:
+                print(f'Error sending login acknowledgment email: {message}')
             conn.close()
             return 'Request submitted. Waiting for admin approval.'
     return render_template('login.html')
@@ -564,12 +746,13 @@ def admin_approve():
         conn.execute('UPDATE users SET is_approved=1, approved_at=? WHERE email=?', (now, email))
         conn.commit()
         # Optionally, send approval email
-        try:
-            msg = Message('Your account is approved', sender=app.config['MAIL_USERNAME'], recipients=[email])
-            msg.body = 'Your account has been approved. You may now log in.'
-            mail.send(msg)
-        except Exception as e:
-            print(f'[ERROR] Error sending approval email: {e}')
+        success, message, service = send_email_with_fallback(
+            subject='Your account is approved',
+            recipients=[email],
+            body='Your account has been approved. You may now log in.'
+        )
+        if not success:
+            print(f'[ERROR] Error sending approval email: {message}')
         return jsonify({'success': True})
     except Exception as e:
         print(f'[ERROR] Error approving user: {e}')
@@ -719,10 +902,7 @@ def edit_user(user_id):
                         permission_level = current_user['permission_level']
                     
                     # Send detailed activation email
-                    msg = Message('Your account has been activated', 
-                                sender=app.config['MAIL_USERNAME'], 
-                                recipients=[current_user['email']])
-                    msg.body = f'''Hello,
+                    activation_body = f'''Hello,
 
 Your account has been activated with Level {permission_level} permissions.
 
@@ -732,8 +912,15 @@ Thank you for your patience.
 Best regards,
 Customer Management Team
 '''
-                    mail.send(msg)
-                    print(f"[INFO] Activation email sent to {current_user['email']}")
+                    success, message, service = send_email_with_fallback(
+                        subject='Your account has been activated',
+                        recipients=[current_user['email']],
+                        body=activation_body
+                    )
+                    if success:
+                        print(f"[INFO] Activation email sent to {current_user['email']} via {service}")
+                    else:
+                        print(f"[ERROR] Failed to send activation email: {message}")
                 except Exception as e:
                     print(f"[ERROR] Failed to send activation email: {e}")
     
@@ -1095,7 +1282,8 @@ def save_quotation():
                 quotation_block=block,
                 action='created',
                 color_names=color_names_json,
-                status='quotation complete'  # Set initial status
+                status='quotation complete',  # Set initial status
+                type='Heat Transfer'  # Set product type
             )
             db_session.add(quotation)
             db_session.commit()
@@ -1125,7 +1313,7 @@ def save_quotation():
                 key_person_position = data.get('key_person_position', '-')
                 key_person_email = user_email
                 item_code = data.get('customer_item_code', '-')
-                product_name = data.get('product_name', '-')
+                product_name = 'Heat Transfer'  # Set product type for HT quotations
                 quality = quality or '-'
                 flat_or_raised = flat_or_raised or '-'
                 direct_or_reverse = direct_or_reverse or '-'
@@ -1203,18 +1391,29 @@ def save_quotation():
 '''
                 # Change email subject to new format (item code)
                 subject = f'FCL / HT Quotation / {item_code}'
-                msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-                msg.html = html_body
-                # Attach the artwork image inline if present
+
+                # Prepare attachments for fallback function
+                attachments = []
                 if artwork_image_path and os.path.exists(artwork_image_path):
                     with open(artwork_image_path, 'rb') as img_file:
-                        msg.attach(filename=os.path.basename(artwork_image_path),
-                                   content_type='image/jpeg',
-                                   data=img_file.read(),
-                                   disposition='inline',
-                                   headers={'Content-ID': f'<{img_cid}>'})
-                mail.send(msg)
-                print(f"[INFO] Quotation email sent to {user_email}")
+                        attachments.append({
+                            'filename': os.path.basename(artwork_image_path),
+                            'content_type': 'image/jpeg',
+                            'data': img_file.read(),
+                            'disposition': 'inline',
+                            'headers': {'Content-ID': f'<{img_cid}>'}
+                        })
+
+                success, message, service = send_email_with_fallback(
+                    subject=subject,
+                    recipients=[user_email],
+                    html=html_body,
+                    attachments=attachments if attachments else None
+                )
+                if success:
+                    print(f"[INFO] Quotation email sent to {user_email} via {service}")
+                else:
+                    print(f"[ERROR] Failed to send quotation email: {message}")
             except Exception as e:
                 print(f"[ERROR] Failed to send quotation email: {e}")
             # --- End email logic ---
@@ -1285,7 +1484,8 @@ def list_quotations():
                 'artwork_image': q.artwork_image if q.artwork_image else None,
                 'action': q.action if hasattr(q, 'action') else '-',
                 'status': q.status if q.status else '-',
-                'revision_count': getattr(q, 'revision_count', 0)
+                'revision_count': getattr(q, 'revision_count', 0),
+                'type': getattr(q, 'type', 'Heat Transfer')
             }
             records.append(record)
         
@@ -1625,7 +1825,7 @@ def api_get_quotation(quotation_id):
                 key_person_position = data.get('key_person_position', '-')
                 key_person_email = user_email
                 item_code = quotation.customer_item_code or '-'
-                product_name = data.get('product_name', '-')
+                product_name = 'Heat Transfer'  # Set product type for HT quotations
                 quality = quotation.quality or '-'
                 flat_or_raised = quotation.flat_or_raised or '-'
                 direct_or_reverse = quotation.direct_or_reverse or '-'
@@ -1702,17 +1902,29 @@ def api_get_quotation(quotation_id):
 '''
                 revision_count = quotation.revision_count or 0
                 subject = f'FCL / HT Quotation / {item_code} (#{revision_count} revision)'
-                msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[user_email])
-                msg.html = html_body
+
+                # Prepare attachments for fallback function
+                attachments = []
                 if artwork_image_path and os.path.exists(artwork_image_path):
                     with open(artwork_image_path, 'rb') as img_file:
-                        msg.attach(filename=os.path.basename(artwork_image_path),
-                                   content_type='image/jpeg',
-                                   data=img_file.read(),
-                                   disposition='inline',
-                                   headers={'Content-ID': f'<{img_cid}>'})
-                mail.send(msg)
-                print(f"[INFO] Quotation update email sent to {user_email}")
+                        attachments.append({
+                            'filename': os.path.basename(artwork_image_path),
+                            'content_type': 'image/jpeg',
+                            'data': img_file.read(),
+                            'disposition': 'inline',
+                            'headers': {'Content-ID': f'<{img_cid}>'}
+                        })
+
+                success, message, service = send_email_with_fallback(
+                    subject=subject,
+                    recipients=[user_email],
+                    html=html_body,
+                    attachments=attachments if attachments else None
+                )
+                if success:
+                    print(f"[INFO] Quotation update email sent to {user_email} via {service}")
+                else:
+                    print(f"[ERROR] Failed to send quotation update email: {message}")
             except Exception as e:
                 print(f"[ERROR] Failed to send quotation update email: {e}")
             # --- End email logic ---
@@ -1767,6 +1979,7 @@ def api_get_quotation(quotation_id):
         'quotation_block': getattr(q, 'quotation_block', ''),
         'action': getattr(q, 'action', '-'),
         'revision_count': getattr(q, 'revision_count', 0),
+        'type': getattr(q, 'type', 'Heat Transfer'),
         'attachments': [
             {
                 'filename': a.filename.replace('\\', '/'),
@@ -1788,6 +2001,646 @@ def serve_quotation2_view_select():
     v = '1.3.2'
     return render_template('quotation2_view_select.html', version=v)
 
+def generate_sample_card_pdf(quotation):
+    """Generate Sample Card PDF for a quotation"""
+    if not REPORTLAB_AVAILABLE:
+        logger.error("ReportLab not available for PDF generation")
+        return None
+
+    try:
+        # Create PDF buffer
+        buffer = io.BytesIO()
+
+        # Create PDF document
+        doc = SimpleDocTemplate(buffer, pagesize=A4,
+                              rightMargin=15*mm, leftMargin=15*mm,
+                              topMargin=15*mm, bottomMargin=15*mm)
+
+        # Get styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'],
+                                   fontSize=16, spaceAfter=5, alignment=0, fontName='Helvetica-Bold')
+        header_style = ParagraphStyle('Header', parent=styles['Heading2'],
+                                    fontSize=11, spaceAfter=5, fontName='Helvetica-Bold')
+        normal_style = ParagraphStyle('Normal', parent=styles['Normal'],
+                                    fontSize=10, spaceAfter=3)
+        small_style = ParagraphStyle('Small', parent=styles['Normal'],
+                                   fontSize=9, spaceAfter=2)
+
+        # Build PDF content
+        story = []
+
+        # Add coordinate rulers for easy positioning reference
+        # Top ruler (X-axis) - every 10mm from 0 to 210mm
+        top_ruler_data = []
+        x_numbers = []
+        for i in range(0, 220, 10):  # 0, 10, 20, 30... up to 210
+            x_numbers.append(str(i))
+        top_ruler_data.append(x_numbers)
+
+        top_ruler = Table(top_ruler_data, colWidths=[10*mm] * 22)
+        top_ruler.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 6),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.red),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.lightgrey),
+        ]))
+        story.append(top_ruler)
+        story.append(Spacer(1, 2*mm))
+
+        # Header with Y-coordinate and title
+        header_data = [
+            ['20', 'FCL', 'Sample Submission Card :']
+        ]
+        header_table = Table(header_data, colWidths=[10*mm, 30*mm, 150*mm])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Y-coordinate centered
+            ('ALIGN', (1, 0), (-1, -1), 'LEFT'),  # Header text left
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (0, 0), 6),  # Y-coordinate small
+            ('FONTSIZE', (1, 0), (-1, -1), 12),  # Header text normal
+            ('TEXTCOLOR', (0, 0), (0, 0), colors.red),  # Y-coordinate red
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        story.append(header_table)
+        story.append(Spacer(1, 5*mm))
+
+        # Parse color names from JSON
+        color_names = "N/A"
+        if quotation.color_names:
+            try:
+                colors_data = json.loads(quotation.color_names) if isinstance(quotation.color_names, str) else quotation.color_names
+                if isinstance(colors_data, list):
+                    color_names = ", ".join(colors_data)
+                else:
+                    color_names = str(colors_data)
+            except:
+                color_names = str(quotation.color_names)
+
+        # Get current datetime
+        now = datetime.now()
+        current_date = now.strftime("%d %b, %Y")
+
+        # Get user email from session
+        user_email = session.get('user', 'system@fuchanghk.com')
+
+        # Main form table - EXACT 6-column layout as per image
+        # Row 1: Type | For Approval | # Revision | 1 | Date | 5th Sept, 2024
+        # Row 2: Customer Name | teacny | Key person | PVR | | |
+        # Row 3: Item Code | UFG-49354 | Size | 223 X 325 | | |
+        # Row 4: Internal Code | (empty) | login email | eric.brilliant | | |
+
+        # Extract email prefix (before @)
+        email_prefix = 'N/A'
+        if user_email:
+            email_prefix = user_email.split('@')[0] if '@' in user_email else user_email
+
+        # Wrap customer name if too long to fit within X=130mm limit
+        customer_name = quotation.customer_name or 'N/A'
+        if len(customer_name) > 35:  # Approximate character limit for 80mm width
+            customer_name = customer_name[:35] + '...'
+
+        main_data = [
+            ['40', 'Type', 'For Approval', '# Revision', '', 'Date', current_date],
+            ['50', 'Customer Name', customer_name, '1', '', 'Key person', quotation.key_person_name or 'N/A'],
+            ['60', 'Item Code', quotation.customer_item_code or 'N/A', '', '', 'Size', f'{quotation.width or "N/A"} X {quotation.length or "N/A"}'],
+            ['70', 'Internal Code', '', '', '', 'sender', email_prefix]
+        ]
+
+        # Create main table with adjusted column widths:
+        # Y-coord(10mm) + Col1(30mm) + Col2(50mm) + Col3(20mm) + Spacer(20mm) + Col4(25mm) + Col5(25mm)
+        # X positions: 0-10mm, 10-40mm, 40-90mm, 90-110mm, 110-130mm, 130-155mm, 155-180mm
+        # # Revision starts at X=90mm (close to 100mm), 2nd grey column starts at X=130mm (close to 140mm)
+        main_table = Table(main_data, colWidths=[10*mm, 30*mm, 50*mm, 20*mm, 20*mm, 25*mm, 25*mm])
+        # Apply styling with horizontal lines only and background colors
+        main_table.setStyle(TableStyle([
+            # Y-coordinate column styling
+            ('FONTSIZE', (0, 0), (0, -1), 6),  # Y-coordinate small
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),  # Y-coordinate bold
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Y-coordinate centered
+
+            # Background colors for label columns (light grey) - columns 2 and 6 (moved to X=130mm)
+            ('BACKGROUND', (1, 0), (1, -1), colors.lightgrey),  # Column 2: Type, Customer Name, Item Code, Internal Code
+            ('BACKGROUND', (5, 0), (5, -1), colors.lightgrey),  # Column 6: Date, Key person, Size, sender (moved to X=130mm)
+
+            # Horizontal lines only - no vertical lines, no outer borders
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.black),  # Below header
+            ('LINEBELOW', (0, 1), (-1, 1), 0.5, colors.black),  # Below row 2
+            ('LINEBELOW', (0, 2), (-1, 2), 0.5, colors.black),  # Below row 3
+            ('LINEBELOW', (0, 3), (-1, 3), 2, colors.black),    # Bottom border (thick)
+
+            # Font and alignment for main content
+            ('FONTSIZE', (1, 0), (-1, -1), 10),
+            ('ALIGN', (1, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+
+            # Label columns (bold) - columns 2, 4, and 6 (adjusted for new layout)
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (3, 0), (3, -1), 'Helvetica-Bold'),    # # Revision still bold but no grey background
+            ('FONTNAME', (5, 0), (5, -1), 'Helvetica-Bold'),    # Column 6 bold for ALL rows (Date, Key person, etc.)
+
+            # Text wrapping for customer name column (column 2)
+            ('WORDWRAP', (2, 1), (2, 1), 'LTR'),  # Enable word wrap for customer name
+
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+
+        story.append(main_table)
+        story.append(Spacer(1, 115*mm))  # Large spacer to move Internal inspection to Y=200mm
+
+        # Internal inspection section - moved to Y=200mm, width X=10-200mm
+        inspection_header_data = [['200', 'Internal inspection :']]
+        inspection_header_table = Table(inspection_header_data, colWidths=[10*mm, 190*mm])  # Total width 200mm (10+190)
+        inspection_header_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (0, 0), 6),  # Y-coordinate small
+            ('FONTSIZE', (1, 0), (1, 0), 12),  # Header text normal
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (0, 0), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Y-coordinate centered
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),  # Header text left
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(inspection_header_table)
+        story.append(Spacer(1, 3*mm))
+
+        # Inspection table - adjusted for Y=200mm+ and width X=10-200mm
+        inspection_data = [
+            ['210', 'Size', ':', 'OK □', 'NG □', '|', 'Color', ':', 'OK □', 'NG □', '|', 'Material', ':', 'OK □', 'NG □'],
+            ['220', 'Others', ':', '', '', '', '', '', '', '', '', '', '', '', '']
+        ]
+
+        # Adjusted column widths to fit X=10-200mm (total 190mm content width)
+        inspection_table = Table(inspection_data, colWidths=[10*mm, 18*mm, 5*mm, 18*mm, 18*mm, 10*mm, 18*mm, 5*mm, 18*mm, 18*mm, 10*mm, 18*mm, 5*mm, 18*mm, 18*mm])
+        inspection_table.setStyle(TableStyle([
+            # Y-coordinate column styling
+            ('FONTSIZE', (0, 0), (0, -1), 6),  # Y-coordinate small
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),  # Y-coordinate bold
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Y-coordinate centered
+
+            # Background for label cells only (adjusted for Y-coord column)
+            ('BACKGROUND', (1, 0), (1, -1), colors.lightgrey),  # Size
+            ('BACKGROUND', (6, 0), (6, 0), colors.lightgrey),   # Color
+            ('BACKGROUND', (11, 0), (11, 0), colors.lightgrey), # Material
+
+            # Vertical lines between sections (adjusted for Y-coord column)
+            ('LINEAFTER', (5, 0), (5, 0), 1, colors.black),
+            ('LINEAFTER', (10, 0), (10, 0), 1, colors.black),
+
+            # Horizontal lines only - no vertical lines, no outer borders
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.black),  # Below header
+            ('LINEBELOW', (0, 1), (-1, 1), 2, colors.black),    # Bottom border (thick)
+
+            # Font and alignment for main content
+            ('FONTSIZE', (1, 0), (-1, -1), 10),
+            ('ALIGN', (1, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+
+            # Bold for labels (adjusted for Y-coord column)
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (6, 0), (6, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (11, 0), (11, 0), 'Helvetica-Bold'),
+
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+
+        story.append(inspection_table)
+        story.append(Spacer(1, 10*mm))
+
+        # Customer Comments section - positioned under Internal inspection, width X=10-200mm
+        comments_header_data = [['240', 'Customer Comments :']]
+        comments_header_table = Table(comments_header_data, colWidths=[10*mm, 190*mm])  # Total width 200mm (10+190)
+        comments_header_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (0, 0), 6),  # Y-coordinate small
+            ('FONTSIZE', (1, 0), (1, 0), 12),  # Header text normal
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (0, 0), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Y-coordinate centered
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),  # Header text left
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(comments_header_table)
+        story.append(Spacer(1, 3*mm))
+
+        # Comments table - new layout matching the required format
+        comments_data = [
+            ['250', 'Comments', ':', ''],
+            ['280', 'PIC', ':', 'Date', ':']
+        ]
+
+        comments_table = Table(comments_data, colWidths=[10*mm, 30*mm, 5*mm, 75*mm, 5*mm, 30*mm, 45*mm])  # Total width 200mm
+        comments_table.setStyle(TableStyle([
+            # Y-coordinate column styling
+            ('FONTSIZE', (0, 0), (0, -1), 6),  # Y-coordinate small
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),  # Y-coordinate bold
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.red),  # Y-coordinate red
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Y-coordinate centered
+
+            # Background for label columns (Comments, PIC, Date)
+            ('BACKGROUND', (1, 0), (1, 0), colors.lightgrey),  # Comments label
+            ('BACKGROUND', (1, 1), (1, 1), colors.lightgrey),  # PIC label
+            ('BACKGROUND', (4, 1), (4, 1), colors.lightgrey),  # Date label
+
+            # Lines under Comments section and PIC/Date section
+            ('LINEBELOW', (3, 0), (3, 0), 1, colors.black),    # Line under Comments
+            ('LINEBELOW', (2, 1), (2, 1), 1, colors.black),    # Line under PIC
+            ('LINEBELOW', (5, 1), (-1, 1), 1, colors.black),   # Line under Date
+
+            # Font and alignment for main content
+            ('FONTSIZE', (1, 0), (-1, -1), 10),
+            ('ALIGN', (1, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+
+            # Bold for labels
+            ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),  # Comments
+            ('FONTNAME', (1, 1), (1, 1), 'Helvetica-Bold'),  # PIC
+            ('FONTNAME', (4, 1), (4, 1), 'Helvetica-Bold'),  # Date
+
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+
+            # Make comment rows taller
+            ('ROWBACKGROUNDS', (0, 1), (-1, 2), [colors.white, colors.white]),
+        ]))
+
+        story.append(comments_table)
+        story.append(Spacer(1, 10*mm))
+
+        # Footer disclaimer - using smaller font
+        disclaimer_text = """The content and objective this opinion, can confirm that you have reviewed and approved the design and quality of the product as requested. Should clients have any issue the internal due to negligence in the signing or printing process, individual involved, findings and demonstrated factors. Final sample application requires signing on the schedule form and under the intended conditions to ensure proper submission and quality."""
+
+        # Create small disclaimer style
+        disclaimer_style = ParagraphStyle('Disclaimer', parent=styles['Normal'],
+                                         fontSize=8, spaceAfter=2)
+
+        story.append(Paragraph(disclaimer_text, disclaimer_style))
+        story.append(Spacer(1, 5*mm))
+
+        # System footer
+        footer_text = f"Generated: {now.strftime('%Y-%m-%d %H:%M:%S')} | System: v1.4.28<br/>Fu Chang Hong Kong - Sample Submission Card System"
+        # Create extra small style for footer
+        extra_small_style = ParagraphStyle('ExtraSmall', parent=styles['Normal'],
+                                         fontSize=7, spaceAfter=1)
+
+        story.append(Paragraph(footer_text, extra_small_style))
+
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+
+        return buffer
+
+    except Exception as e:
+        logger.error(f"Error generating sample card PDF: {str(e)}")
+        return None
+
+def generate_sample_card_html(quotation):
+    """Generate Sample Card as HTML (fallback when ReportLab not available)"""
+    try:
+        # Parse color names from JSON
+        color_names = "N/A"
+        if quotation.color_names:
+            try:
+                colors_data = json.loads(quotation.color_names) if isinstance(quotation.color_names, str) else quotation.color_names
+                if isinstance(colors_data, list):
+                    color_names = ", ".join(colors_data)
+                else:
+                    color_names = str(colors_data)
+            except:
+                color_names = str(quotation.color_names)
+
+        # Get current datetime
+        now = datetime.now()
+        current_date = now.strftime("%Y-%m-%d")
+        current_time = now.strftime("%H:%M:%S")
+
+        # Get user email from session
+        user_email = session.get('user', 'system@fuchanghk.com')
+
+        # Prepare date values
+        created_date = quotation.created_at.strftime('%Y-%m-%d') if quotation.created_at else 'N/A'
+        revision_number = quotation.revision_count or 0
+
+        # Create HTML content
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Card - {quotation.customer_item_code or quotation.id}</title>
+    <style>
+        @page {{ size: A4; margin: 15mm; }}
+        body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; }}
+
+        /* Header - 20% of space */
+        .header {{
+            height: 20%;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-bottom: 2px solid #000;
+            margin-bottom: 10px;
+        }}
+        .title {{ font-size: 28px; font-weight: bold; margin-bottom: 8px; }}
+        .company {{ font-size: 20px; color: #333; }}
+
+        /* Main Content - 70% of space */
+        .main-content {{
+            height: 70%;
+            display: flex;
+            flex-direction: column;
+        }}
+
+        /* Two-column layout for main content */
+        .content-row {{
+            display: flex;
+            flex: 1;
+            gap: 15px;
+            margin-bottom: 15px;
+        }}
+
+        /* Left column - Customer & Product info */
+        .left-column {{
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }}
+
+        /* Right column - Production details - reduced to half width */
+        .right-column {{
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }}
+
+        /* Table styles */
+        .info-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }}
+        .info-table th, .info-table td {{
+            border: 1px solid #000;
+            padding: 6px;
+            text-align: left;
+            font-size: 12px;
+        }}
+        .info-table th {{
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 11px;
+        }}
+
+        /* Compact product specifications - 1 line format */
+        .product-specs {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 8px;
+            border: 1px solid #000;
+            background-color: #f9f9f9;
+            font-size: 11px;
+        }}
+        .spec-item {{
+            white-space: nowrap;
+        }}
+        .spec-label {{
+            font-weight: bold;
+        }}
+
+        /* Production details - vertical layout - removed outer border */
+        .production-details {{
+            padding: 8px;
+            height: 100%;
+        }}
+        .production-title {{
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 11px;
+            padding: 4px;
+            margin: -8px -8px 8px -8px;
+            text-align: center;
+        }}
+        .production-item {{
+            margin-bottom: 8px;
+            font-size: 11px;
+            padding: 3px 0;
+            border-bottom: 1px dotted #ccc;
+        }}
+        .production-label {{
+            font-weight: bold;
+            display: block;
+        }}
+        .production-value {{
+            color: #333;
+        }}
+
+        /* Notes section - moved to bottom of page */
+        .notes-section {{
+            position: fixed;
+            bottom: 60px;
+            left: 15mm;
+            right: 15mm;
+            margin-top: auto;
+        }}
+        .notes-table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+        .notes-table th, .notes-table td {{
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+            font-size: 12px;
+        }}
+        .notes-table th {{
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }}
+        .checkbox {{
+            font-size: 14px;
+            margin-right: 8px;
+        }}
+
+        /* Footer removed as requested */
+    </style>
+</head>
+<body>
+    <!-- Header Section removed as requested -->
+
+    <!-- Main Content Section - 70% of space -->
+    <div class="main-content">
+        <div class="content-row">
+            <!-- Left Column - Customer & Product Info -->
+            <div class="left-column">
+                <!-- Customer Information -->
+                <table class="info-table">
+                    <tr>
+                        <th colspan="2">CUSTOMER INFORMATION</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Customer:</strong></td>
+                        <td>{quotation.customer_name or 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Contact:</strong></td>
+                        <td>{quotation.key_person_name or 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Item Code:</strong></td>
+                        <td>{quotation.customer_item_code or 'N/A'}</td>
+                    </tr>
+                    <!-- Date row removed as requested -->
+                    <tr>
+                        <td><strong>By:</strong></td>
+                        <td>{user_email}</td>
+                    </tr>
+                </table>
+
+                <!-- Product Specifications - Compact 1 line format -->
+                <div style="margin-bottom: 10px;">
+                    <div style="background-color: #f0f0f0; font-weight: bold; font-size: 11px; padding: 4px; border: 1px solid #000; margin-bottom: 2px;">
+                        PRODUCT SPECIFICATIONS
+                    </div>
+                    <div class="product-specs">
+                        <span class="spec-item"><span class="spec-label">Dimensions:</span> {quotation.width or 'N/A'} X {quotation.length or 'N/A'} mm</span>
+                        <span class="spec-item"><span class="spec-label">Quality:</span> {quotation.quality or 'N/A'}</span>
+                        <span class="spec-item"><span class="spec-label">Surface:</span> {quotation.flat_or_raised or 'N/A'}</span>
+                        <span class="spec-item"><span class="spec-label">Print:</span> {quotation.direct_or_reverse or 'N/A'}</span>
+                        <span class="spec-item"><span class="spec-label">Thickness:</span> {quotation.thickness or 'N/A'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Production Details (Vertical) -->
+            <div class="right-column">
+                <div class="production-details">
+                    <div class="production-title">PRODUCTION DETAILS</div>
+
+                    <div class="production-item">
+                        <span class="production-label">Colors:</span>
+                        <span class="production-value">{quotation.num_colors or 0} colors</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Color Names:</span>
+                        <div class="production-value">"""
+
+        # Process color names - 1 row 1 name with smaller font
+        if color_names and color_names != "N/A":
+            color_list = color_names.split(", ") if ", " in color_names else [color_names]
+            for color in color_list:
+                html_content += f'<div style="font-size: 8px; margin-bottom: 1px;">{color.strip()}</div>'
+        else:
+            html_content += '<div style="font-size: 8px;">N/A</div>'
+
+        html_content += """                        </div>
+                    </div>
+
+                    <!-- Thickness moved to Product Specifications -->
+
+                    <!-- Quotation ID removed as requested -->
+
+                    <div class="production-item">
+                        <span class="production-label">Created:</span>
+                        <span class="production-value">""" + created_date + """</span>
+                    </div>
+
+                    <div class="production-item">
+                        <span class="production-label">Revision:</span>
+                        <span class="production-value">#""" + str(revision_number) + """</span>
+                    </div>
+
+                    <!-- Additional Files removed as requested -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Section -->
+        <div class="notes-section">
+            <table class="notes-table">
+                <tr>
+                    <th>NOTES & INSTRUCTIONS</th>
+                </tr>
+                <tr>
+                    <td>
+                        <span class="checkbox">[ ]</span> Sample approved &nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="checkbox">[ ]</span> Modifications required &nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="checkbox">[ ]</span> Proceed to production
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <span class="checkbox">[ ]</span> Additional samples needed
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>Comments:</strong>
+                    </td>
+                </tr>
+                <!-- Second underline removed as requested -->
+            </table>
+        </div>
+    </div>
+
+    <!-- Footer - Version number only -->
+    <div style="position: fixed; bottom: 5px; right: 15mm; font-size: 8px; color: #666;">
+        v1.4.42
+    </div>
+
+    <script>
+        // Auto-print when page loads
+        window.onload = function() {{
+            // Small delay to ensure page is fully loaded
+            setTimeout(function() {{
+                window.print();
+            }}, 500);
+        }};
+
+        // Add print button for manual printing
+        document.addEventListener('DOMContentLoaded', function() {{
+            const printBtn = document.createElement('button');
+            printBtn.innerHTML = '🖨️ Print Sample Card';
+            printBtn.style.cssText = 'position:fixed;top:10px;right:10px;padding:10px 15px;background:#007bff;color:white;border:none;border-radius:5px;cursor:pointer;z-index:1000;';
+            printBtn.onclick = function() {{ window.print(); }};
+            document.body.appendChild(printBtn);
+
+            // Hide print button when printing
+            window.addEventListener('beforeprint', function() {{
+                printBtn.style.display = 'none';
+            }});
+            window.addEventListener('afterprint', function() {{
+                printBtn.style.display = 'block';
+            }});
+        }});
+    </script>
+</body>
+</html>
+        """
+
+        return html_content
+
+    except Exception as e:
+        logger.error(f"Error generating sample card HTML: {str(e)}")
+        return None
+
 # Status update endpoints
 @app.route('/quotation/status/<int:quotation_id>', methods=['PUT'])
 def update_quotation_status(quotation_id):
@@ -1802,7 +2655,8 @@ def update_quotation_status(quotation_id):
         status_map = {
             'submitted-to-customer': 'submitted to customer',
             'price-approved': 'price approved',
-            'start-sampling': 'sampling'
+            'start-sampling': 'sampling',
+            'sample-card': 'sample card'
         }
 
         if action not in status_map:
@@ -1839,6 +2693,255 @@ def update_quotation_status(quotation_id):
         logger.error(f"Error in update_quotation_status: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/quotation/sample-card/<int:quotation_id>', methods=['GET'])
+def download_sample_card(quotation_id):
+    """Generate and download Sample Card PDF"""
+    print(f"[DEBUG] Sample Card PDF requested for quotation {quotation_id}")
+
+    print(f"[DEBUG] REPORTLAB_AVAILABLE: {REPORTLAB_AVAILABLE}")
+
+    # Don't return error immediately - try WeasyPrint fallback
+    if not REPORTLAB_AVAILABLE:
+        print("[WARNING] ReportLab not available, will try WeasyPrint fallback")
+
+    try:
+        # Get quotation from database
+        from sqlalchemy.orm import sessionmaker
+        engine = create_engine('sqlite:///database.db', connect_args={'timeout': 30})
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        quotation = session.query(Quotation).filter_by(id=quotation_id).first()
+        if not quotation:
+            session.close()
+            return jsonify({'error': 'Quotation not found'}), 404
+
+        # Create a simple HTML file that can be printed to PDF
+        print("[INFO] Creating HTML Sample Card")
+        try:
+            # Create HTML content
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Sample Card - {quotation.customer_item_code or f'ID-{quotation_id}'}</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                    .header {{ text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }}
+                    .section {{ margin-bottom: 20px; }}
+                    .section-title {{ font-size: 16px; font-weight: bold; margin-bottom: 10px; }}
+                    .row {{ display: flex; margin-bottom: 5px; }}
+                    .label {{ width: 120px; font-weight: bold; }}
+                    .value {{ flex: 1; }}
+                    .checkbox {{ margin-right: 20px; }}
+                    .comments {{ margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px; }}
+                    .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
+                    @media print {{
+                        body {{ margin: 0; }}
+                        button {{ display: none; }}
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="header">SAMPLE CARD - {quotation.customer_item_code or f'ID-{quotation_id}'}</div>
+
+                <div class="section">
+                    <div class="section-title">CUSTOMER INFORMATION</div>
+                    <div class="row">
+                        <div class="label">Customer:</div>
+                        <div class="value">{quotation.customer_name or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Contact:</div>
+                        <div class="value">{quotation.contact_person or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Item Code:</div>
+                        <div class="value">{quotation.customer_item_code or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">By:</div>
+                        <div class="value">{quotation.email or 'N/A'}</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">PRODUCT SPECIFICATIONS</div>
+                    <div class="row">
+                        <div class="label">Dimensions:</div>
+                        <div class="value">{quotation.dimensions or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Quality:</div>
+                        <div class="value">{quotation.quality or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Surface:</div>
+                        <div class="value">{quotation.surface or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Print:</div>
+                        <div class="value">{quotation.print_method or 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Thickness:</div>
+                        <div class="value">{quotation.thickness or 'N/A'}</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">PRODUCTION DETAILS</div>
+                    <div class="row">
+                        <div class="label">Colors:</div>
+                        <div class="value">{quotation.num_colors or 0} colors</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Created:</div>
+                        <div class="value">{quotation.created_at.strftime('%Y-%m-%d') if quotation.created_at else 'N/A'}</div>
+                    </div>
+                    <div class="row">
+                        <div class="label">Revision:</div>
+                        <div class="value">#{quotation.revision_count or 0}</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">NOTES & INSTRUCTIONS</div>
+                    <div class="row">
+                        <div class="checkbox">☐ Sample approved</div>
+                        <div class="checkbox">☐ Modifications required</div>
+                        <div class="checkbox">☐ Proceed to production</div>
+                    </div>
+                    <div class="row">
+                        <div class="checkbox">☐ Additional samples needed</div>
+                    </div>
+                    <div class="comments">
+                        Comments: _______________________________________________
+                    </div>
+                </div>
+
+                <div class="footer">
+                    Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Version: v1.4.52
+                </div>
+
+                <button onclick="window.print()" style="margin-top: 20px; padding: 10px;">Print as PDF</button>
+            </body>
+            </html>
+            """
+
+            session.close()
+            response = make_response(html_content)
+            response.headers['Content-Type'] = 'text/html'
+            print(f"[SUCCESS] HTML Sample Card generated for quotation {quotation_id}")
+            return response
+
+        except Exception as e:
+            print(f"[ERROR] HTML Sample Card generation failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # Alternative: Create a simple text-based PDF using basic libraries
+        print("[INFO] Creating simple PDF using basic approach")
+        try:
+            from io import BytesIO
+
+            # Create a simple PDF-like content (we'll use a basic approach)
+            # Generate HTML content first
+            html_content = generate_sample_card_html(quotation)
+
+            if html_content:
+                # For now, let's create a simple text file that browsers will download as PDF
+                # This is a temporary solution until we get proper PDF libraries working
+
+                # Extract key information from quotation for simple PDF
+                pdf_content = f"""SAMPLE CARD - {quotation.customer_item_code or f'ID-{quotation_id}'}
+
+CUSTOMER INFORMATION
+Customer: {quotation.customer_name or 'N/A'}
+Contact: {quotation.contact_person or 'N/A'}
+Item Code: {quotation.customer_item_code or 'N/A'}
+By: {quotation.email or 'N/A'}
+
+PRODUCT SPECIFICATIONS
+Dimensions: {quotation.dimensions or 'N/A'}
+Quality: {quotation.quality or 'N/A'}
+Surface: {quotation.surface or 'N/A'}
+Print: {quotation.print_method or 'N/A'}
+Thickness: {quotation.thickness or 'N/A'}
+
+PRODUCTION DETAILS
+Colors: {quotation.num_colors or 0} colors
+Created: {quotation.created_at.strftime('%Y-%m-%d') if quotation.created_at else 'N/A'}
+Revision: #{quotation.revision_count or 0}
+
+NOTES & INSTRUCTIONS
+[ ] Sample approved    [ ] Modifications required    [ ] Proceed to production
+[ ] Additional samples needed
+
+Comments: _______________________________________________
+
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Version: v1.4.48
+"""
+
+                # Convert to bytes and return as text file (since we don't have proper PDF libraries)
+                pdf_bytes = pdf_content.encode('utf-8')
+                session.close()
+
+                response = make_response(pdf_bytes)
+                response.headers['Content-Type'] = 'application/octet-stream'
+                response.headers['Content-Disposition'] = f'attachment; filename="Sample_Card_{quotation.customer_item_code or quotation_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+                print(f"[SUCCESS] Simple Sample Card text file generated for quotation {quotation_id}")
+                return response
+
+        except Exception as e:
+            print(f"[ERROR] Simple PDF generation failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # Final fallback: Return HTML with auto-print and close
+        print("[INFO] Using HTML with auto-print fallback")
+        html_content = generate_sample_card_html(quotation)
+        session.close()
+
+        if not html_content:
+            return jsonify({'error': 'Failed to generate sample card'}), 500
+
+        # Modify HTML to auto-print and close window
+        html_content = html_content.replace(
+            'window.onload = function() {',
+            '''window.onload = function() {
+                // Auto-print immediately
+                setTimeout(function() {
+                    window.print();
+                    // Close window after printing (if opened in new tab)
+                    setTimeout(function() {
+                        window.close();
+                    }, 1000);
+                }, 100);'''
+        )
+
+        response = make_response(html_content)
+        response.headers['Content-Type'] = 'text/html'
+        print(f"[INFO] Sample Card HTML with auto-print generated for quotation {quotation_id}")
+        return response
+
+    except Exception as e:
+        logger.error(f"Error generating sample card PDF: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/test-sample-card')
+def test_sample_card():
+    """Test endpoint to check sample card generation"""
+    try:
+        return jsonify({
+            'reportlab_available': REPORTLAB_AVAILABLE,
+            'message': 'Sample card system ready',
+            'fallback': 'HTML version available' if not REPORTLAB_AVAILABLE else 'PDF version available'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Register blueprints
 app.register_blueprint(ht_database_bp)
 app.register_blueprint(quotation_bp)
@@ -1868,8 +2971,4 @@ if __name__ == '__main__':
     except Exception as e:
         print('ERROR STARTING SERVER:', e) 
 
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.close()
+# SQLite pragma setup will be handled per connection

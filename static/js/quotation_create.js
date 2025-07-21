@@ -2651,10 +2651,25 @@ function updateFormFieldsWithData(data) {
     // Update color names display with proper labels and layout
     $('#view-color-names').remove();
     $('#view-num-colors').parent().append('<input type="hidden" id="hidden-color-names" />');
-    if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
+
+    // Handle color names - check if data exists and is valid
+    let colorNamesArray = [];
+    if (data.color_names) {
+      if (Array.isArray(data.color_names)) {
+        colorNamesArray = data.color_names;
+      } else if (typeof data.color_names === 'string') {
+        try {
+          colorNamesArray = JSON.parse(data.color_names);
+        } catch (e) {
+          colorNamesArray = [];
+        }
+      }
+    }
+
+    if (colorNamesArray.length > 0) {
         let colorInputs = '<div id="view-color-names" style="margin-top:4px;">';
 
-        data.color_names.forEach((colorName, index) => {
+        colorNamesArray.forEach((colorName, index) => {
             const colorNumber = index + 1;
             colorInputs += `
                 <div style="margin-bottom: 8px;">
@@ -2667,8 +2682,11 @@ function updateFormFieldsWithData(data) {
 
         colorInputs += '</div>';
         $('#view-num-colors').parent().append(colorInputs);
-        $('#hidden-color-names').val(JSON.stringify(data.color_names));
+        $('#hidden-color-names').val(JSON.stringify(colorNamesArray));
     } else {
+        // No color names - create placeholder message
+        let colorInputs = '<div id="view-color-names" style="margin-top:4px; color:#888; font-style:italic; margin-left:24px;">No color names specified</div>';
+        $('#view-num-colors').parent().append(colorInputs);
         $('#hidden-color-names').val('[]');
     }
 }
@@ -3431,21 +3449,8 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc, canEdit = true)
          $('#view-direct-or-reverse').val(data.direct_or_reverse ?? '-');
          $('#view-thickness').val(data.thickness ?? '-');
          $('#view-num-colors').val(data.num_colors ?? '-');
-         // Show color names if present
-         if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
-           $('#view-num-colors').val(`${data.num_colors} (${data.color_names.join(', ')})`);
-         } else if (data.color_names && typeof data.color_names === 'string' && data.color_names.length > 0) {
-           try {
-             const colorArr = JSON.parse(data.color_names);
-             if (Array.isArray(colorArr) && colorArr.length > 0) {
-               $('#view-num-colors').val(`${data.num_colors} (${colorArr.join(', ')})`);
-             }
-           } catch (e) {}
-         }
-         // Show only the number of colors, not the color names in parentheses
-         if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
-           $('#view-num-colors').val(data.color_names.length);
-         }
+         // Show only the number of colors in the # of Colors field
+         $('#view-num-colors').val(data.num_colors ?? '-');
          $('#view-length').val(data.length ?? '-');
          $('#view-width').val(data.width ?? '-');
          $('#view-price').val(data.price !== undefined && data.price !== null ? data.price : '-');
@@ -3498,40 +3503,48 @@ function showQuotationViewForm2(quotationId, overrideArtworkSrc, canEdit = true)
            $('#view-multi-artwork-list').html('<li style="color:#888;">No additional artworks uploaded.</li>');
          }
          $('#view-quotation-block').text(data.quotation_block ?? '-');
-         // Show color names as separate read-only input fields and as JSON
+         // Show color names as separate read-only input fields with proper labels
          $('#view-color-names').remove();
          // Add hidden input to store color names as JSON
          $('#view-num-colors').parent().append('<input type="hidden" id="hidden-color-names" />');
-         if (data.color_names && Array.isArray(data.color_names) && data.color_names.length > 0) {
-           let colorInputs = '<div id="view-color-names" style="margin-top:4px;">';
-           // Get computed style from #view-num-colors for consistency
-           const numColorsInput = document.getElementById('view-num-colors');
-           let colorInputStyle = '';
-           if (numColorsInput) {
-             const computed = window.getComputedStyle(numColorsInput);
-             colorInputStyle = [
-               'width:' + computed.width,
-               'padding:' + computed.padding,
-               'background:' + computed.backgroundColor,
-               'border:' + computed.border,
-               'border-radius:' + computed.borderRadius,
-               'color:' + computed.color,
-               'margin-bottom:' + computed.marginBottom,
-               'font:' + computed.font,
-               'box-sizing:' + computed.boxSizing
-             ].join(';');
-           } else {
-             colorInputStyle = 'width:100%;padding:8px;background:#e9ecef;border:1px solid #e9ecef;border-radius:4px;color:#495057;margin-bottom:2px;';
+
+         // Handle color names - check if data exists and is valid
+         let colorNamesArray = [];
+         if (data.color_names) {
+           if (Array.isArray(data.color_names)) {
+             colorNamesArray = data.color_names;
+           } else if (typeof data.color_names === 'string') {
+             try {
+               colorNamesArray = JSON.parse(data.color_names);
+             } catch (e) {
+               colorNamesArray = [];
+             }
            }
-           data.color_names.forEach((c, i) => {
-             colorInputs += `<input type='text' value='${c}' disabled id='view-color-name-${i+1}' style='${colorInputStyle};margin-left:24px;width:calc(100% - 24px);'>`;
+         }
+
+         if (colorNamesArray.length > 0) {
+           let colorInputs = '<div id="view-color-names" style="margin-top:10px;">';
+
+           colorNamesArray.forEach((colorName, index) => {
+             const colorNumber = index + 1;
+             colorInputs += `
+               <div style="margin-bottom: 8px;">
+                 <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #495057;">Color ${colorNumber}:</label>
+                 <input type="text" id="view-color-name-${colorNumber}" class="item-info-field-view color-name-field"
+                        style="width: calc(100% - 24px); padding: 8px; margin-left: 24px; background:#e9ecef; border:1px solid #e9ecef; border-radius:4px; color:#495057;"
+                        value="${colorName}" readonly>
+               </div>
+             `;
            });
-           colorInputs += `<div style='font-size:12px;color:#888;margin-top:2px;'>JSON: ${JSON.stringify(data.color_names)}</div>`;
+
            colorInputs += '</div>';
            $('#view-num-colors').parent().append(colorInputs);
            // Store color names in hidden input
-           $('#hidden-color-names').val(JSON.stringify(data.color_names));
+           $('#hidden-color-names').val(JSON.stringify(colorNamesArray));
          } else {
+           // No color names - create placeholder message
+           let colorInputs = '<div id="view-color-names" style="margin-top:10px; color:#888; font-style:italic; margin-left:24px;">No color names specified</div>';
+           $('#view-num-colors').parent().append(colorInputs);
            $('#hidden-color-names').val('[]');
          }
        })

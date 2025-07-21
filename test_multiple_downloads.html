@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Card Multiple Downloads Test - v1.4.10</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .fix { background: #e7f3ff; color: #0066cc; border: 1px solid #b3d9ff; }
+        .code-block { background: #f1f3f4; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+        .test-btn { padding: 8px 16px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-active { background: #28a745; }
+        .btn-disabled { background: #6c757d; cursor: not-allowed; opacity: 0.4; }
+    </style>
+</head>
+<body>
+    <h1>📥 Sample Card Multiple Downloads - v1.4.10</h1>
+    
+    <div class="status success">
+        <strong>✅ Feature Implemented:</strong> Sample Card button remains ACTIVE after first download, allowing users to download the PDF multiple times as needed.
+    </div>
+    
+    <div class="test-section">
+        <h3>🔄 Updated Behavior:</h3>
+        
+        <div class="status info">
+            <strong>Previous Behavior (v1.4.09):</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Click "Sample Card" → PDF downloads</li>
+                <li>Status updates to "sample card"</li>
+                <li>Sample Card button becomes DISABLED</li>
+                <li>Users cannot download again</li>
+            </ul>
+        </div>
+        
+        <div class="status success">
+            <strong>New Behavior (v1.4.10):</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Click "Sample Card" → PDF downloads</li>
+                <li>Status remains "sample card" (no change)</li>
+                <li>Sample Card button stays ACTIVE</li>
+                <li>Users can download multiple times</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🎯 Button State Logic:</h3>
+        
+        <h4>Status: "sampling" (Stage 4)</h4>
+        <div style="display: flex; gap: 10px; margin: 10px 0;">
+            <button class="test-btn btn-active">View</button>
+            <button class="test-btn btn-active" style="background: #e91e63;">Sample Card</button>
+            <button class="test-btn btn-disabled">Others</button>
+        </div>
+        <div class="code-block">
+            • First time clicking Sample Card<br>
+            • Generates PDF and updates status to "sample card"
+        </div>
+        
+        <h4>Status: "sample card" (Stage 5)</h4>
+        <div style="display: flex; gap: 10px; margin: 10px 0;">
+            <button class="test-btn btn-active">View</button>
+            <button class="test-btn btn-active" style="background: #28a745;">Sample Card</button>
+            <button class="test-btn btn-disabled">Others</button>
+        </div>
+        <div class="code-block">
+            • Sample Card button remains ACTIVE<br>
+            • Users can download PDF multiple times<br>
+            • No status change on subsequent downloads
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔧 Technical Changes:</h3>
+        
+        <h4>1. Button State Logic Updated:</h4>
+        <div class="code-block">
+            <strong>Before:</strong><br>
+            if (status.includes('sample card')) {<br>
+            &nbsp;&nbsp;states.sampleCard = { disabled: true }; // DISABLED<br>
+            }<br>
+            <br>
+            <strong>After:</strong><br>
+            if (status.includes('sample card')) {<br>
+            &nbsp;&nbsp;states.sampleCard = { disabled: false }; // ACTIVE<br>
+            }
+        </div>
+        
+        <h4>2. Action Handler Modified:</h4>
+        <div class="code-block">
+            <strong>Before:</strong><br>
+            generateSampleCardPDF(id);<br>
+            updateQuotationStatus(id, action); // Updates status<br>
+            <br>
+            <strong>After:</strong><br>
+            generateSampleCardPDF(id);<br>
+            // No status update - allows multiple downloads
+        </div>
+        
+        <h4>3. Confirmation Message Updated:</h4>
+        <div class="code-block">
+            <strong>Before:</strong><br>
+            "Are you sure you want to complete the sample card?"<br>
+            <br>
+            <strong>After:</strong><br>
+            "Download Sample Card PDF? You can download this multiple times as needed."
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 Testing Instructions:</h3>
+        
+        <h4>Test Scenario 1: First Download</h4>
+        <ol>
+            <li><strong>Setup:</strong> Find quotation with "sampling" status</li>
+            <li><strong>Action:</strong> Click "Sample Card" in dropdown</li>
+            <li><strong>Confirm:</strong> Dialog shows "Download Sample Card PDF? You can download this multiple times as needed."</li>
+            <li><strong>Result:</strong> PDF downloads, status changes to "sample card"</li>
+            <li><strong>Verify:</strong> Sample Card button remains active (green/enabled)</li>
+        </ol>
+        
+        <h4>Test Scenario 2: Multiple Downloads</h4>
+        <ol>
+            <li><strong>Setup:</strong> Same quotation now has "sample card" status</li>
+            <li><strong>Action:</strong> Click "Sample Card" again</li>
+            <li><strong>Confirm:</strong> Same dialog appears</li>
+            <li><strong>Result:</strong> PDF downloads again with new timestamp</li>
+            <li><strong>Verify:</strong> Status remains "sample card" (no change)</li>
+            <li><strong>Repeat:</strong> Can download multiple times</li>
+        </ol>
+        
+        <h4>Test Scenario 3: PDF Filename Verification</h4>
+        <ol>
+            <li><strong>Download 1:</strong> Sample_Card_[ITEM]_20250116_143022.pdf</li>
+            <li><strong>Download 2:</strong> Sample_Card_[ITEM]_20250116_143045.pdf</li>
+            <li><strong>Download 3:</strong> Sample_Card_[ITEM]_20250116_143101.pdf</li>
+            <li><strong>Verify:</strong> Each download has unique timestamp</li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h3>🚀 Expected Results:</h3>
+        
+        <div class="status success">
+            <strong>✅ PASS Criteria:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Button State:</strong>
+                    <ul>
+                        <li>Sample Card button active in "sampling" status</li>
+                        <li>Sample Card button REMAINS active in "sample card" status</li>
+                        <li>Button never becomes disabled after first use</li>
+                    </ul>
+                </li>
+                <li><strong>Download Functionality:</strong>
+                    <ul>
+                        <li>First download works and updates status to "sample card"</li>
+                        <li>Subsequent downloads work without status change</li>
+                        <li>Each download has unique timestamp in filename</li>
+                        <li>PDF content is identical for all downloads</li>
+                    </ul>
+                </li>
+                <li><strong>User Experience:</strong>
+                    <ul>
+                        <li>Clear confirmation message about multiple downloads</li>
+                        <li>Consistent button appearance (active/enabled)</li>
+                        <li>No confusion about button availability</li>
+                        <li>Professional PDF output every time</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>💡 Use Cases:</h3>
+        
+        <div class="status info">
+            <strong>Why Multiple Downloads Are Useful:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>File Management:</strong> Users may need to download to different locations</li>
+                <li><strong>Sharing:</strong> Multiple team members may need copies</li>
+                <li><strong>Backup:</strong> Users may want to re-download if file is lost</li>
+                <li><strong>Updates:</strong> If quotation data is corrected, fresh PDF needed</li>
+                <li><strong>Printing:</strong> Multiple physical copies for different purposes</li>
+                <li><strong>Archive:</strong> Different versions for record keeping</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔍 Troubleshooting:</h3>
+        
+        <div class="status warning">
+            <strong>If Sample Card Button Still Disabled:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Clear browser cache and refresh page</li>
+                <li>Check browser console for JavaScript errors</li>
+                <li>Verify quotation status is "sample card" in database</li>
+                <li>Restart server to ensure latest code is loaded</li>
+            </ul>
+        </div>
+        
+        <div class="status info">
+            <strong>If Downloads Don't Work:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Check ReportLab installation: /test-sample-card</li>
+                <li>Verify popup blocker settings</li>
+                <li>Test with different browsers</li>
+                <li>Check server logs for PDF generation errors</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📊 Summary:</h3>
+        
+        <div class="status success">
+            <strong>🎉 Feature Complete:</strong><br>
+            Sample Card functionality now allows unlimited downloads while maintaining proper workflow status. Users can download the professional PDF multiple times as needed, with each download having a unique timestamp for file management.
+        </div>
+        
+        <div class="code-block">
+            <strong>Workflow Summary:</strong><br>
+            1. Quotation reaches "sampling" status<br>
+            2. User clicks "Sample Card" → Status becomes "sample card"<br>
+            3. User can click "Sample Card" again → Downloads PDF (no status change)<br>
+            4. Repeat step 3 as many times as needed<br>
+            5. Each download has unique timestamp in filename
+        </div>
+    </div>
+</body>
+</html>

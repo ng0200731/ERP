@@ -52,6 +52,7 @@ class Quotation(Base):
     action = Column(String(50), nullable=True, default='-')  # Action column v1.3.09
     color_names = Column(String, nullable=True)  # Stores all color names as JSON string
     revision_count = Column(Integer, nullable=False, default=0)  # Number of times this quotation has been revised
+    type = Column(String(50), nullable=True, default='Heat Transfer')  # Product type column
 
 class Attachment(Base):
     __tablename__ = 'attachments'

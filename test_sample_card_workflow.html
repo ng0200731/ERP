@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Card Workflow Test - v1.4.06</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .workflow-step { padding: 10px; margin: 8px 0; border-radius: 4px; border-left: 4px solid #ddd; }
+        .step-1 { border-left-color: #2196f3; background: #e3f2fd; }
+        .step-2 { border-left-color: #ff9800; background: #fff3e0; }
+        .step-3 { border-left-color: #9c27b0; background: #f3e5f5; }
+        .step-4 { border-left-color: #4caf50; background: #e8f5e8; }
+        .step-5 { border-left-color: #e91e63; background: #fce4ec; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .feature { background: #e7f3ff; color: #0066cc; border: 1px solid #b3d9ff; }
+        .action-btn { padding: 6px 12px; margin: 3px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+        .btn-view { background: #007bff; color: white; }
+        .btn-submitted { background: #ff9800; color: white; }
+        .btn-approved { background: #9c27b0; color: white; }
+        .btn-sampling { background: #4caf50; color: white; }
+        .btn-sample-card { background: #e91e63; color: white; }
+        .btn-disabled { background: #6c757d; color: #999; cursor: not-allowed; opacity: 0.4; }
+    </style>
+</head>
+<body>
+    <h1>🎯 Sample Card Workflow Test v1.4.06</h1>
+    
+    <div class="status feature">
+        <strong>New Feature:</strong> Added "Sample Card" as Stage 5 in the quotation workflow, completing the business process from creation to final sample card delivery.
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 Complete Workflow Overview:</h3>
+        
+        <div class="workflow-step step-1">
+            <strong>Stage 1: Quotation Complete</strong><br>
+            Status: "quotation complete" or "quotation complete (#revision)"<br>
+            Available Actions: <button class="action-btn btn-view">View (edit)</button> <button class="action-btn btn-submitted">Submitted to Customer</button>
+        </div>
+        
+        <div class="workflow-step step-2">
+            <strong>Stage 2: Submitted to Customer</strong><br>
+            Status: "submitted to customer"<br>
+            Available Actions: <button class="action-btn btn-view">View</button> <button class="action-btn btn-approved">Price Approved</button> <button class="action-btn btn-disabled">Others Disabled</button>
+        </div>
+        
+        <div class="workflow-step step-3">
+            <strong>Stage 3: Price Approved</strong><br>
+            Status: "price approved"<br>
+            Available Actions: <button class="action-btn btn-view">View</button> <button class="action-btn btn-sampling">Start Sampling</button> <button class="action-btn btn-disabled">Others Disabled</button>
+        </div>
+        
+        <div class="workflow-step step-4">
+            <strong>Stage 4: Sampling</strong><br>
+            Status: "sampling"<br>
+            Available Actions: <button class="action-btn btn-view">View</button> <button class="action-btn btn-sample-card">Sample Card</button> <button class="action-btn btn-disabled">Others Disabled</button>
+        </div>
+        
+        <div class="workflow-step step-5">
+            <strong>🆕 Stage 5: Sample Card Complete</strong><br>
+            Status: "sample card"<br>
+            Available Actions: <button class="action-btn btn-view">View</button> <button class="action-btn btn-disabled">All Others Disabled</button><br>
+            <em>Final stage - workflow complete</em>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🎯 New Sample Card Features:</h3>
+        
+        <div class="status success">
+            <strong>✅ Action Menu:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>"Sample Card" button appears below "Start Sampling"</li>
+                <li>Only active when status = "sampling" (Stage 4)</li>
+                <li>Requires confirmation: "Are you sure you want to complete the sample card?"</li>
+                <li>Updates status to "sample card" and disables Stage 4</li>
+            </ul>
+        </div>
+        
+        <div class="status info">
+            <strong>📊 Dashboard Integration:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>New pink "Sample Card" metric card with 🎯 icon</li>
+                <li>Shows count of quotations with "sample card" status</li>
+                <li>Integrated in both main dashboard and fallback dashboard</li>
+                <li>Access control: Level 1 sees own records, Level 3 sees all</li>
+            </ul>
+        </div>
+        
+        <div class="status warning">
+            <strong>🎨 Visual Design:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Pink color scheme (#e91e63) for Sample Card status</li>
+                <li>Consistent with existing status color coding</li>
+                <li>Gradient background and border styling</li>
+                <li>Hover effects and visual feedback</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔧 Technical Implementation:</h3>
+        
+        <h4>Frontend Changes:</h4>
+        <ul>
+            <li><strong>templates/view_quotations_simple.html:</strong>
+                <ul>
+                    <li>Added "sampleCard" to button states</li>
+                    <li>Updated getButtonStates() for Stage 4 and 5 logic</li>
+                    <li>Added Sample Card button to dropdown menu</li>
+                    <li>Added action handler with confirmation</li>
+                    <li>Added CSS styling for status-sample-card</li>
+                    <li>Updated getStatusClass() function</li>
+                </ul>
+            </li>
+            <li><strong>Dashboard Templates:</strong>
+                <ul>
+                    <li>Added Sample Card metric to dashboard.html</li>
+                    <li>Updated fallback dashboard in app.js</li>
+                    <li>Updated index.html fallback dashboard</li>
+                    <li>Added pink color scheme CSS</li>
+                </ul>
+            </li>
+        </ul>
+        
+        <h4>Backend Changes:</h4>
+        <ul>
+            <li><strong>server.py:</strong>
+                <ul>
+                    <li>Added 'sample-card': 'sample card' to status mapping</li>
+                    <li>Updated dashboard metrics to include sample_card count</li>
+                    <li>Added sample_card to error response structure</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 Test Instructions:</h3>
+        
+        <ol>
+            <li><strong>Create Test Quotation:</strong>
+                <ul>
+                    <li>Create a new quotation (Status: "quotation complete")</li>
+                    <li>Verify only "View (edit)" and "Submitted to Customer" are active</li>
+                </ul>
+            </li>
+            
+            <li><strong>Progress Through Workflow:</strong>
+                <ul>
+                    <li>Click "Submitted to Customer" → Verify status changes</li>
+                    <li>Click "Price Approved" → Verify status changes</li>
+                    <li>Click "Start Sampling" → Verify status = "sampling"</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test Sample Card (New Feature):</strong>
+                <ul>
+                    <li>In "sampling" status, verify "Sample Card" button is active</li>
+                    <li>Click "Sample Card" → Confirm dialog appears</li>
+                    <li>Confirm → Verify status changes to "sample card"</li>
+                    <li>Verify all action buttons except "View" are disabled</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test Dashboard Metrics:</strong>
+                <ul>
+                    <li>Go to Dashboard → Verify "Sample Card" metric appears</li>
+                    <li>Check count matches quotations with "sample card" status</li>
+                    <li>Test with different user access levels</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test Visual Design:</strong>
+                <ul>
+                    <li>Verify pink color scheme for Sample Card status</li>
+                    <li>Check hover effects on dashboard metric</li>
+                    <li>Confirm consistent styling across all views</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h3>🚀 Expected Results:</h3>
+        
+        <div class="status success">
+            <strong>✅ PASS Criteria:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Sample Card button only appears in Stage 4 (sampling)</li>
+                <li>Clicking Sample Card requires confirmation</li>
+                <li>Status updates to "sample card" after confirmation</li>
+                <li>Stage 4 (Start Sampling) becomes disabled after Sample Card</li>
+                <li>Dashboard shows Sample Card metric with correct count</li>
+                <li>Pink color scheme applied consistently</li>
+                <li>Access control works (Level 1 vs Level 3)</li>
+                <li>All existing workflow stages still function correctly</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📊 Business Impact:</h3>
+        
+        <div class="status info">
+            <strong>Complete Workflow Coverage:</strong><br>
+            The quotation system now covers the entire business process from initial quotation creation through final sample card delivery, providing complete visibility and control over each stage of the customer engagement process.
+        </div>
+    </div>
+    
+    <script>
+        // Simple test to verify we're in the right context
+        console.log('Sample Card Workflow Test v1.4.06 loaded');
+        
+        // Check if we can access the parent window functions
+        if (window.parent && window.parent !== window) {
+            console.log('Running in application context');
+            if (typeof window.parent.loadDashboard === 'function') {
+                console.log('✅ Dashboard functions available');
+            }
+        }
+    </script>
+</body>
+</html>

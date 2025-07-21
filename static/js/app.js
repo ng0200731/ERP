@@ -355,6 +355,10 @@ $(function() {
             <div style="font-size:2.2rem;font-weight:bold;margin-bottom:8px;">${data.sampling || 0}</div>
             <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Sampling</div>
           </div>
+          <div style="background:#e91e63;color:white;padding:25px;border-radius:12px;text-align:center;box-shadow:0 4px 12px rgba(233,30,99,0.3);">
+            <div style="font-size:2.2rem;font-weight:bold;margin-bottom:8px;">${data.sample_card || 0}</div>
+            <div style="font-size:0.9rem;font-weight:normal;text-transform:uppercase;letter-spacing:0.3px;">Sample Card</div>
+          </div>
         </div>
         <div style="text-align:center;margin-top:25px;">
           <button onclick="loadDashboard()" style="background:#3498db;color:white;border:none;padding:8px 18px;border-radius:5px;font-size:15px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#217dbb'" onmouseout="this.style.background='#3498db'">🔄 Refresh Data</button>

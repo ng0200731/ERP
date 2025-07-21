@@ -83,7 +83,16 @@
   .metric-card.sampling:hover {
     background: #d35400;
   }
-  
+
+  .metric-card.sample-card {
+    background: #e91e63;
+    border-color: #ad1457;
+  }
+
+  .metric-card.sample-card:hover {
+    background: #ad1457;
+  }
+
   .metric-icon {
     font-size: 2rem;
     margin-bottom: 10px;
@@ -163,7 +172,7 @@
   <div class="last-updated" id="last-updated"></div>
 
   <div style="text-align:center;margin-top:15px;font-size:0.8rem;color:#999;">
-    Dashboard v1.4.03 | <span id="refresh-status">Ready</span>
+    Dashboard v1.4.06 | <span id="refresh-status">Ready</span>
   </div>
 </div>
 
@@ -202,6 +211,12 @@ function loadDashboardMetrics() {
             <div class="metric-icon">🔬</div>
             <div class="metric-number">${data.sampling || 0}</div>
             <div class="metric-label">Sampling</div>
+          </div>
+
+          <div class="metric-card sample-card">
+            <div class="metric-icon">🎯</div>
+            <div class="metric-number">${data.sample_card || 0}</div>
+            <div class="metric-label">Sample Card</div>
           </div>
         </div>
       `;

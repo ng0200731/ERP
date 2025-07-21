@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Card Administration Fix - v1.4.08</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .fix { background: #e7f3ff; color: #0066cc; border: 1px solid #b3d9ff; }
+        .code-block { background: #f1f3f4; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+        .test-btn { padding: 8px 16px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Sample Card Administration Rights Fix v1.4.08</h1>
+    
+    <div class="status error">
+        <strong>Issue Identified:</strong> PDF downloads failing due to administration rights/permissions. Browser shows "Site wasn't available" for PDF files.
+    </div>
+    
+    <div class="status fix">
+        <strong>Solution Implemented:</strong> Added HTML fallback system that works without special permissions or external packages.
+    </div>
+    
+    <div class="test-section">
+        <h3>🐛 Root Cause Analysis:</h3>
+        
+        <div class="status warning">
+            <strong>Possible Causes:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Missing ReportLab Package:</strong> PDF generation library not installed</li>
+                <li><strong>File Permissions:</strong> Server can't write to download location</li>
+                <li><strong>Browser Security:</strong> Administration rights blocking PDF downloads</li>
+                <li><strong>Server Path Issues:</strong> PDF endpoint not properly accessible</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>✅ Fix Implementation:</h3>
+        
+        <h4>1. HTML Fallback System:</h4>
+        <div class="code-block">
+            <strong>generate_sample_card_html(quotation):</strong><br>
+            • Creates professional HTML sample card<br>
+            • Same layout as PDF version<br>
+            • Auto-print functionality<br>
+            • No external dependencies required<br>
+            • Works with standard browser permissions
+        </div>
+        
+        <h4>2. Dual-Mode Generation:</h4>
+        <div class="code-block">
+            <strong>Smart Fallback Logic:</strong><br>
+            1. Try PDF generation (if ReportLab available)<br>
+            2. If PDF fails → Use HTML version<br>
+            3. HTML opens in new window with auto-print<br>
+            4. User can save as PDF using browser's print function
+        </div>
+        
+        <h4>3. Enhanced Error Handling:</h4>
+        <div class="code-block">
+            <strong>Robust Error Management:</strong><br>
+            • Check ReportLab availability<br>
+            • Graceful degradation to HTML<br>
+            • Clear debug logging<br>
+            • User-friendly error messages
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔄 New Workflow:</h3>
+        
+        <div class="status success">
+            <strong>Updated Process:</strong>
+            <ol style="margin: 10px 0; padding-left: 20px;">
+                <li>User clicks "Sample Card" button</li>
+                <li>Confirmation dialog appears</li>
+                <li>System tries PDF generation first</li>
+                <li><strong>If PDF fails:</strong> HTML version opens in new window</li>
+                <li><strong>HTML auto-prints</strong> for immediate use</li>
+                <li>User can "Save as PDF" from browser print dialog</li>
+                <li>Status updates to "sample card"</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 HTML Sample Card Features:</h3>
+        
+        <div class="status info">
+            <strong>Professional HTML Layout:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>A4 Print Styling:</strong> Proper margins and page size</li>
+                <li><strong>Professional Tables:</strong> Bordered layout with headers</li>
+                <li><strong>Complete Data:</strong> All quotation information included</li>
+                <li><strong>Checkboxes:</strong> Manual approval workflow elements</li>
+                <li><strong>Comment Spaces:</strong> Areas for handwritten notes</li>
+                <li><strong>Auto-Print:</strong> Automatically opens print dialog</li>
+                <li><strong>Browser Compatible:</strong> Works in all modern browsers</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔧 Technical Changes:</h3>
+        
+        <h4>Backend (server.py):</h4>
+        <div class="code-block">
+            <strong>New Functions:</strong><br>
+            • generate_sample_card_html() - HTML fallback<br>
+            • Enhanced error handling in download endpoint<br>
+            • Debug logging for troubleshooting<br>
+            • Test endpoint: /test-sample-card<br>
+            <br>
+            <strong>Fallback Logic:</strong><br>
+            if REPORTLAB_AVAILABLE:<br>
+            &nbsp;&nbsp;try_pdf_generation()<br>
+            else:<br>
+            &nbsp;&nbsp;use_html_fallback()
+        </div>
+        
+        <h4>Frontend (view_quotations_simple.html):</h4>
+        <div class="code-block">
+            <strong>Updated generateSampleCardPDF():</strong><br>
+            • Opens sample card in new window<br>
+            • Handles both PDF and HTML responses<br>
+            • Popup blocker fallback<br>
+            • Better error handling
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🧪 Testing Instructions:</h3>
+        
+        <ol>
+            <li><strong>Test System Status:</strong>
+                <ul>
+                    <li>Visit: <code>/test-sample-card</code></li>
+                    <li>Check if ReportLab is available</li>
+                    <li>Verify fallback system is ready</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test Sample Card Generation:</strong>
+                <ul>
+                    <li>Go to quotation with "sampling" status</li>
+                    <li>Click "Sample Card" in action dropdown</li>
+                    <li>Confirm dialog → Should open new window</li>
+                    <li>If HTML: Print dialog should appear automatically</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test HTML Version:</strong>
+                <ul>
+                    <li>Verify all quotation data appears correctly</li>
+                    <li>Check professional table layout</li>
+                    <li>Confirm checkboxes and comment spaces</li>
+                    <li>Test browser's "Save as PDF" function</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test Status Update:</strong>
+                <ul>
+                    <li>After sample card generation</li>
+                    <li>Verify status changes to "sample card"</li>
+                    <li>Check dashboard metrics update</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h3>🚀 Expected Results:</h3>
+        
+        <div class="status success">
+            <strong>✅ PASS Criteria:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>No more "Site wasn't available" errors</li>
+                <li>Sample card opens in new window (HTML or PDF)</li>
+                <li>HTML version auto-prints for immediate use</li>
+                <li>All quotation data displays correctly</li>
+                <li>Professional layout maintained</li>
+                <li>Status updates to "sample card" after generation</li>
+                <li>System works without special permissions</li>
+                <li>Graceful fallback when PDF generation fails</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>💡 User Instructions:</h3>
+        
+        <div class="status info">
+            <strong>For HTML Sample Cards:</strong>
+            <ol style="margin: 10px 0; padding-left: 20px;">
+                <li>Click "Sample Card" → New window opens</li>
+                <li>Print dialog appears automatically</li>
+                <li>Choose "Save as PDF" in print destination</li>
+                <li>Or print directly to physical printer</li>
+                <li>Close the window when done</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔍 Troubleshooting:</h3>
+        
+        <div class="status warning">
+            <strong>If Issues Persist:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Check Console:</strong> Look for JavaScript errors</li>
+                <li><strong>Test Endpoint:</strong> Visit /test-sample-card</li>
+                <li><strong>Browser Settings:</strong> Allow popups for the site</li>
+                <li><strong>Server Logs:</strong> Check for backend errors</li>
+                <li><strong>Permissions:</strong> Ensure browser can open new windows</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📊 System Status Check:</h3>
+        
+        <button class="test-btn" onclick="checkSystemStatus()">🔍 Check Sample Card System</button>
+        <div id="status-result" style="margin-top: 10px;"></div>
+    </div>
+    
+    <script>
+        function checkSystemStatus() {
+            const resultDiv = document.getElementById('status-result');
+            resultDiv.innerHTML = '<div style="color: #666;">Checking system status...</div>';
+            
+            fetch('/test-sample-card')
+                .then(response => response.json())
+                .then(data => {
+                    let statusClass = data.reportlab_available ? 'success' : 'warning';
+                    resultDiv.innerHTML = `
+                        <div class="status ${statusClass}">
+                            <strong>System Status:</strong><br>
+                            ReportLab Available: ${data.reportlab_available ? '✅ Yes' : '❌ No'}<br>
+                            Fallback: ${data.fallback}<br>
+                            Message: ${data.message}
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = `
+                        <div class="status error">
+                            <strong>Error:</strong> ${error.message}<br>
+                            Check server connection and try again.
+                        </div>
+                    `;
+                });
+        }
+        
+        // Auto-check on page load
+        setTimeout(checkSystemStatus, 1000);
+    </script>
+</body>
+</html>

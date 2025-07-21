@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Card PDF Generation Test - v1.4.07</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .feature { background: #e7f3ff; color: #0066cc; border: 1px solid #b3d9ff; }
+        .pdf-layout { background: #f8f9fa; padding: 15px; border: 1px solid #dee2e6; border-radius: 5px; font-family: monospace; font-size: 0.9rem; }
+        .pdf-section { margin: 10px 0; padding: 8px; border-left: 3px solid #007bff; background: white; }
+        .code-block { background: #f1f3f4; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <h1>📄 Sample Card PDF Generation Test v1.4.07</h1>
+    
+    <div class="status feature">
+        <strong>New Feature:</strong> Automatic A4 PDF generation when "Sample Card" action is clicked, containing all quotation details in a professional layout.
+    </div>
+    
+    <div class="test-section">
+        <h3>🎯 PDF Generation Workflow:</h3>
+        
+        <div class="status success">
+            <strong>Complete Process:</strong>
+            <ol style="margin: 10px 0; padding-left: 20px;">
+                <li>User clicks "Sample Card" in action dropdown</li>
+                <li>Confirmation dialog: "Are you sure you want to complete the sample card?"</li>
+                <li>User confirms → PDF automatically generates and downloads</li>
+                <li>Status updates to "sample card"</li>
+                <li>Stage 4 (Start Sampling) becomes disabled</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 PDF Layout Structure:</h3>
+        
+        <div class="pdf-layout">
+            <div class="pdf-section">
+                <strong>HEADER</strong><br>
+                SAMPLE CARD<br>
+                Fu Chang Hong Kong
+            </div>
+            
+            <div class="pdf-section">
+                <strong>MAIN TABLE (2 columns)</strong><br>
+                ┌─────────────────────────────┬─────────────────────────────┐<br>
+                │ CUSTOMER INFORMATION        │ SUBMISSION DETAILS          │<br>
+                │ Customer: [Customer Name]   │ Date: [YYYY-MM-DD]         │<br>
+                │ Contact: [Key Person]       │ Time: [HH:MM:SS]           │<br>
+                │ Item Code: [Item Code]      │ By: [User Email]           │<br>
+                ├─────────────────────────────┼─────────────────────────────┤<br>
+                │ PRODUCT SPECIFICATIONS      │ PRODUCTION DETAILS          │<br>
+                │ Dimensions: [W] × [L] mm    │ Colors: [#] colors         │<br>
+                │ Quality: [Quality]          │ Color Names: [Names]       │<br>
+                │ Surface: [Flat/Raised]      │ Thickness: [Thickness]     │<br>
+                │ Print: [Direct/Reverse]     │ Quotation ID: [ID]         │<br>
+                ├─────────────────────────────┼─────────────────────────────┤<br>
+                │ STATUS & TRACKING           │                             │<br>
+                │ Status: Sample Card         │ Created: [Date Time]       │<br>
+                │ Additional Files: [Count]   │ Last Updated: [Date Time]  │<br>
+                │                             │ Revision: #[Number]        │<br>
+                └─────────────────────────────┴─────────────────────────────┘
+            </div>
+            
+            <div class="pdf-section">
+                <strong>NOTES & INSTRUCTIONS</strong><br>
+                ☐ Sample approved    ☐ Modifications required<br>
+                ☐ Proceed to production    ☐ Additional samples needed<br>
+                <br>
+                Comments: ________________________________<br>
+                          ________________________________
+            </div>
+            
+            <div class="pdf-section">
+                <strong>FOOTER</strong><br>
+                Generated: [Current DateTime] | System: v1.4.07<br>
+                Fu Chang Hong Kong - Sample Card System
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔧 Technical Implementation:</h3>
+        
+        <h4>Backend (server.py):</h4>
+        <div class="code-block">
+            <strong>PDF Generation Function:</strong><br>
+            • generate_sample_card_pdf(quotation)<br>
+            • Uses ReportLab library for A4 PDF creation<br>
+            • Professional table layout with borders and styling<br>
+            • Error handling for missing ReportLab package<br>
+            <br>
+            <strong>Download Endpoint:</strong><br>
+            • GET /quotation/sample-card/&lt;quotation_id&gt;<br>
+            • Generates PDF buffer and returns as download<br>
+            • Filename: Sample_Card_[ItemCode]_[DateTime].pdf
+        </div>
+        
+        <h4>Frontend (view_quotations_simple.html):</h4>
+        <div class="code-block">
+            <strong>Action Handler:</strong><br>
+            • generateSampleCardPDF(id) - triggers download<br>
+            • updateQuotationStatus(id, 'sample-card') - updates status<br>
+            • Creates temporary &lt;a&gt; element for download trigger<br>
+            • Automatic file download to user's device
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📊 Data Mapping:</h3>
+        
+        <div class="status info">
+            <strong>Quotation Fields → PDF Content:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>customer_name</strong> → Customer field</li>
+                <li><strong>key_person_name</strong> → Contact field</li>
+                <li><strong>customer_item_code</strong> → Item Code field</li>
+                <li><strong>width × length</strong> → Dimensions field</li>
+                <li><strong>quality</strong> → Quality field</li>
+                <li><strong>flat_or_raised</strong> → Surface field</li>
+                <li><strong>direct_or_reverse</strong> → Print field</li>
+                <li><strong>num_colors</strong> → Colors count</li>
+                <li><strong>color_names (JSON)</strong> → Color Names list</li>
+                <li><strong>thickness</strong> → Thickness field</li>
+                <li><strong>attachments.length</strong> → Additional Files count</li>
+                <li><strong>created_at</strong> → Created date</li>
+                <li><strong>last_updated</strong> → Last Updated date</li>
+                <li><strong>revision_count</strong> → Revision number</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 Test Instructions:</h3>
+        
+        <ol>
+            <li><strong>Setup Test Quotation:</strong>
+                <ul>
+                    <li>Create quotation with complete data (customer, dimensions, colors, etc.)</li>
+                    <li>Progress through workflow to "sampling" status</li>
+                    <li>Verify "Sample Card" button is active in action dropdown</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test PDF Generation:</strong>
+                <ul>
+                    <li>Click "Sample Card" button</li>
+                    <li>Confirm dialog appears</li>
+                    <li>Click "OK" → PDF should automatically download</li>
+                    <li>Check Downloads folder for PDF file</li>
+                </ul>
+            </li>
+            
+            <li><strong>Verify PDF Content:</strong>
+                <ul>
+                    <li>Open downloaded PDF</li>
+                    <li>Check all quotation data is correctly mapped</li>
+                    <li>Verify professional layout and formatting</li>
+                    <li>Confirm checkboxes and comment spaces are present</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test Status Update:</strong>
+                <ul>
+                    <li>After PDF download, verify status = "sample card"</li>
+                    <li>Check that "Start Sampling" is now disabled</li>
+                    <li>Verify dashboard metrics updated</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test Error Handling:</strong>
+                <ul>
+                    <li>Test with quotation missing some data fields</li>
+                    <li>Verify graceful handling of null/empty values</li>
+                    <li>Check console for any JavaScript errors</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h3>🚀 Expected Results:</h3>
+        
+        <div class="status success">
+            <strong>✅ PASS Criteria:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>PDF automatically downloads when Sample Card is clicked</li>
+                <li>PDF contains all quotation data in professional layout</li>
+                <li>Filename includes item code and timestamp</li>
+                <li>Status updates to "sample card" after PDF generation</li>
+                <li>Dashboard metrics reflect the status change</li>
+                <li>Error handling works for missing data or package issues</li>
+                <li>PDF is properly formatted A4 size with tables and styling</li>
+                <li>Checkboxes and comment spaces are included for manual use</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>⚠️ Dependencies:</h3>
+        
+        <div class="status warning">
+            <strong>Required Package:</strong><br>
+            • <code>pip install reportlab</code><br>
+            • If not installed, graceful error handling shows appropriate message<br>
+            • PDF generation will be disabled but system continues to function
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📈 Business Value:</h3>
+        
+        <div class="status info">
+            <strong>Professional Sample Card System:</strong><br>
+            Provides a complete, professional sample card document that can be:
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Printed and attached to physical samples</li>
+                <li>Shared with customers for approval</li>
+                <li>Used by production team for reference</li>
+                <li>Archived for quality control and traceability</li>
+                <li>Customized with manual notes and checkboxes</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        console.log('Sample Card PDF Test v1.4.07 loaded');
+        
+        // Test function to simulate PDF download
+        function testPDFDownload() {
+            console.log('Testing PDF download simulation...');
+            alert('In real system, this would trigger PDF generation and download');
+        }
+    </script>
+</body>
+</html>

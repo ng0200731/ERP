@@ -24,6 +24,10 @@ def reset_quotations_table():
     except Exception:
         pass
     try:
+        conn.execute("ALTER TABLE quotations ADD COLUMN type VARCHAR(50) DEFAULT 'Heat Transfer'")
+    except Exception:
+        pass
+    try:
         conn.execute('''
             CREATE TABLE IF NOT EXISTS attachments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1282,7 +1282,8 @@ def save_quotation():
                 quotation_block=block,
                 action='created',
                 color_names=color_names_json,
-                status='quotation complete'  # Set initial status
+                status='quotation complete',  # Set initial status
+                type='Heat Transfer'  # Set product type
             )
             db_session.add(quotation)
             db_session.commit()
@@ -1312,7 +1313,7 @@ def save_quotation():
                 key_person_position = data.get('key_person_position', '-')
                 key_person_email = user_email
                 item_code = data.get('customer_item_code', '-')
-                product_name = data.get('product_name', '-')
+                product_name = 'Heat Transfer'  # Set product type for HT quotations
                 quality = quality or '-'
                 flat_or_raised = flat_or_raised or '-'
                 direct_or_reverse = direct_or_reverse or '-'
@@ -1483,7 +1484,8 @@ def list_quotations():
                 'artwork_image': q.artwork_image if q.artwork_image else None,
                 'action': q.action if hasattr(q, 'action') else '-',
                 'status': q.status if q.status else '-',
-                'revision_count': getattr(q, 'revision_count', 0)
+                'revision_count': getattr(q, 'revision_count', 0),
+                'type': getattr(q, 'type', 'Heat Transfer')
             }
             records.append(record)
         
@@ -1823,7 +1825,7 @@ def api_get_quotation(quotation_id):
                 key_person_position = data.get('key_person_position', '-')
                 key_person_email = user_email
                 item_code = quotation.customer_item_code or '-'
-                product_name = data.get('product_name', '-')
+                product_name = 'Heat Transfer'  # Set product type for HT quotations
                 quality = quotation.quality or '-'
                 flat_or_raised = quotation.flat_or_raised or '-'
                 direct_or_reverse = quotation.direct_or_reverse or '-'
@@ -1977,6 +1979,7 @@ def api_get_quotation(quotation_id):
         'quotation_block': getattr(q, 'quotation_block', ''),
         'action': getattr(q, 'action', '-'),
         'revision_count': getattr(q, 'revision_count', 0),
+        'type': getattr(q, 'type', 'Heat Transfer'),
         'attachments': [
             {
                 'filename': a.filename.replace('\\', '/'),

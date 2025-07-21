@@ -357,6 +357,7 @@
                     <th class="sticky sticky-status" style="left:750px;top:0;z-index:206;background:#fff;box-shadow:2px 0 6px -2px #bbb;">Status</th>
                     <th class="sticky sticky-action" style="left:850px;top:0;z-index:207;background:#fff;box-shadow:2px 0 6px -2px #bbb;">Action</th>
                     <th>Creator</th>
+                    <th>Type</th>
                     <th>Quality</th>
                     <th>Flat/Raised</th>
                     <th>Direct/Reverse</th>
@@ -413,6 +414,11 @@
                         <input type="text" class="filter-input" id="filter-creator" placeholder="Creator">
                         <span class="advanced-arrow" data-filter="creator">▼</span>
                         <div class="advanced-dropdown" id="advanced-creator"></div>
+                    </th>
+                    <th class="filter-cell">
+                        <input type="text" class="filter-input" id="filter-type" placeholder="Type">
+                        <span class="advanced-arrow" data-filter="type">▼</span>
+                        <div class="advanced-dropdown" id="advanced-type"></div>
                     </th>
                     <th class="filter-cell">
                         <input type="text" class="filter-input" id="filter-quality" placeholder="Quality">
@@ -510,6 +516,7 @@
                     <td class="sticky sticky-status status-cell ${statusClass}" data-original-status="${row.status || 'quotation complete'}" style="font-size:0.85em; padding: 8px 12px; text-align: center;">${displayStatus}</td>
                     <td class="sticky sticky-action" style="overflow:visible;"><button class='action-btn' data-id='${row.id}'>Action</button></td>
                     <td class="creator-email">${formatCreatorEmail(row.creator_email) || ''}</td>
+                    <td>${row.type || 'Heat Transfer'}</td>
                     <td>${row.quality || ''}</td>
                     <td>${row.flat_or_raised || ''}</td>
                     <td>${row.direct_or_reverse || ''}</td>
@@ -929,13 +936,13 @@
                 console.log('[DEBUG] Initializing filters...');
 
                 // Set default filter types
-                ['id', 'customer', 'keyperson', 'itemcode', 'creator', 'quality', 'flat', 'direct'].forEach(field => {
+                ['id', 'customer', 'keyperson', 'itemcode', 'creator', 'type', 'quality', 'flat', 'direct'].forEach(field => {
                     quotationCurrentFilterTypes[field] = 'contains';
                 });
 
             // Create advanced dropdown content
             Object.keys(quotationFilterTypes).forEach(filterKey => {
-                ['id', 'customer', 'keyperson', 'itemcode', 'creator', 'quality', 'flat', 'direct'].forEach(field => {
+                ['id', 'customer', 'keyperson', 'itemcode', 'creator', 'type', 'quality', 'flat', 'direct'].forEach(field => {
                     const dropdown = document.getElementById(`advanced-${field}`);
                     if (dropdown) {
                         dropdown.innerHTML = Object.entries(quotationFilterTypes).map(([key, label]) =>
@@ -990,7 +997,7 @@
             });
 
             // Add event listeners for filter inputs
-            ['id', 'customer', 'keyperson', 'itemcode', 'creator', 'quality', 'flat', 'direct'].forEach(field => {
+            ['id', 'customer', 'keyperson', 'itemcode', 'creator', 'type', 'quality', 'flat', 'direct'].forEach(field => {
                 const input = document.getElementById(`filter-${field}`);
                 if (input) {
                     console.log(`[DEBUG] Adding event listener to filter-${field}`);
@@ -1028,6 +1035,7 @@
                 itemcode: document.getElementById('filter-itemcode')?.value || '',
                 status: document.getElementById('filter-status')?.value || '',
                 creator: document.getElementById('filter-creator')?.value || '',
+                type: document.getElementById('filter-type')?.value || '',
                 quality: document.getElementById('filter-quality')?.value || '',
                 flat: document.getElementById('filter-flat')?.value || '',
                 direct: document.getElementById('filter-direct')?.value || ''
@@ -1045,6 +1053,7 @@
                         case 'itemcode': rowValue = String(row.customer_item_code || ''); break;
                         case 'status': rowValue = String(row.status || 'quotation complete'); break;
                         case 'creator': rowValue = String(row.creator_email || ''); break;
+                        case 'type': rowValue = String(row.type || 'Heat Transfer'); break;
                         case 'quality': rowValue = String(row.quality || ''); break;
                         case 'flat': rowValue = String(row.flat_or_raised || ''); break;
                         case 'direct': rowValue = String(row.direct_or_reverse || ''); break;

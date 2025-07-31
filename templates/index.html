@@ -57,6 +57,11 @@
         <button id="btn-create">Create</button>
         <button id="btn-modify">Modify</button>
       </div>
+      <button id="btn-outsource" onclick="toggleOutsourceMenu()">Outsource</button>
+      <div id="outsource-nested" style="display:none; margin-left: 10px; background: #f0f0f0; padding: 5px; border-radius: 3px;">
+        <button id="btn-outsource-create">Create</button>
+        <button id="btn-outsource-modify">Modify</button>
+      </div>
       <!-- Removed Quotation and Development buttons as per v1.2.81 -->
       <!-- <button id="btn-quotation">Quotation</button> -->
       <!-- <div id="quotation-nested" style="display:none; margin-left: 10px;">
@@ -169,6 +174,33 @@
     $('#btn-quotation2').on('click', function() {
       $('#quotation2-nested').toggle();
     });
+
+    // Outsource menu handler - direct implementation
+    $(document).ready(function() {
+      console.log('[DEBUG] Setting up Outsource menu handler...');
+
+      // Check if button exists
+      if ($('#btn-outsource').length > 0) {
+        console.log('[DEBUG] Outsource button found');
+      } else {
+        console.log('[ERROR] Outsource button not found');
+      }
+
+      // Attach click handler
+      $('#btn-outsource').off('click').on('click', function(e) {
+        e.preventDefault();
+        console.log('[DEBUG] Outsource button clicked!');
+        $('#outsource-nested').toggle();
+        console.log('[DEBUG] Nested menu visibility:', $('#outsource-nested').is(':visible'));
+      });
+    });
+
+    // Global function for onclick fallback
+    function toggleOutsourceMenu() {
+      console.log('[DEBUG] toggleOutsourceMenu called');
+      $('#outsource-nested').toggle();
+      console.log('[DEBUG] Nested menu visibility after toggle:', $('#outsource-nested').is(':visible'));
+    }
     
     // Handle Quotation 2 Create (HT) button click
     $('#btn-quotation2-create2').on('click', function() {

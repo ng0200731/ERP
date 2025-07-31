@@ -181,6 +181,7 @@ body, html {
 
   /* Nested menu styles */
   #customer-nested,
+  #outsource-nested,
   #quotation-nested,
   #quotation2-nested {
     margin-left: 10px;

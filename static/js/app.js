@@ -121,6 +121,19 @@ $(function() {
   $('#btn-customer').click(function() {
     $('#customer-nested').toggle();
   });
+
+  // Outsource menu handler with multiple attachment methods
+  $('#btn-outsource').click(function() {
+    console.log('[DEBUG] Outsource button clicked');
+    $('#outsource-nested').toggle();
+    console.log('[DEBUG] Outsource nested visibility:', $('#outsource-nested').is(':visible'));
+  });
+
+  // Alternative event handler using document delegation
+  $(document).on('click', '#btn-outsource', function() {
+    console.log('[DEBUG] Outsource button clicked (delegated)');
+    $('#outsource-nested').toggle();
+  });
   $('#btn-development').click(function() {
     if (window.closeAllDropdowns) window.closeAllDropdowns();
     $('#right-frame').html('<h2>Development Section</h2><p>Coming soon...</p>');
@@ -137,12 +150,33 @@ $(function() {
     showModify();
   });
 
+  // Outsource menu handlers
+  $('#btn-outsource-create').click(function() {
+    if (window.closeAllDropdowns) window.closeAllDropdowns();
+    console.log('[INFO] Outsource Create button clicked');
+    showOutsourceCreate();
+  });
+
+  $('#btn-outsource-modify').click(function() {
+    if (window.closeAllDropdowns) window.closeAllDropdowns();
+    console.log('[INFO] Outsource Modify button clicked');
+    showOutsourceModify();
+  });
+
     // Delegated events for dynamic content
     $('#right-frame').on('click', '#next-slide1', handleNextSlide1);
     $('#right-frame').on('click', '#prev-slide2', function() {
       // Do not reset slide1Data here; just show the form with current data
       showCreateSlide1();
     });
+
+  // Outsource navigation events
+  $('#right-frame').on('click', '#next-outsource-slide1', function() {
+    // This is handled in the showOutsourceCreateSlide1 function
+  });
+  $('#right-frame').on('click', '#prev-outsource-slide2', function() {
+    // This is handled in the showOutsourceCreateSlide2 function
+  });
     $('#right-frame').on('click', '#submit-slide2', handleSubmitSlide2);
     $('#right-frame').on('click', '.add-domain', addDomainField);
     $('#right-frame').on('click', '.remove-domain', removeDomainField);
@@ -2374,5 +2408,246 @@ function createCustomer(customer, callback) {
       showCustomPopup(errorMsg, true);
       if (callback) callback(false);
     }
+  });
+}
+
+// --- Outsource Functions ---
+
+// Global variables for outsource creation flow
+let outsourceSlide1Data = {};
+let outsourceSlide2Data = {};
+
+function showOutsourceCreateSlide1() {
+  console.log('[INFO] Loading Outsource Create - Step 1...');
+
+  // Use existing outsourceSlide1Data or default
+  const company = outsourceSlide1Data.company || '';
+  const address = outsourceSlide1Data.address || '';
+  const website = outsourceSlide1Data.website || '';
+  const serviceType = outsourceSlide1Data.serviceType || '';
+
+  $('#right-frame').html(`
+    <div style="position:relative;">
+      <button id="dummy-fill-btn-outsource-step1" style="position:absolute;top:18px;right:32px;z-index:1000;background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;">Dummy Fill</button>
+    </div>
+    <h2>Create Outsource - Step 1</h2>
+    <div>
+      <label>Company Name:<br><input type="text" id="outsource-company-name" value="${company}"></label><br>
+      <label>Address:<br><input type="text" id="outsource-address" value="${address}"></label><br>
+      <label>Website:<br>
+        <input type="text" class="website-input" id="outsource-website" value="${website}">
+        <span class="error" id="outsource-website-error"></span>
+      </label><br>
+      <label>Service Type:<br>
+        <select id="outsource-service-type">
+          <option value="">-- Select Service Type --</option>
+          <option value="Manufacturing"${serviceType === 'Manufacturing' ? ' selected' : ''}>Manufacturing</option>
+          <option value="Printing"${serviceType === 'Printing' ? ' selected' : ''}>Printing</option>
+          <option value="Logistics"${serviceType === 'Logistics' ? ' selected' : ''}>Logistics</option>
+          <option value="Design"${serviceType === 'Design' ? ' selected' : ''}>Design</option>
+          <option value="Quality Control"${serviceType === 'Quality Control' ? ' selected' : ''}>Quality Control</option>
+          <option value="Packaging"${serviceType === 'Packaging' ? ' selected' : ''}>Packaging</option>
+          <option value="Other"${serviceType === 'Other' ? ' selected' : ''}>Other</option>
+        </select>
+      </label><br>
+      <div class="slide-nav">
+        <button id="next-outsource-slide1">Next</button>
+      </div>
+    </div>
+  `);
+
+  // Dummy fill handler
+  $('#dummy-fill-btn-outsource-step1').off('click').on('click', function() {
+    $('#outsource-company-name').val('ABC Manufacturing Ltd');
+    $('#outsource-address').val('123 Industrial Park, Manufacturing District');
+    $('#outsource-website').val('abc-manufacturing.com');
+    $('#outsource-service-type').val('Manufacturing');
+  });
+
+  // Website validation
+  $('#outsource-website').on('input', function() {
+    const website = $(this).val();
+    if (website.includes('@')) {
+      $('#outsource-website-error').text('Please do not include @ in website URL').show();
+      $(this).val(website.replace('@', ''));
+    } else {
+      $('#outsource-website-error').hide();
+    }
+  });
+
+  // Next button handler
+  $('#next-outsource-slide1').off('click').on('click', function() {
+    // Save slide 1 data
+    outsourceSlide1Data = {
+      company: $('#outsource-company-name').val().trim(),
+      address: $('#outsource-address').val().trim(),
+      website: $('#outsource-website').val().trim(),
+      serviceType: $('#outsource-service-type').val()
+    };
+
+    // Validation
+    if (!outsourceSlide1Data.company) {
+      alert('Please enter a company name');
+      return;
+    }
+
+    // Move to step 2
+    showOutsourceCreateSlide2();
+  });
+}
+
+// Alias for backward compatibility
+function showOutsourceCreate() {
+  outsourceSlide1Data = {};
+  outsourceSlide2Data = {};
+  showOutsourceCreateSlide1();
+}
+
+function showOutsourceCreateSlide2() {
+  console.log('[INFO] Loading Outsource Create - Step 2...');
+
+  // Company info box (similar to customer creation)
+  const companyInfoBox = `
+    <div style="background:#f8f9fa;padding:12px;border-radius:6px;margin-bottom:18px;border-left:4px solid #007bff;">
+      <strong>Company:</strong> ${outsourceSlide1Data.company}<br>
+      <strong>Address:</strong> ${outsourceSlide1Data.address || 'Not specified'}<br>
+      <strong>Website:</strong> ${outsourceSlide1Data.website || 'Not specified'}<br>
+      <strong>Service Type:</strong> ${outsourceSlide1Data.serviceType || 'Not specified'}
+    </div>
+  `;
+
+  // Use existing outsourceSlide2Data or default
+  const contactPerson = outsourceSlide2Data.contactPerson || '';
+  const email = outsourceSlide2Data.email || '';
+  const phone = outsourceSlide2Data.phone || '';
+  const notes = outsourceSlide2Data.notes || '';
+
+  $('#right-frame').html(`
+    <h2>Create Outsource - Step 2</h2>
+    ${companyInfoBox}
+    <div style="margin-bottom:18px;">
+      <button id="dummy-fill-btn-outsource-step2" style="background:#f39c12;color:#fff;border:none;border-radius:6px;padding:6px 18px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;">Dummy Fill</button>
+    </div>
+    <div>
+      <label>Contact Person:<br><input type="text" id="outsource-contact-person" value="${contactPerson}"></label><br>
+      <label>Email:<br><input type="email" id="outsource-email" value="${email}"></label><br>
+      <label>Phone:<br><input type="tel" id="outsource-phone" value="${phone}"></label><br>
+      <label>Notes:<br><textarea id="outsource-notes" rows="4" style="width:100%;">${notes}</textarea></label><br>
+      <div class="slide-nav">
+        <button id="prev-outsource-slide2">Previous</button>
+        <button id="submit-outsource-slide2">Submit</button>
+      </div>
+    </div>
+  `);
+
+  // Dummy fill handler
+  $('#dummy-fill-btn-outsource-step2').off('click').on('click', function() {
+    $('#outsource-contact-person').val('John Smith');
+    $('#outsource-email').val('john.smith@abc-manufacturing.com');
+    $('#outsource-phone').val('+1-555-0123');
+    $('#outsource-notes').val('Reliable manufacturing partner with 10+ years experience in heat transfer products.');
+  });
+
+  // Previous button handler
+  $('#prev-outsource-slide2').off('click').on('click', function() {
+    // Save current step 2 data
+    outsourceSlide2Data = {
+      contactPerson: $('#outsource-contact-person').val().trim(),
+      email: $('#outsource-email').val().trim(),
+      phone: $('#outsource-phone').val().trim(),
+      notes: $('#outsource-notes').val().trim()
+    };
+    // Go back to step 1
+    showOutsourceCreateSlide1();
+  });
+
+  // Submit button handler
+  $('#submit-outsource-slide2').off('click').on('click', function() {
+    // Save step 2 data
+    outsourceSlide2Data = {
+      contactPerson: $('#outsource-contact-person').val().trim(),
+      email: $('#outsource-email').val().trim(),
+      phone: $('#outsource-phone').val().trim(),
+      notes: $('#outsource-notes').val().trim()
+    };
+
+    // Basic validation
+    if (!outsourceSlide2Data.contactPerson) {
+      alert('Please enter a contact person name');
+      return;
+    }
+    if (!outsourceSlide2Data.email) {
+      alert('Please enter an email address');
+      return;
+    }
+
+    // Build outsource object
+    const outsource = {
+      company: outsourceSlide1Data.company,
+      address: outsourceSlide1Data.address,
+      website: outsourceSlide1Data.website,
+      serviceType: outsourceSlide1Data.serviceType,
+      contactPerson: outsourceSlide2Data.contactPerson,
+      email: outsourceSlide2Data.email,
+      phone: outsourceSlide2Data.phone,
+      notes: outsourceSlide2Data.notes
+    };
+
+    console.log('[INFO] Outsource data ready for submission:', outsource);
+
+    // For now, show success message and reset
+    alert('Outsource created successfully!\n\nCompany: ' + outsource.company + '\nContact: ' + outsource.contactPerson + '\nEmail: ' + outsource.email);
+
+    // Reset data and return to modify view
+    outsourceSlide1Data = {};
+    outsourceSlide2Data = {};
+    showOutsourceModify();
+  });
+}
+
+function showOutsourceModify() {
+  console.log('[INFO] Loading Outsource Modify form...');
+
+  const html = `
+    <div style="padding: 40px; max-width: 800px;">
+      <h2>Modify Outsource <span style="font-size:1rem;color:#888;">v1.0.0</span></h2>
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+        <h4 style="color: #007bff; margin-bottom: 15px;">✏️ Outsource Management</h4>
+        <p style="color: #666; margin-bottom: 20px;">View, edit, and manage existing outsource vendors and suppliers.</p>
+
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Search Outsource:</label>
+          <input type="text" id="outsource-search" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Search by company name, contact person, or service type">
+        </div>
+
+        <div style="background: white; border: 1px solid #ddd; border-radius: 5px; padding: 20px;">
+          <h5 style="margin-bottom: 15px;">Outsource Records</h5>
+          <div id="outsource-records-list">
+            <div style="text-align: center; color: #666; padding: 40px;">
+              <p>📋 No outsource records found.</p>
+              <p style="font-size: 14px;">Use the "Create" option to add new outsource vendors.</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+          <button onclick="showOutsourceCreate()" style="background: #28a745; color: white; padding: 10px 30px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-right: 10px;">Add New Outsource</button>
+          <button onclick="loadDashboard()" style="background: #6c757d; color: white; padding: 10px 30px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">Back to Dashboard</button>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 5px; font-size: 14px; color: #666;">
+        <strong>Note:</strong> This is a placeholder interface. Database integration and full functionality will be implemented based on your specific requirements.
+      </div>
+    </div>
+  `;
+
+  $('#right-frame').html(html);
+
+  // Add search functionality placeholder
+  $('#outsource-search').on('input', function() {
+    const searchTerm = $(this).val().toLowerCase();
+    console.log('[INFO] Searching outsource records for:', searchTerm);
+    // Search functionality will be implemented when database is ready
   });
 }
